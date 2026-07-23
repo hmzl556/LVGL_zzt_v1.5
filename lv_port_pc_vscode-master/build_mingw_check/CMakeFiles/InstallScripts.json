@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"F:/A_ZZT_Project/Xiaoya_Xiyiji/LVGL_zzt_v1.1/lv_port_pc_vscode-master/build_mingw_check/cmake_install.cmake",
+		"F:/A_ZZT_Project/Xiaoya_Xiyiji/LVGL_zzt_v1.1/lv_port_pc_vscode-master/build_mingw_check/lvgl/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
