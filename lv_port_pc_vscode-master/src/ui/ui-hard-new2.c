@@ -5329,25 +5329,41 @@ static void build_end(void)
 
 
 
-/* 缺液/故障：与 ui_fault_ex_active 相同，读 get_exception_msg()->exception_type */
-/* TODO: 换成协议里真实缺液位掩码（当前为占位，勿在量产直接使用） */
-#define UI_EX_SOFTENER_LOW_MASK       (0x0001u)
-#define UI_EX_DETERGENT_LOW_MASK      (0x0001u)
+/* ───── 缺液检测（规格书 3.4.4 & 4.1.1）───── */
+/* 寄存器输出 0~4095，转换为百分比后与 20% 阈值比较 */
+/* 检测时机：开机上电 + 程序启动前（支付完成后、门锁上电 2s 后） */
+#define UI_FLUID_LEVEL_LOW_THRESHOLD  20u   //液位低于 20% 视为缺液（0=空 100=满）
+static uint8_t g_fluid_softener_pct = 0u;  //柔顺剂液位百分比
+static uint8_t g_fluid_detergent_pct = 0u; //洗涤剂液位百分比
 
-//柔顺剂是否不足（读 exception_type 占位掩码，待换成真实 bit）
-bool ui_is_softener_low(void)
+//寄存器原始值（0~4095）→ 百分比（0~100），四舍五入
+static uint8_t ui_fluid_reg_to_pct(uint16_t reg_val)
 {
-	ExceptionMsg* msg = get_exception_msg();
-	if(msg == NULL) return false;
-	return (bool)(msg->exception_type & UI_EX_SOFTENER_LOW_MASK);
+	if(reg_val > 4095u) reg_val = 4095u;
+	return (uint8_t)(((uint32_t)reg_val * 100u + 2047u) / 4095u);
 }
 
-//洗涤剂是否不足（读 exception_type 占位掩码，待换成真实 bit）
+/* TODO: 真机替换为真实 Modbus/hardware 寄存器读取接口 */
+static uint16_t hw_read_fluid_softener_reg(void) { return 4095u; }  //占位：满液
+static uint16_t hw_read_fluid_detergent_reg(void) { return 4095u; } //占位：满液
+
+//从硬件寄存器拉取并更新液位百分比
+static void ui_fluid_update_from_hw(void)
+{
+	g_fluid_softener_pct = ui_fluid_reg_to_pct(hw_read_fluid_softener_reg());
+	g_fluid_detergent_pct = ui_fluid_reg_to_pct(hw_read_fluid_detergent_reg());
+}
+
+//柔顺剂是否不足
+bool ui_is_softener_low(void)
+{
+	return g_fluid_softener_pct < UI_FLUID_LEVEL_LOW_THRESHOLD;
+}
+
+//洗涤剂是否不足
 bool ui_is_detergent_low(void)
 {
-	ExceptionMsg* msg = get_exception_msg();
-	if(msg == NULL) return false;
-	return (bool)(msg->exception_type & UI_EX_DETERGENT_LOW_MASK);
+	return g_fluid_detergent_pct < UI_FLUID_LEVEL_LOW_THRESHOLD;
 }
 
 #define UI_ALARM_FAULT_COUNT          15u   //故障码 E1..E15
@@ -5781,8 +5797,22 @@ static void cb_alarm_power(lv_event_t * e)
 }
 
 //每帧：边沿检测 → 重建队列 → 控制弹层显隐与轮播刷新
+//缺液检测时机（规格书 3.4.4 & 4.1.1）：仅开机上电 + 程序启动前各拉取一次硬件寄存器
 static void ui_alarm_poll(void)
 {
+	// 缺液：仅在 FSM 状态切换时拉取硬件寄存器（OFF→STANDBY 开机 / STANDBY→RUNNING 启动前）
+	static uint8_t s_prev_fsm = 0xFFu;
+	uint8_t* fsm = get_fsm_state();
+	if(fsm != NULL) {
+		uint8_t cur = *fsm;
+        // 缺液检测时机：1、开机上电（OFF→STANDBY） 2、程序启动前（STANDBY→RUNNING）
+		if((s_prev_fsm == FSM_OFF && cur == FSM_STANDBY) ||
+		   (s_prev_fsm == FSM_STANDBY && cur == FSM_RUNNING)) {
+			ui_fluid_update_from_hw();                                     //开机或启动前拉寄存器
+		}
+		s_prev_fsm = cur;
+	}
+
 	ui_alarm_trigger_sync();                                               //同步边沿
 	bool queue_changed = ui_alarm_rotate_rebuild();                        //重建轮播队列
 
