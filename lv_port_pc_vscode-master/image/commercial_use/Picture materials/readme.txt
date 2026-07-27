@@ -11,6 +11,20 @@
 back
 wifi_logo
 
+一级页面程序图
+商用洗程序图
+img_01_dawu.c
+img_02_dantuoshui.c
+img_03_biaozhunxi.c
+img_04_tongzijie.c
+img_05_kuaixi.c
+商用烘程序图
+img_01_Low_Temp.c
+img_02_Med_Temp.c
+img_03_High_Temp.c
+img_04_Cool_Air.c
+img_05_Air_Clean.c
+
 一级页面底部图标
 time
 temperature
