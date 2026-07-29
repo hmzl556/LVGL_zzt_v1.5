@@ -66,10 +66,10 @@ yunxingbackground           √
 end                         √
 
 管理员设置
-title_bar
-input_box
-delete
-enter
+title_bar                   √
+input_box                   √
+delete                      √
+enter                       √
 
 16个管理员设置图标
 id_set

@@ -1377,7 +1377,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_ADMIN_LANG_HINT]        = "系统语言切换",
         [STR_ADMIN_LANG_BTN_ZH]      = "中文",
         [STR_ADMIN_LANG_BTN_EN]      = "英文",
-        [STR_ADMIN_M1_MACHINE_ID]    = "机器ID设置",
+        [STR_ADMIN_M1_MACHINE_ID]    = "ID设置",
         [STR_ADMIN_M1_PROGRAM]       = "程序设置",
         [STR_ADMIN_M1_BRIGHTNESS]    = "屏幕亮度",
         [STR_ADMIN_M1_VENDOR_MAINT]  = "厂商维护",
@@ -2183,7 +2183,8 @@ static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 
 static void cb_admin_brightness_slider_encoder(lv_event_t * e);  //亮度滑条编码器短按切换编辑/导航
 static void cb_admin_brightness_slider_key(lv_event_t * e);  //亮度滑条编码器编辑态：左右旋转按步进 10 调值
 static void admin_brightness_slider_exit_edit(lv_obj_t * slider);  //亮度滑条退出编码器编辑态
-static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口
+static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
+static void cb_admin_open_sound(lv_event_t * e);  //菜单「声音控制」入口
 static void admin_vendor_serial_back_to_menu1(void);
 static void admin_vendor_menu_back_to_menu1(void);
 static void admin_vendor_serial_try(void);
@@ -2319,7 +2320,7 @@ static void cb_admin_data_strategy_changed(lv_event_t * e);
 static void ui_idle_apply_dormancy_period(void);  //按 g_ui_dormancy_timeout_ms 刷新空闲定时器周期
 static const char * ui_dormancy_timeout_label(uint32_t ms);  //毫秒待机时长 → 界面显示文案（与待机 roller 选项一致）
 static void cb_admin_prog_roller_encoder(lv_event_t * e);  //程序设置 roller 编码器短按切换编辑/导航
-static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt);  //创建管理员菜单渐变按钮
+static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon);  //创建管理员菜单按钮（admin_button_box底+图标+文字）
 static lv_obj_t * admin_menu_btn_get_label(lv_obj_t * btn);  //管理员菜单按钮内文字 label
 static void admin_menu_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);  //菜单按钮 label 绑定 i18n
 
@@ -2458,6 +2459,25 @@ LV_IMAGE_DECLARE(title_bar);
 LV_IMAGE_DECLARE(input_box);
 LV_IMAGE_DECLARE(delete);
 LV_IMAGE_DECLARE(enter);
+
+/* 16个管理员设置图标 */
+LV_IMAGE_DECLARE(admin_button_box);
+LV_IMAGE_DECLARE(id_set);
+LV_IMAGE_DECLARE(net_set);
+LV_IMAGE_DECLARE(data_set);
+LV_IMAGE_DECLARE(program_set);
+LV_IMAGE_DECLARE(standby_time_set);
+LV_IMAGE_DECLARE(auto_put_set);
+LV_IMAGE_DECLARE(ozone_set);
+LV_IMAGE_DECLARE(fresh_air_set);
+LV_IMAGE_DECLARE(bright_set);
+LV_IMAGE_DECLARE(sound_set);
+LV_IMAGE_DECLARE(language_set);
+LV_IMAGE_DECLARE(upgrade_set);
+LV_IMAGE_DECLARE(default_set);
+LV_IMAGE_DECLARE(service_set);
+LV_IMAGE_DECLARE(pay_set);
+LV_IMAGE_DECLARE(password_set);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -6540,24 +6560,34 @@ static void admin_menu_style_init(void)
 	s_admin_menu_style_inited = true;
 }
 
-static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt)
+static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon)
 {
-	admin_menu_style_init();
 	lv_obj_t * b = lv_button_create(parent);
-	lv_obj_add_style(b, &s_admin_menu_frame_style, LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(b, 0, LV_PART_MAIN);
 	lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(b, 0, LV_PART_MAIN);
 
-	lv_obj_t * inner = lv_obj_create(b);
-	lv_obj_remove_style_all(inner);
-	lv_obj_add_style(inner, &s_admin_menu_inner_style, LV_PART_MAIN);
-	lv_obj_set_size(inner, LV_PCT(100), LV_PCT(100));
-	lv_obj_clear_flag(inner, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+	/* admin_button_box 底图 */
+	lv_obj_t * img_bg = lv_image_create(b);
+	lv_image_set_src(img_bg, &admin_button_box);
+	lv_obj_set_style_image_recolor_opa(img_bg, 0, LV_PART_MAIN);
+	lv_obj_center(img_bg);
 
-	lv_obj_t * l = lv_label_create(inner);
+	/* 图标 */
+	if(icon != NULL) {
+		lv_obj_t * img_icon = lv_image_create(b);
+		lv_image_set_src(img_icon, icon);
+		lv_obj_set_style_image_recolor_opa(img_icon, 0, LV_PART_MAIN);
+		lv_obj_align(img_icon, LV_ALIGN_TOP_MID, 0, 28);
+	}
+
+	/* 文字 */
+	lv_obj_t * l = lv_label_create(b);
 	lv_label_set_text(l, txt);
 	lv_obj_set_style_text_color(l, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 	ui_set_obj_font(l, s_font_sc_30);
-	lv_obj_center(l);
+	lv_obj_align(l, LV_ALIGN_TOP_MID, 0, 80);
 	return b;
 }
 
@@ -6694,6 +6724,22 @@ static void admin_encoder_rebuild(void)
         }
         focus_first = (g_admin_btn_vendor_self_check != NULL) ?
             g_admin_btn_vendor_self_check : g_admin_btn_back;
+        break;
+    case SOUND_CONTROL:
+        if(g_admin_sw_touch_sound != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_touch_sound);
+        }
+        if(g_admin_sw_voice_broadcast != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_voice_broadcast);
+        }
+        if(g_admin_slider_sound_volume != NULL) {
+            ui_encoder_group_add_brightness_slider(g_group_admin, g_admin_slider_sound_volume);
+        }
+        if(g_admin_slider_touch_sound_volume != NULL) {
+            ui_encoder_group_add_brightness_slider(g_group_admin, g_admin_slider_touch_sound_volume);
+        }
+        focus_first = (g_admin_sw_touch_sound != NULL) ?
+            g_admin_sw_touch_sound : g_admin_btn_back;
         break;
     case DORMANCY_STANDBY:
         if(g_admin_dormancy_roller != NULL) {
@@ -7017,6 +7063,17 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
+    }
+    else if(view == SOUND_CONTROL && g_admin_panel_sound != NULL) {
+        lv_obj_remove_flag(g_admin_panel_sound, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_kb != NULL) {
+            g_admin_kb_ta = NULL;
+            lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
+        }
+        if(g_group_admin != NULL) {
+            lv_group_set_editing(g_group_admin, false);
+        }
+        admin_sound_sync_ui();
     }
     else if(view == DORMANCY_STANDBY && g_admin_panel_dormancy != NULL) {
         lv_obj_remove_flag(g_admin_panel_dormancy, LV_OBJ_FLAG_HIDDEN);
@@ -8403,6 +8460,12 @@ static void cb_admin_open_vendor_maint(lv_event_t * e)
     admin_panel_show(VENDOR_SERIAL);
 }
 
+static void cb_admin_open_sound(lv_event_t * e)
+{
+    (void)e;
+    admin_panel_show(SOUND_CONTROL);
+}
+
 static void cb_admin_open_selfcheck(lv_event_t * e)
 {
     (void)e;
@@ -9473,14 +9536,14 @@ static void cb_admin_open_data_settings(lv_event_t * e)
     admin_panel_show(DATA_SETTINGS);
 }
 
-/* 管理员菜单按钮内文字 label（button → inner → label） */
+/* 管理员菜单按钮内文字 label（button → ... → label，label 为最后一个子对象） */
 
 static lv_obj_t * admin_menu_btn_get_label(lv_obj_t * btn)
 {
     if(btn == NULL) return NULL;
-    lv_obj_t * inner = lv_obj_get_child(btn, 0);
-    if(inner == NULL) return NULL;
-    return lv_obj_get_child(inner, 0);
+    uint32_t n = lv_obj_get_child_cnt(btn);
+    if(n == 0) return NULL;
+    return lv_obj_get_child(btn, (int)(n - 1));
 }
 
 /* 管理员菜单按钮文字绑定 i18n，随 ui_lang_apply_all 刷新 */
@@ -9682,8 +9745,8 @@ static void build_admin(void)
     g_admin_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);
     lv_obj_add_event_cb(g_admin_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
-    const lv_coord_t body_y = (lv_coord_t)(UI_FIXED_H * 10 / 100);
-    const lv_coord_t body_h = (lv_coord_t)UI_FIXED_H - body_y - 200 + 60;
+    const lv_coord_t body_y = 60;
+    const lv_coord_t body_h = 540;
 
     /* 序列号面板 */
     g_admin_panel_pwd = lv_obj_create(root);
@@ -9765,25 +9828,34 @@ static void build_admin(void)
     g_admin_lbl_menu1_title = lv_label_create(g_admin_panel_menu1);
     lv_obj_set_style_text_color(g_admin_lbl_menu1_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_menu1_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_menu1_title, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_align(g_admin_lbl_menu1_title, LV_ALIGN_TOP_MID, 0, 10);
     ui_lang_bind_label(g_admin_lbl_menu1_title, STR_ADMIN_MENU_TITLE);
 
+    /* title_bar 横条 */
+    lv_obj_t * img_menu1_bar = lv_image_create(g_admin_panel_menu1);
+    lv_image_set_src(img_menu1_bar, &title_bar);
+    lv_obj_align(img_menu1_bar, LV_ALIGN_TOP_MID, 0, 50);
+
     static const ui_str_id_t menu1_ids[8] = {
-        STR_ADMIN_M1_MACHINE_ID, STR_ADMIN_M1_PROGRAM, STR_ADMIN_M1_BRIGHTNESS, STR_ADMIN_M1_VENDOR_MAINT,
-        STR_ADMIN_M1_LANGUAGE, STR_ADMIN_M1_STANDBY, STR_ADMIN_M1_FACTORY_RESET, STR_ADMIN_M1_CONTACT
+        STR_ADMIN_M1_MACHINE_ID, STR_ADMIN_M2_NETWORK, STR_ADMIN_M2_DATA, STR_ADMIN_M1_PROGRAM,
+        STR_ADMIN_M1_STANDBY, STR_ADMIN_M2_AUTO_DISPENSE, STR_ADMIN_M2_OZONE, STR_ADMIN_M2_FRESH_AIR
+    };
+    static const lv_image_dsc_t * const menu1_icons[8] = {
+        &id_set, &net_set, &data_set, &program_set,
+        &standby_time_set, &auto_put_set, &ozone_set, &fresh_air_set
     };
     const lv_coord_t btn_w = 360;   //按钮宽度
-    const lv_coord_t btn_h = 120;   //按钮高度
+    const lv_coord_t btn_h = 180;   //按钮高度
     const lv_coord_t gap_x = 24;    //按钮间距
-    const lv_coord_t gap_y = 20+10;    //按钮间距
+    const lv_coord_t gap_y = 40;    //按钮间距
     const lv_coord_t grid_w = btn_w * 4 + gap_x * 3; //网格宽度
     const lv_coord_t grid_x0 = (lv_coord_t)((UI_FIXED_W - grid_w) / 2); //网格起始x坐标
-    const lv_coord_t grid_y0 = 56+50;  //网格起始y坐标
+    const lv_coord_t grid_y0 = 96;  //网格起始y坐标
 
     for(int i = 0; i < 8; i++) {
         int row = i / 4;
         int col = i % 4;
-        g_admin_menu1_btns[i] = make_admin_menu_btn(g_admin_panel_menu1, ui_translation(menu1_ids[i]));
+        g_admin_menu1_btns[i] = make_admin_menu_btn(g_admin_panel_menu1, ui_translation(menu1_ids[i]), menu1_icons[i]);
         lv_obj_set_size(g_admin_menu1_btns[i], btn_w, btn_h);
         lv_obj_set_pos(g_admin_menu1_btns[i],
             grid_x0 + col * (btn_w + gap_x),
@@ -9792,19 +9864,19 @@ static void build_admin(void)
         if(i == 0) {
             lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_machine_id, LV_EVENT_CLICKED, NULL);
         } else if(i == 1) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_program_settings, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_network_settings, LV_EVENT_CLICKED, NULL);
         } else if(i == 2) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_brightness, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_data_settings, LV_EVENT_CLICKED, NULL);
         } else if(i == 3) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_vendor_maint, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_program_settings, LV_EVENT_CLICKED, NULL);
         } else if(i == 4) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_language_settings, LV_EVENT_CLICKED, NULL);
-        } else if(i == 5) {
             lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_dormancy_standby, LV_EVENT_CLICKED, NULL);
+        } else if(i == 5) {
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_auto_dispense, LV_EVENT_CLICKED, NULL);
         } else if(i == 6) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_factory_reset, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_ozone, LV_EVENT_CLICKED, NULL);
         } else if(i == 7) {
-            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_contact_us, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_fresh_air_care, LV_EVENT_CLICKED, NULL);
         }
     }
 
@@ -9821,40 +9893,49 @@ static void build_admin(void)
     g_admin_lbl_menu2_title = lv_label_create(g_admin_panel_menu2);
     lv_obj_set_style_text_color(g_admin_lbl_menu2_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_menu2_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_menu2_title, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_align(g_admin_lbl_menu2_title, LV_ALIGN_TOP_MID, 0, 10);
     ui_lang_bind_label(g_admin_lbl_menu2_title, STR_ADMIN_MENU_TITLE);
 
+    /* title_bar 横条 */
+    lv_obj_t * img_menu2_bar = lv_image_create(g_admin_panel_menu2);
+    lv_image_set_src(img_menu2_bar, &title_bar);
+    lv_obj_align(img_menu2_bar, LV_ALIGN_TOP_MID, 0, 50);
+
     static const ui_str_id_t menu2_ids[8] = {
-        STR_ADMIN_M2_AUTO_DISPENSE, STR_ADMIN_M2_OZONE, STR_ADMIN_M2_FRESH_AIR, STR_ADMIN_M2_UPGRADE,
-        STR_ADMIN_M2_NETWORK, STR_ADMIN_M2_DATA, STR_ADMIN_M2_PAYMENT, STR_ADMIN_M2_PASSWORD
+        STR_ADMIN_M1_BRIGHTNESS, STR_ADMIN_M1_VENDOR_MAINT, STR_ADMIN_M1_LANGUAGE, STR_ADMIN_M2_UPGRADE,
+        STR_ADMIN_M1_FACTORY_RESET, STR_ADMIN_M1_CONTACT, STR_ADMIN_M2_PAYMENT, STR_ADMIN_M2_PASSWORD
+    };
+    static const lv_image_dsc_t * const menu2_icons[8] = {
+        &bright_set, &sound_set, &language_set, &upgrade_set,
+        &default_set, &service_set, &pay_set, &password_set
     };
 
     for(int i = 0; i < 8; i++) {
         int row = i / 4;
         int col = i % 4;
-        g_admin_menu2_btns[i] = make_admin_menu_btn(g_admin_panel_menu2, ui_translation(menu2_ids[i]));
+        g_admin_menu2_btns[i] = make_admin_menu_btn(g_admin_panel_menu2, ui_translation(menu2_ids[i]), menu2_icons[i]);
         lv_obj_set_size(g_admin_menu2_btns[i], btn_w, btn_h);
         lv_obj_set_pos(g_admin_menu2_btns[i],
             grid_x0 + col * (btn_w + gap_x),
             grid_y0 + row * (btn_h + gap_y));
         admin_menu_btn_bind_i18n(g_admin_menu2_btns[i], menu2_ids[i]);
         if(i == 0) {
-            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_auto_dispense, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_brightness, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 1) {
-            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_ozone, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_sound, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 2) {
-            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_fresh_air_care, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_language_settings, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 3) {
             lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_system_upgrade, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 4) {
-            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_network_settings, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_factory_reset, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 5) {
-            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_data_settings, LV_EVENT_CLICKED, NULL);
+            lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_contact_us, LV_EVENT_CLICKED, NULL);
         }
         else if(i == 6) {
             lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_payment_settings, LV_EVENT_CLICKED, NULL);
@@ -10561,13 +10642,13 @@ static void build_admin(void)
         const lv_coord_t net_x0 = (lv_coord_t)((UI_FIXED_W - net_row_w) / 2);
         const lv_coord_t net_y = 150;
 
-        g_admin_btn_network_wifi = make_admin_menu_btn(g_admin_panel_network, ui_translation(STR_WIFI_SETTINGS));
+        g_admin_btn_network_wifi = make_admin_menu_btn(g_admin_panel_network, ui_translation(STR_WIFI_SETTINGS), NULL);
         lv_obj_set_size(g_admin_btn_network_wifi, net_btn_w, net_btn_h);
         lv_obj_set_pos(g_admin_btn_network_wifi, net_x0, net_y);
         admin_menu_btn_bind_i18n(g_admin_btn_network_wifi, STR_WIFI_SETTINGS);
         lv_obj_add_event_cb(g_admin_btn_network_wifi, cb_admin_open_wifi_settings, LV_EVENT_CLICKED, NULL);
 
-        g_admin_btn_network_4g = make_admin_menu_btn(g_admin_panel_network, ui_translation(STR_4G_SETTINGS));
+        g_admin_btn_network_4g = make_admin_menu_btn(g_admin_panel_network, ui_translation(STR_4G_SETTINGS), NULL);
         lv_obj_set_size(g_admin_btn_network_4g, net_btn_w, net_btn_h);
         lv_obj_set_pos(g_admin_btn_network_4g, net_x0 + net_btn_w + net_gap, net_y);
         admin_menu_btn_bind_i18n(g_admin_btn_network_4g, STR_4G_SETTINGS);
@@ -10828,13 +10909,13 @@ static void build_admin(void)
     ui_set_obj_font(lbl_vendor_menu_title, s_font_sc_30);
     lv_obj_align(lbl_vendor_menu_title, LV_ALIGN_TOP_MID, 0, 8);
 
-    g_admin_btn_vendor_self_check = make_admin_menu_btn(g_admin_panel_vendor_menu, ui_translation(STR_VENDOR_SELF_CHECK));
+    g_admin_btn_vendor_self_check = make_admin_menu_btn(g_admin_panel_vendor_menu, ui_translation(STR_VENDOR_SELF_CHECK), NULL);
     lv_obj_set_size(g_admin_btn_vendor_self_check, btn_w, btn_h);
     lv_obj_align(g_admin_btn_vendor_self_check, LV_ALIGN_CENTER, 0, -30);
     admin_menu_btn_bind_i18n(g_admin_btn_vendor_self_check, STR_VENDOR_SELF_CHECK);
     lv_obj_add_event_cb(g_admin_btn_vendor_self_check, cb_admin_open_selfcheck, LV_EVENT_CLICKED, NULL);
 
-    g_admin_btn_vendor_self_learn = make_admin_menu_btn(g_admin_panel_vendor_menu, ui_translation(STR_VENDOR_SELF_LEARN));
+    g_admin_btn_vendor_self_learn = make_admin_menu_btn(g_admin_panel_vendor_menu, ui_translation(STR_VENDOR_SELF_LEARN), NULL);
     lv_obj_set_size(g_admin_btn_vendor_self_learn, btn_w, btn_h);
     lv_obj_align(g_admin_btn_vendor_self_learn, LV_ALIGN_CENTER, 0, 110);
     admin_menu_btn_bind_i18n(g_admin_btn_vendor_self_learn, STR_VENDOR_SELF_LEARN);
@@ -11692,7 +11773,7 @@ static void build_selfcheck(void)
 		lv_obj_remove_flag(steps_row, LV_OBJ_FLAG_CLICKABLE);
 
 		for(int i = 0; i < SELFCHECK_STEP_COUNT; i++) {
-			g_selfcheck_step_btns[i] = make_admin_menu_btn(steps_row, step_labels[i]);
+			g_selfcheck_step_btns[i] = make_admin_menu_btn(steps_row, step_labels[i], NULL);
 			lv_obj_set_size(g_selfcheck_step_btns[i], step_btn_w, step_btn_h);
 			ui_set_obj_font(admin_menu_btn_get_label(g_selfcheck_step_btns[i]), s_font_sc_35);
 		}
