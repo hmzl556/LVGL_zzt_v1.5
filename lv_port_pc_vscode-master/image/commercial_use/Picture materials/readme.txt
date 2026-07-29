@@ -1,5 +1,6 @@
 主题橙色：FF9658
 数字键盘灰色：545454
+键盘背景灰色：0c0c0c
 
 程序设置参数选中状态灰色：232323
 程序设置数值选中状态灰色：424242
@@ -58,11 +59,11 @@ QR_WeChat_05_Air_Clean      √
 
 运行页
 child_lock_logo             √
-O3_logo
+O3_logo                     √
 yunxingbackground           √
 
 洗涤完成页
-end
+end                         √
 
 管理员设置
 title_bar

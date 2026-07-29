@@ -1,7 +1,8 @@
 /*******************************************************************************
  * Size: 35 px
  * Bpp: 4
- * Opts: --bpp 4 --size 35 --no-compress --stride 1 --align 1 --font SourceHanSansSC-Medium.otf --symbols 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-— .￥¥℃洗涤漂洗脱水暂停中打冷风烘干门锁开关 --format lvgl -o ui_font_SC_35.c
+ * Opts: --bpp 4 --size 35 --no-compress --stride 1 --align 1 --font SourceHanSansSC-Medium.otf --symbols 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-— .￥¥℃洗涤漂洗脱水暂停中打冷风烘干门锁开关
+ --format lvgl -o ui_font_SC_35.c
  ******************************************************************************/
 
 #ifdef __has_include
@@ -3750,6 +3751,7 @@ lv_font_t ui_font_SC_35 = {
     .underline_position = -4,
     .underline_thickness = 2,
 #endif
+    .static_bitmap = 0,
     .dsc = &font_dsc,          /*The custom font data. Will be accessed by `get_glyph_bitmap/dsc` */
 #if LV_VERSION_CHECK(8, 2, 0) || LVGL_VERSION_MAJOR >= 9
     .fallback = NULL,
