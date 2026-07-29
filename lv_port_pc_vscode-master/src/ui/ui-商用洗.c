@@ -2409,7 +2409,7 @@ static lv_obj_t * g_running_btn_back;
 static lv_obj_t * g_running_btn_runpause;
 static lv_obj_t * g_running_btn_power;
 static lv_obj_t * g_running_child_lock_btn;
-static lv_obj_t * g_running_child_lock_lbl;
+static lv_obj_t * g_running_child_lock_img;
 static lv_obj_t * g_running_lock_blocker;      /* 全屏遮罩：童锁时拦截触摸 */
 static bool g_ui_child_lock;                     /* 童锁激活时拦截主页滑动及除童锁外的界面跳转 */
 static lv_obj_t * g_home_btn_runpause;           /* 主页顶栏启停；轮播长按固定后编码器焦点回到此键 */
@@ -2442,6 +2442,7 @@ LV_IMAGE_DECLARE(bar_01);
 LV_IMAGE_DECLARE(lack_of_softener);
 LV_IMAGE_DECLARE(lack_of_detergent);
 LV_IMAGE_DECLARE(wifi_logo);
+LV_IMAGE_DECLARE(child_lock_logo);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -4083,11 +4084,11 @@ static void running_child_lock_align_btn(void)  //将童锁按钮对齐到运行
 	if(root != NULL) {
 		lv_obj_update_layout(root);                      /* 先刷新布局，再读 mid 宽高 */
 	}
-	lv_obj_align_to(g_running_child_lock_btn, g_running_mid, LV_ALIGN_RIGHT_MID, 80, 0);
+	lv_obj_align_to(g_running_child_lock_btn, g_running_mid, LV_ALIGN_RIGHT_MID, 60, 13);
 }
 
 //应用童锁锁定/解锁 UI 与编码器 group 状态
-static void running_child_lock_apply_locked(bool locked, bool silent_unlock)  //应用童锁锁定/解锁 UI 与编码器 group 状态
+static void running_child_lock_apply_locked(bool locked, bool silent_unlock) //应用童锁锁定/解锁 UI 与编码器 group 状态
 {
 	if(g_running_child_lock_btn == NULL || g_group_running == NULL) return;
 
@@ -4106,13 +4107,11 @@ static void running_child_lock_apply_locked(bool locked, bool silent_unlock)  //
 	g_ui_child_lock = locked;
 
 	if(locked) {
+		/* 锁定态：深色圆形底 + 白色图标 */
 		lv_obj_set_style_bg_opa(g_running_child_lock_btn, LV_OPA_COVER, LV_PART_MAIN);
-		lv_obj_set_style_bg_color(g_running_child_lock_btn, lv_color_hex(COL_CHILD_LOCK_RED), LV_PART_MAIN);
-		lv_obj_set_style_border_width(g_running_child_lock_btn, 2, LV_PART_MAIN);
-		lv_obj_set_style_border_color(g_running_child_lock_btn, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-		if(g_running_child_lock_lbl != NULL) {
-			lv_obj_set_style_text_color(g_running_child_lock_lbl, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-		}
+		lv_obj_set_style_bg_color(g_running_child_lock_btn, lv_color_hex(0x2A2A2A), LV_PART_MAIN);
+		lv_obj_set_style_border_width(g_running_child_lock_btn, 0, LV_PART_MAIN);
+		lv_obj_set_style_image_opa(g_running_child_lock_img, LV_OPA_COVER, LV_PART_MAIN);
 		if(g_running_lock_blocker != NULL) {
 			lv_obj_remove_flag(g_running_lock_blocker, LV_OBJ_FLAG_HIDDEN);
 		}
@@ -4131,13 +4130,11 @@ static void running_child_lock_apply_locked(bool locked, bool silent_unlock)  //
 		lv_obj_move_foreground(g_running_child_lock_btn);
 	}
 	else {
+		/* 解锁态：浅色圆形底 + 半透明图标 */
 		lv_obj_set_style_bg_opa(g_running_child_lock_btn, LV_OPA_COVER, LV_PART_MAIN);
-		lv_obj_set_style_bg_color(g_running_child_lock_btn, lv_color_hex(COL_CHILD_LOCK_WHITE), LV_PART_MAIN);
-		lv_obj_set_style_border_width(g_running_child_lock_btn, 2, LV_PART_MAIN);
-		lv_obj_set_style_border_color(g_running_child_lock_btn, lv_color_hex(0xBBBBBB), LV_PART_MAIN);
-		if(g_running_child_lock_lbl != NULL) {
-			lv_obj_set_style_text_color(g_running_child_lock_lbl, lv_color_hex(0x222222), LV_PART_MAIN);
-		}
+		lv_obj_set_style_bg_color(g_running_child_lock_btn, lv_color_hex(0x555555), LV_PART_MAIN);
+		lv_obj_set_style_border_width(g_running_child_lock_btn, 0, LV_PART_MAIN);
+		lv_obj_set_style_image_opa(g_running_child_lock_img, LV_OPA_40, LV_PART_MAIN);
 		if(g_running_lock_blocker != NULL) {
 			lv_obj_add_flag(g_running_lock_blocker, LV_OBJ_FLAG_HIDDEN);
 		}
@@ -5055,29 +5052,27 @@ static void build_running(void)
 		lv_obj_set_style_text_color(time_txt, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 		ui_set_obj_font(time_txt, s_font_sc_125);
 
-		/* 童锁圆形按钮 + 内部文字「童锁」（固定中文，不翻译） */
+		/* 童锁图标按钮 */
 		lv_obj_t * child_lock = lv_button_create(root);
 		g_running_child_lock_btn = child_lock;
-		lv_obj_set_size(child_lock, 52, 52);
+		lv_obj_set_size(child_lock, 49, 49);
 		lv_obj_set_style_radius(child_lock, LV_RADIUS_CIRCLE, LV_PART_MAIN);
 		lv_obj_set_style_pad_all(child_lock, 0, LV_PART_MAIN);
 		lv_obj_set_style_shadow_width(child_lock, 0, LV_PART_MAIN);
+		/* 默认解锁态：浅色圆形底 */
 		lv_obj_set_style_bg_opa(child_lock, LV_OPA_COVER, LV_PART_MAIN);
-		lv_obj_set_style_bg_color(child_lock, lv_color_hex(COL_CHILD_LOCK_WHITE), LV_PART_MAIN);
-		lv_obj_set_style_border_width(child_lock, 2, LV_PART_MAIN);
-		lv_obj_set_style_border_color(child_lock, lv_color_hex(0xBBBBBB), LV_PART_MAIN);
+		lv_obj_set_style_bg_color(child_lock, lv_color_hex(0x555555), LV_PART_MAIN);
+		lv_obj_set_style_border_width(child_lock, 0, LV_PART_MAIN);
 		lv_obj_remove_flag(child_lock, LV_OBJ_FLAG_SCROLLABLE);
 		lv_obj_add_event_cb(child_lock, cb_running_child_lock_long, LV_EVENT_LONG_PRESSED, NULL);
 		lv_obj_add_event_cb(child_lock, cb_running_child_lock_released, LV_EVENT_RELEASED, NULL);
 
-		lv_obj_t * lock_lbl = lv_label_create(child_lock);
-		g_running_child_lock_lbl = lock_lbl;
-		lv_label_set_text(lock_lbl, "童锁");                 /* 固定中文，不参与 ui_translation */
-		lv_label_set_long_mode(lock_lbl, LV_LABEL_LONG_CLIP);
-		lv_obj_set_style_text_color(lock_lbl, lv_color_hex(0x222222), LV_PART_MAIN);
-		lv_obj_set_style_text_align(lock_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-		ui_set_obj_font(lock_lbl, s_font_sc_20);
-		lv_obj_center(lock_lbl);
+		lv_obj_t * lock_img = lv_image_create(child_lock);
+		g_running_child_lock_img = lock_img;
+		lv_image_set_src(lock_img, &child_lock_logo);
+		/* 默认解锁态：40% 透明度 */
+		lv_obj_set_style_image_opa(lock_img, LV_OPA_40, LV_PART_MAIN);
+		lv_obj_center(lock_img);
 		ui_encoder_group_add(g_group_running, child_lock);
 
 		/* 左侧：实时频率/水位/水量/分档 + 温度（SC_30） */
@@ -5134,7 +5129,7 @@ static void build_running(void)
 		g_running_lock_blocker = lv_obj_create(root);
 		lv_obj_set_size(g_running_lock_blocker, LV_PCT(100), LV_PCT(100));
 		lv_obj_set_pos(g_running_lock_blocker, 0, 0);
-		lv_obj_set_style_bg_opa(g_running_lock_blocker, LV_OPA_50, LV_PART_MAIN);
+		lv_obj_set_style_bg_opa(g_running_lock_blocker, LV_OPA_TRANSP, LV_PART_MAIN);
 		lv_obj_set_style_bg_color(g_running_lock_blocker, lv_color_hex(0x000000), LV_PART_MAIN);
 		lv_obj_set_style_border_width(g_running_lock_blocker, 0, LV_PART_MAIN);
 		lv_obj_set_style_pad_all(g_running_lock_blocker, 0, LV_PART_MAIN);

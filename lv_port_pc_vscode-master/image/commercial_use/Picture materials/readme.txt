@@ -8,53 +8,53 @@
 图片名称：
 
 一级页面
-back
-wifi_logo
+back                        √
+wifi_logo                   √
 
 一级页面程序图
 商用洗程序图
-img_01_dawu.c
-img_02_dantuoshui.c
-img_03_biaozhunxi.c
-img_04_tongzijie.c
-img_05_kuaixi.c
+img_01_dawu.c               √
+img_02_dantuoshui.c         √
+img_03_biaozhunxi.c         √
+img_04_tongzijie.c          √
+img_05_kuaixi.c             √
 商用烘程序图
-img_01_Low_Temp.c
-img_02_Med_Temp.c
-img_03_High_Temp.c
-img_04_Cool_Air.c
-img_05_Air_Clean.c
+img_01_Low_Temp.c           √
+img_02_Med_Temp.c           √
+img_03_High_Temp.c          √
+img_04_Cool_Air.c           √
+img_05_Air_Clean.c          √
 
 一级页面底部图标
-time
-temperature
-pay
-language
-admin
+time                        √
+temperature                 √
+pay                         √
+language                    √
+admin                       √
 
 支付页
 商用洗二维码
-QR_Alipay_01_dawu
-QR_Alipay_02_dantuoshui
-QR_Alipay_03_biaozhunxi
-QR_Alipay_04_tongzijie
-QR_Alipay_05_kuaixi
-QR_WeChat_01_dawu
-QR_WeChat_02_dantuoshui
-QR_WeChat_03_biaozhunxi
-QR_WeChat_04_tongzijie
-QR_WeChat_05_kuaixi
+QR_Alipay_01_dawu           √
+QR_Alipay_02_dantuoshui     √
+QR_Alipay_03_biaozhunxi     √
+QR_Alipay_04_tongzijie      √
+QR_Alipay_05_kuaixi         √
+QR_WeChat_01_dawu           √
+QR_WeChat_02_dantuoshui     √
+QR_WeChat_03_biaozhunxi     √
+QR_WeChat_04_tongzijie      √
+QR_WeChat_05_kuaixi         √
 商用烘二维码
-QR_Alipay_01_Low_Temp
-QR_Alipay_02_Med_Temp
-QR_Alipay_03_High_Temp
-QR_Alipay_04_Cool_Air
-QR_Alipay_05_Air_Clean
-QR_WeChat_01_Low_Temp
-QR_WeChat_02_Med_Temp
-QR_WeChat_03_High_Temp
-QR_WeChat_04_Cool_Air
-QR_WeChat_05_Air_Clean
+QR_Alipay_01_Low_Temp       √
+QR_Alipay_02_Med_Temp       √
+QR_Alipay_03_High_Temp      √
+QR_Alipay_04_Cool_Air       √
+QR_Alipay_05_Air_Clean      √
+QR_WeChat_01_Low_Temp       √
+QR_WeChat_02_Med_Temp       √
+QR_WeChat_03_High_Temp      √
+QR_WeChat_04_Cool_Air       √
+QR_WeChat_05_Air_Clean      √
 
 运行页
 child_lock_logo
