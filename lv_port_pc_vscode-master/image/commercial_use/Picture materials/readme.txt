@@ -72,25 +72,25 @@ delete                      √
 enter                       √
 
 16个管理员设置图标
-id_set
-net_set
-data_set
-program_set
-standby_time_set
-auto_put_set
-ozone_set
-fresh_air_set
-bright_set
-sound_set
-language_set
-upgrade_set
-default_set
-service_set
-pay_set
-password_set
+id_set                      √
+net_set                     √
+data_set                    √
+program_set                 √
+standby_time_set            √
+auto_put_set                √
+ozone_set                   √
+fresh_air_set               √
+bright_set                  √
+sound_set                   √
+language_set                √
+upgrade_set                 √
+default_set                 √
+service_set                 √
+pay_set                     √
+password_set                √
 
 按钮框
-admin_button_box
+admin_button_box            √
 
 管理员设置主题字的橙色点阵框
 title_box

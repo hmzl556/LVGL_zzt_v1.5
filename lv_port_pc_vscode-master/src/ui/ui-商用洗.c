@@ -1415,7 +1415,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PWD_WRONG_REENTER]      = "密码错误，请重新输入",
         [STR_PWD_MISMATCH]           = "两次输入不一致，请重新输入",
         [STR_PWD_CHANGE_OK]          = "密码修改成功",
-        [STR_MACHINE_ID_TITLE]       = "机器 ID 设置",
+        [STR_MACHINE_ID_TITLE]       = "ID设置",
         [STR_MACHINE_ID_CUR_NONE]    = "当前 ID：未配置",
         [STR_MACHINE_ID_CUR_FMT]     = "当前 ID：%06u",
         [STR_PROG_FIELD_PRICE]       = "程序金额",
@@ -1843,7 +1843,7 @@ typedef enum {
 } admin_view_t;
 
 #define MACHINE_MODEL           "XQG150-001"
-#define VENDOR_SERIAL_CODE      "123456"
+#define VENDOR_SERIAL_CODE      "111111"
 #define SELFCHECK_STEP_UI_MS    3000u
 #define SELFCHECK_FLASH_MS      500u
 #define SELFCHECK_BLINK_MS      500u
@@ -1919,6 +1919,7 @@ static lv_obj_t * g_admin_lbl_msg_pwd;
 static lv_obj_t * g_admin_lbl_msg_machine_id;
 static lv_obj_t * g_admin_lbl_machine_id_cur;
 static lv_obj_t * g_admin_btn_machine_confirm;
+static lv_obj_t * g_admin_btn_machine_cancel;
 static lv_obj_t * g_admin_lbl_menu1_title;
 static lv_obj_t * g_admin_lbl_menu2_title;
 static lv_obj_t * g_admin_menu1_btns[8];
@@ -2168,6 +2169,7 @@ static void cb_load_admin(lv_event_t * e);  //主页管理员入口：进入管�
 static void cb_admin_ta_ready(lv_event_t * e);  //输入框 READY：密码校验或保存机器 ID
 static void cb_admin_open_machine_id(lv_event_t * e);  //菜单「机器 ID 设置」入口
 static void cb_admin_machine_confirm(lv_event_t * e);  //机器 ID 确认：保存并回菜单
+static void cb_admin_machine_cancel(lv_event_t * e);   //机器 ID 取消：清空并回菜单
 static void cb_admin_open_program_settings(lv_event_t * e);  //菜单「程序设置」入口
 static void cb_admin_open_brightness(lv_event_t * e);  //菜单「屏幕亮度」入口
 static void admin_brightness_back_to_menu1(void);  //离开屏幕亮度页：回 menu1
@@ -2478,6 +2480,8 @@ LV_IMAGE_DECLARE(default_set);
 LV_IMAGE_DECLARE(service_set);
 LV_IMAGE_DECLARE(pay_set);
 LV_IMAGE_DECLARE(password_set);
+LV_IMAGE_DECLARE(title_box);
+LV_IMAGE_DECLARE(set_box);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -2808,7 +2812,8 @@ static lv_obj_t * make_orange_fill_btn(lv_obj_t * parent, const char * txt, lv_c
 {
 	lv_obj_t * b = lv_button_create(parent);
 	lv_obj_set_size(b, w, h);
-	lv_obj_set_style_radius(b, 8, LV_PART_MAIN);                              //圆角半径 8
+	lv_obj_set_style_radius(b, 25, LV_PART_MAIN);                              //圆角半径
+	lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);                        //取消阴影
 	lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);                   //背景不透明
 	lv_obj_set_style_bg_color(b, lv_color_hex(COL_ORANGE), LV_PART_MAIN);     //背景颜色 COL_ORANGE
 	lv_obj_t * l = lv_label_create(b);
@@ -2823,9 +2828,10 @@ static lv_obj_t * make_orange_outline_btn(lv_obj_t * parent, const char * txt, l
 {
 	lv_obj_t * b = lv_button_create(parent);
 	lv_obj_set_size(b, w, h);
-	lv_obj_set_style_radius(b, 8, LV_PART_MAIN);                              //圆角半径 8
+	lv_obj_set_style_radius(b, 25, LV_PART_MAIN);                              //圆角半径
+	lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);                        //取消阴影
 	lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, LV_PART_MAIN);                  //背景透明
-	lv_obj_set_style_border_width(b, 2, LV_PART_MAIN);                        //边框宽度为 2
+	lv_obj_set_style_border_width(b, 3, LV_PART_MAIN);                        //边框宽度为 2
 	lv_obj_set_style_border_color(b, lv_color_hex(COL_ORANGE), LV_PART_MAIN); //边框颜色 COL_ORANGE
 	lv_obj_t * l = lv_label_create(b);
 	lv_label_set_text(l, txt);
@@ -2938,11 +2944,16 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
 
 	if(back_target != NULL) {
 		LV_IMAGE_DECLARE(back);
-		lv_obj_t * imgbtn_back = lv_imgbtn_create(top);
-		lv_imgbtn_set_src(imgbtn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-		lv_obj_align(imgbtn_back, LV_ALIGN_LEFT_MID, 20, 0);
+		lv_obj_t * imgbtn_back = lv_button_create(top);
+		lv_obj_set_size(imgbtn_back, 90, 50);
+		lv_obj_set_style_bg_opa(imgbtn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+		lv_obj_set_style_border_width(imgbtn_back, 0, LV_PART_MAIN);
+		lv_obj_set_style_shadow_width(imgbtn_back, 0, LV_PART_MAIN);
+		lv_obj_align(imgbtn_back, LV_ALIGN_LEFT_MID, 0, 0);
+		lv_obj_t * img = lv_image_create(imgbtn_back);
+		lv_image_set_src(img, &back);
+		lv_obj_center(img);
 		lv_obj_add_event_cb(imgbtn_back, cb_load_screen, LV_EVENT_CLICKED, back_target);
-		lv_obj_remove_flag(imgbtn_back, LV_OBJ_FLAG_SCROLLABLE);
 		if(encoder_group != NULL) {
 			ui_encoder_group_add(encoder_group, imgbtn_back);
 		}
@@ -5885,10 +5896,15 @@ static void build_alarm_overlay(void)
 	lv_obj_t * top = create_top_bar(g_alarm_overlay, &g_lbl_clock_alarm, NULL, NULL, NULL); //顶栏+状态栏
 
 	LV_IMAGE_DECLARE(back);
-	g_alarm_btn_back = lv_imgbtn_create(top);                              //返回
-	lv_imgbtn_set_src(g_alarm_btn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-	lv_obj_align(g_alarm_btn_back, LV_ALIGN_LEFT_MID, 20, 0);
-	lv_obj_remove_flag(g_alarm_btn_back, LV_OBJ_FLAG_SCROLLABLE);
+	g_alarm_btn_back = lv_button_create(top);
+	lv_obj_set_size(g_alarm_btn_back, 90, 50);
+	lv_obj_set_style_bg_opa(g_alarm_btn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(g_alarm_btn_back, 0, LV_PART_MAIN);
+	lv_obj_set_style_shadow_width(g_alarm_btn_back, 0, LV_PART_MAIN);
+	lv_obj_align(g_alarm_btn_back, LV_ALIGN_LEFT_MID, 0, 0);
+	lv_obj_t * img = lv_image_create(g_alarm_btn_back);
+	lv_image_set_src(img, &back);
+	lv_obj_center(img);
 	lv_obj_add_event_cb(g_alarm_btn_back, cb_alarm_back, LV_EVENT_CLICKED, NULL);
 	ui_encoder_group_add(g_group_alarm, g_alarm_btn_back);
 
@@ -6593,14 +6609,7 @@ static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const
 
 static void admin_machine_id_label_update(void)
 {
-    if(g_admin_lbl_machine_id_cur == NULL) return;
-    char buf[32];
-    if(g_machine_id == 0) {
-        lv_label_set_text(g_admin_lbl_machine_id_cur, ui_translation(STR_MACHINE_ID_CUR_NONE));
-    } else {
-        lv_snprintf(buf, sizeof(buf), ui_translation(STR_MACHINE_ID_CUR_FMT), (unsigned)g_machine_id);
-        lv_label_set_text(g_admin_lbl_machine_id_cur, buf);
-    }
+    /* 当前 ID 直接显示在 textarea 中，由 admin_panel_show 填充 */
 }
 
 /* menu1 第 8 钮编码器右转：进入 menu2 */
@@ -6631,7 +6640,7 @@ static void admin_encoder_rebuild(void)
                 ui_encoder_group_add(g_group_admin, g_admin_menu1_btns[i]);
             }
         }
-        focus_first = (g_admin_menu1_btns[0] != NULL) ? g_admin_menu1_btns[0] : g_admin_btn_back;
+        /* 首次进入不显示焦点框 */
         break;
     case MENU2:
         for(int i = 0; i < 8; i++) {
@@ -6644,6 +6653,7 @@ static void admin_encoder_rebuild(void)
     case MACHINE_ID:
         if(g_admin_ta_machine_id != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_machine_id);
         if(g_admin_btn_machine_confirm != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_machine_confirm);
+        if(g_admin_btn_machine_cancel != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_machine_cancel);
         if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
         if(admin_kb_is_visible() && g_admin_kb != NULL &&
            g_admin_kb_ta == g_admin_ta_machine_id) {
@@ -7471,6 +7481,12 @@ static void cb_admin_machine_confirm(lv_event_t * e)
 	if(admin_machine_id_apply()) {
 		admin_machine_id_back_to_menu1();
 	}
+}
+
+static void cb_admin_machine_cancel(lv_event_t * e)
+{
+	(void)e;
+	admin_machine_id_back_to_menu1();
 }
 
 static void ui_idle_apply_dormancy_period(void)
@@ -9735,10 +9751,15 @@ static void build_admin(void)
     lv_obj_t * top = create_top_bar(root, &g_lbl_clock_admin, NULL, NULL, NULL);
 
     LV_IMAGE_DECLARE(back);
-    g_admin_btn_back = lv_imgbtn_create(top);
-    lv_imgbtn_set_src(g_admin_btn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-    lv_obj_align(g_admin_btn_back, LV_ALIGN_LEFT_MID, 20, 0);
-    lv_obj_remove_flag(g_admin_btn_back, LV_OBJ_FLAG_SCROLLABLE);
+    g_admin_btn_back = lv_button_create(top);
+    lv_obj_set_size(g_admin_btn_back, 90, 50);
+    lv_obj_set_style_bg_opa(g_admin_btn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_btn_back, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(g_admin_btn_back, 0, LV_PART_MAIN);
+    lv_obj_align(g_admin_btn_back, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t * img_back = lv_image_create(g_admin_btn_back);
+    lv_image_set_src(img_back, &back);
+    lv_obj_center(img_back);
     lv_obj_add_event_cb(g_admin_btn_back, cb_admin_back, LV_EVENT_CLICKED, NULL);
 
     g_admin_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
@@ -9801,6 +9822,8 @@ static void build_admin(void)
         lv_obj_set_style_text_color(g_admin_ta_pwd, lv_color_hex(COL_TEXT), LV_PART_MAIN);
         lv_obj_set_style_bg_opa(g_admin_ta_pwd, LV_OPA_TRANSP, LV_PART_MAIN);
         lv_obj_set_style_border_width(g_admin_ta_pwd, 0, LV_PART_MAIN);
+        lv_obj_set_style_text_align(g_admin_ta_pwd, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_obj_set_style_text_letter_space(g_admin_ta_pwd, 8, LV_PART_MAIN);  //数字间距，越大越宽
         lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_ready, LV_EVENT_READY, NULL);
         lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
         lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
@@ -9812,7 +9835,7 @@ static void build_admin(void)
     lv_obj_set_style_text_color(g_admin_lbl_msg_pwd, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     lv_obj_set_style_text_align(g_admin_lbl_msg_pwd, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_msg_pwd, s_font_sc_50);
-    lv_obj_align(g_admin_lbl_msg_pwd, LV_ALIGN_CENTER, 0, 40);
+    lv_obj_align(g_admin_lbl_msg_pwd, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(g_admin_lbl_msg_pwd, LV_OBJ_FLAG_HIDDEN);
 
     /* 管理员设置页1（8 宫格） */
@@ -10824,40 +10847,79 @@ static void build_admin(void)
     lv_obj_set_style_layout(g_admin_panel_machine_id, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_machine_id, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_t * lbl_mid_title = lv_label_create(g_admin_panel_machine_id);//机器ID标题
-    ui_lang_bind_label(lbl_mid_title, STR_MACHINE_ID_TITLE);
+    /* 标题 "ID设置" + title_box 橙色点阵框 */
+    lv_obj_t * img_title_box = lv_image_create(g_admin_panel_machine_id);
+    lv_image_set_src(img_title_box, &title_box);
+    lv_obj_align(img_title_box, LV_ALIGN_TOP_MID, 0, 16);
+
+    lv_obj_t * lbl_mid_title = lv_label_create(g_admin_panel_machine_id);
+    ui_lang_bind_label(lbl_mid_title, STR_ADMIN_M1_MACHINE_ID);
     lv_obj_set_style_text_color(lbl_mid_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(lbl_mid_title, s_font_sc_30);
     lv_obj_align(lbl_mid_title, LV_ALIGN_TOP_MID, 0, 16);
 
-    g_admin_lbl_machine_id_cur = lv_label_create(g_admin_panel_machine_id);//机器ID当前值
-    lv_obj_set_style_text_color(g_admin_lbl_machine_id_cur, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_machine_id_cur, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_machine_id_cur, LV_ALIGN_TOP_MID, 0, 56+10);
-    admin_machine_id_label_update();
+    /* set_box 背景 */
+    lv_obj_t * set_box_wrap = lv_obj_create(g_admin_panel_machine_id);
+    lv_obj_set_size(set_box_wrap, 1117, 409);
+    lv_obj_align(set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(set_box_wrap, 0, LV_PART_MAIN);
 
-    g_admin_ta_machine_id = lv_textarea_create(g_admin_panel_machine_id);//机器ID输入框
-    lv_obj_set_size(g_admin_ta_machine_id, 320, 48);
-    lv_obj_align(g_admin_ta_machine_id, LV_ALIGN_TOP_MID, 0, 100+10);
+    lv_obj_t * img_set_box = lv_image_create(set_box_wrap);
+    lv_image_set_src(img_set_box, &set_box);
+    lv_obj_center(img_set_box);
+
+    /* 左侧输入框（input_box 背景 + textarea） */
+    lv_obj_t * input_wrap = lv_obj_create(set_box_wrap);
+    lv_obj_set_size(input_wrap, 433, 149);
+    lv_obj_align(input_wrap, LV_ALIGN_CENTER, -290, 0);
+    lv_obj_set_style_bg_opa(input_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(input_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(input_wrap, 0, LV_PART_MAIN);
+
+    lv_obj_t * img_input_bg = lv_image_create(input_wrap);
+    lv_image_set_src(img_input_bg, &input_box);
+    lv_obj_center(img_input_bg);
+
+    g_admin_ta_machine_id = lv_textarea_create(input_wrap);
+    lv_obj_set_size(g_admin_ta_machine_id, 350, 60);
+    lv_obj_center(g_admin_ta_machine_id);
     lv_textarea_set_one_line(g_admin_ta_machine_id, true);
     lv_textarea_set_max_length(g_admin_ta_machine_id, 6);
     lv_textarea_set_accepted_chars(g_admin_ta_machine_id, "0123456789");
-    lv_obj_set_style_text_font(g_admin_ta_machine_id, s_font_sc_30, LV_PART_MAIN);
+    lv_obj_set_style_text_font(g_admin_ta_machine_id, s_font_sc_40, LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_ta_machine_id, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_admin_ta_machine_id, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_ta_machine_id, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_align(g_admin_ta_machine_id, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_letter_space(g_admin_ta_machine_id, 8, LV_PART_MAIN);  //数字间距，越大越宽
     lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_ready, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
 
-    g_admin_btn_machine_confirm = make_orange_fill_btn(g_admin_panel_machine_id, ui_translation(STR_BTN_CONFIRM), 160, 44);//确认按钮
-    lv_obj_align(g_admin_btn_machine_confirm, LV_ALIGN_TOP_MID, 0, 165+15);
+    /* 右侧按钮 */
+    const lv_coord_t mid_btn_w = 110;
+    const lv_coord_t mid_btn_h = 50;
+    g_admin_btn_machine_confirm = make_orange_fill_btn(set_box_wrap, ui_translation(STR_BTN_CONFIRM), mid_btn_w, mid_btn_h);
+    lv_obj_align(g_admin_btn_machine_confirm, LV_ALIGN_CENTER, 400, -35);
     ui_set_obj_font(lv_obj_get_child(g_admin_btn_machine_confirm, 0), s_font_sc_30);
     orange_btn_bind_i18n(g_admin_btn_machine_confirm, STR_BTN_CONFIRM);
     lv_obj_add_event_cb(g_admin_btn_machine_confirm, cb_admin_machine_confirm, LV_EVENT_CLICKED, NULL);
 
-    g_admin_lbl_msg_machine_id = lv_label_create(g_admin_panel_machine_id);//机器ID错误提示
+    g_admin_btn_machine_cancel = make_orange_outline_btn(set_box_wrap, ui_translation(STR_BTN_CANCEL), mid_btn_w, mid_btn_h);
+    lv_obj_align(g_admin_btn_machine_cancel, LV_ALIGN_CENTER, 400, 35);
+    ui_set_obj_font(lv_obj_get_child(g_admin_btn_machine_cancel, 0), s_font_sc_30);
+    orange_btn_bind_i18n(g_admin_btn_machine_cancel, STR_BTN_CANCEL);
+    lv_obj_add_event_cb(g_admin_btn_machine_cancel, cb_admin_machine_cancel, LV_EVENT_CLICKED, NULL);
+
+    /* 错误提示（set_box 下方） */
+    g_admin_lbl_msg_machine_id = lv_label_create(g_admin_panel_machine_id);
     lv_obj_set_width(g_admin_lbl_msg_machine_id, LV_PCT(80));
     lv_obj_set_style_text_color(g_admin_lbl_msg_machine_id, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     lv_obj_set_style_text_align(g_admin_lbl_msg_machine_id, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_msg_machine_id, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_msg_machine_id, LV_ALIGN_TOP_MID, 0, 220+15);
+    lv_obj_align(g_admin_lbl_msg_machine_id, LV_ALIGN_BOTTOM_MID, 0, 20);
     lv_obj_add_flag(g_admin_lbl_msg_machine_id, LV_OBJ_FLAG_HIDDEN);
 
     /* 厂商维护：出厂序列号 */
@@ -11625,10 +11687,15 @@ static void build_selfcheck(void)
 	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_selfcheck, NULL, NULL, NULL);
 
 	LV_IMAGE_DECLARE(back);
-	g_selfcheck_btn_back = lv_imgbtn_create(top);
-	lv_imgbtn_set_src(g_selfcheck_btn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-	lv_obj_align(g_selfcheck_btn_back, LV_ALIGN_LEFT_MID, 20, 0);
-	lv_obj_remove_flag(g_selfcheck_btn_back, LV_OBJ_FLAG_SCROLLABLE);
+	g_selfcheck_btn_back = lv_button_create(top);
+	lv_obj_set_size(g_selfcheck_btn_back, 90, 50);
+	lv_obj_set_style_bg_opa(g_selfcheck_btn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(g_selfcheck_btn_back, 0, LV_PART_MAIN);
+	lv_obj_set_style_shadow_width(g_selfcheck_btn_back, 0, LV_PART_MAIN);
+	lv_obj_align(g_selfcheck_btn_back, LV_ALIGN_LEFT_MID, 0, 0);
+	lv_obj_t * img = lv_image_create(g_selfcheck_btn_back);
+	lv_image_set_src(img, &back);
+	lv_obj_center(img);
 	lv_obj_add_event_cb(g_selfcheck_btn_back, cb_selfcheck_back, LV_EVENT_CLICKED, NULL);
 
 	g_selfcheck_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
@@ -12143,10 +12210,15 @@ static void build_cycle(void)
 	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_cycle, NULL, NULL, NULL);
 
 	LV_IMAGE_DECLARE(back);
-	g_cycle_btn_back = lv_imgbtn_create(top);
-	lv_imgbtn_set_src(g_cycle_btn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-	lv_obj_align(g_cycle_btn_back, LV_ALIGN_LEFT_MID, 20, 0);
-	lv_obj_remove_flag(g_cycle_btn_back, LV_OBJ_FLAG_SCROLLABLE);
+	g_cycle_btn_back = lv_button_create(top);
+	lv_obj_set_size(g_cycle_btn_back, 90, 50);
+	lv_obj_set_style_bg_opa(g_cycle_btn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(g_cycle_btn_back, 0, LV_PART_MAIN);
+	lv_obj_set_style_shadow_width(g_cycle_btn_back, 0, LV_PART_MAIN);
+	lv_obj_align(g_cycle_btn_back, LV_ALIGN_LEFT_MID, 0, 0);
+	lv_obj_t * img = lv_image_create(g_cycle_btn_back);
+	lv_image_set_src(img, &back);
+	lv_obj_center(img);
 	lv_obj_add_event_cb(g_cycle_btn_back, cb_cycle_back, LV_EVENT_CLICKED, NULL);
 
 	g_cycle_btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_cycle);
@@ -12199,11 +12271,16 @@ static void build_off(void)
 		lv_obj_t * top = create_top_bar(row, &g_lbl_clock_off, NULL, g_group_off, NULL);
 
 		LV_IMAGE_DECLARE(back);
-		lv_obj_t * btn_back = lv_imgbtn_create(top);
-		lv_imgbtn_set_src(btn_back, LV_IMGBTN_STATE_RELEASED, NULL, &back, NULL);
-		lv_obj_align(btn_back, LV_ALIGN_LEFT_MID, 20, 0);
+		lv_obj_t * btn_back = lv_button_create(top);
+		lv_obj_set_size(btn_back, 90, 50);
+		lv_obj_set_style_bg_opa(btn_back, LV_OPA_TRANSP, LV_PART_MAIN);
+		lv_obj_set_style_border_width(btn_back, 0, LV_PART_MAIN);
+		lv_obj_set_style_shadow_width(btn_back, 0, LV_PART_MAIN);
+		lv_obj_align(btn_back, LV_ALIGN_LEFT_MID, 0, 0);
+		lv_obj_t * img = lv_image_create(btn_back);
+		lv_image_set_src(img, &back);
+		lv_obj_center(img);
 		lv_obj_add_event_cb(btn_back, cb_off_wake, LV_EVENT_CLICKED, NULL);
-		lv_obj_remove_flag(btn_back, LV_OBJ_FLAG_SCROLLABLE);
 		ui_encoder_group_add(g_group_off, btn_back);
 
 		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_off);
