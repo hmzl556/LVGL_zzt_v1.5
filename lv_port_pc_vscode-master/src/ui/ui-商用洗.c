@@ -2441,6 +2441,7 @@ LV_IMAGE_DECLARE(QR_code_xiaoya);
 LV_IMAGE_DECLARE(bar_01);
 LV_IMAGE_DECLARE(lack_of_softener);
 LV_IMAGE_DECLARE(lack_of_detergent);
+LV_IMAGE_DECLARE(wifi_logo);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -2620,6 +2621,7 @@ static void build_off(void);  //构建关机/待机页：仅顶部栏与启停/�
 
 // 可移植字体绑定（通过字体适配层统一选择自定义/回退字体）
 static const lv_font_t * s_font_sc_20;
+static const lv_font_t * s_font_sc_27;
 static const lv_font_t * s_font_sc_30;
 static const lv_font_t * s_font_sc_35;
 static const lv_font_t * s_font_sc_50;
@@ -2712,6 +2714,7 @@ static void ui_set_obj_font(lv_obj_t * obj, const lv_font_t * font)
 static void ui_apply_chinese_font(void)  //绑定中文字体并应用到 LVGL 默认主题
 {
 	s_font_sc_20 = ui_font_get_sc_20();
+	s_font_sc_27 = ui_font_get_sc_27();
 	s_font_sc_30 = ui_font_get_sc_30();
 	s_font_sc_35 = ui_font_get_sc_35();
 	s_font_sc_50 = ui_font_get_sc_50();
@@ -2848,8 +2851,8 @@ static void cb_clock(lv_timer_t * t)
 static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out)  //创建顶部右侧状态栏：4G / WiFi / 时间
 {
 	lv_obj_t * status = lv_obj_create(top);
-	lv_obj_set_size(status, LV_PCT(8), LV_PCT(100));
-	lv_obj_set_pos(status, LV_PCT(90), 0);
+	lv_obj_set_size(status, LV_PCT(14), LV_PCT(100));
+	lv_obj_set_pos(status, LV_PCT(84), 0);
 	lv_obj_set_style_bg_opa(status, LV_OPA_TRANSP, LV_PART_MAIN);
 	lv_obj_set_style_border_width(status, 0, LV_PART_MAIN);
 	lv_obj_set_style_pad_all(status, 0, LV_PART_MAIN);
@@ -2857,21 +2860,19 @@ static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out)  //
 
 	lv_obj_t * t4g = lv_label_create(status);
 	lv_label_set_text(t4g, "4G");
-	lv_obj_align(t4g, LV_ALIGN_LEFT_MID, 0, 0);
+	lv_obj_align(t4g, LV_ALIGN_BOTTOM_LEFT, LV_PCT(25), -10);
 	lv_obj_set_style_text_color(t4g, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-	ui_set_obj_font(t4g, s_font_sc_20);
+	ui_set_obj_font(t4g, s_font_sc_27);
 
-	lv_obj_t * tw = lv_label_create(status);
-	lv_obj_set_style_text_font(tw, &lv_font_montserrat_16, LV_PART_MAIN);
-	lv_label_set_text(tw, LV_SYMBOL_WIFI);
-	lv_obj_align(tw, LV_ALIGN_CENTER, -8, 0);
-	lv_obj_set_style_text_color(tw, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_t * tw = lv_image_create(status);
+	lv_image_set_src(tw, &wifi_logo);
+	lv_obj_align(tw, LV_ALIGN_BOTTOM_LEFT, LV_PCT(47), -10);
 
 	lv_obj_t * clock = lv_label_create(status);
 	lv_label_set_text(clock, "10:08");
-	lv_obj_align(clock, LV_ALIGN_RIGHT_MID, 0, 0);
+	lv_obj_align(clock, LV_ALIGN_BOTTOM_RIGHT, 0, -10);
 	lv_obj_set_style_text_color(clock, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-	ui_set_obj_font(clock, s_font_sc_20);
+	ui_set_obj_font(clock, s_font_sc_27);
 	if(clock_lbl_out != NULL) {
 		*clock_lbl_out = clock;
 	}
