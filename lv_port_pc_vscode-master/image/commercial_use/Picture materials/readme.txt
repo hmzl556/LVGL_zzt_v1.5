@@ -57,9 +57,9 @@ QR_WeChat_04_Cool_Air       √
 QR_WeChat_05_Air_Clean      √
 
 运行页
-child_lock_logo
+child_lock_logo             √
 O3_logo
-yunxingbackground
+yunxingbackground           √
 
 洗涤完成页
 end

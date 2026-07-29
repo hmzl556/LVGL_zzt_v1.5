@@ -198,6 +198,7 @@ void ui_auto_dispense_sync_to_hw(void)
 typedef void (*ui_ozone_changed_cb_t)(bool enabled);
 
 static bool g_ui_ozone_enabled = true;
+static lv_obj_t * g_running_o3_img;           /* 前置声明：运行页 O3 图标 */
 static ui_ozone_changed_cb_t s_ozone_hw_cb;
 
 static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开启/关闭按钮选中样式
@@ -234,6 +235,11 @@ bool ui_ozone_set(bool enabled)
     g_ui_ozone_enabled = enabled;
     admin_ozone_sync_btn_ui();
     ui_ozone_apply_hw(enabled);
+    /* 同步运行页 O3 图标可见性 */
+    if(g_running_o3_img != NULL) {
+        if(enabled) lv_obj_remove_flag(g_running_o3_img, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_running_o3_img, LV_OBJ_FLAG_HIDDEN);
+    }
     return true;
 }
 
@@ -2411,6 +2417,7 @@ static lv_obj_t * g_running_btn_power;
 static lv_obj_t * g_running_child_lock_btn;
 static lv_obj_t * g_running_child_lock_img;
 static lv_obj_t * g_running_lock_blocker;      /* 全屏遮罩：童锁时拦截触摸 */
+static lv_obj_t * g_running_o3_img;           /* 运行页 O3 图标 */
 static bool g_ui_child_lock;                     /* 童锁激活时拦截主页滑动及除童锁外的界面跳转 */
 static lv_obj_t * g_home_btn_runpause;           /* 主页顶栏启停；轮播长按固定后编码器焦点回到此键 */
 static lv_obj_t * g_home_btn_power;              /* 主页顶栏电源 */
@@ -2443,6 +2450,7 @@ LV_IMAGE_DECLARE(lack_of_softener);
 LV_IMAGE_DECLARE(lack_of_detergent);
 LV_IMAGE_DECLARE(wifi_logo);
 LV_IMAGE_DECLARE(child_lock_logo);
+LV_IMAGE_DECLARE(O3_logo);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -3840,6 +3848,11 @@ static void ui_screen_load(lv_obj_t * scr)
 		ui_set_encoder_group(g_group_running);
 		running_screen_sync_mode_name();                 /* 刷新运行页程序名 label */
 		running_live_params_sync();                      /* 刷新运行页实时参数 label */
+		/* 同步 O3 图标可见性 */
+		if(g_running_o3_img != NULL) {
+			if(ui_ozone_get()) lv_obj_remove_flag(g_running_o3_img, LV_OBJ_FLAG_HIDDEN);
+			else lv_obj_add_flag(g_running_o3_img, LV_OBJ_FLAG_HIDDEN);
+		}
 		if(g_cycle_active && g_cycle_ui_state == CYCLE_UI_FAULT && g_cycle_fault_on_running) {
 			cycle_fault_blink_start();
 		} else {
@@ -4074,6 +4087,10 @@ static void cb_running_mid_layout_changed(lv_event_t * e)
 {
 	(void)e;
 	running_child_lock_align_btn();
+	/* O3 跟随 mid 同步重定位 */
+	if(g_running_o3_img != NULL && g_running_mid != NULL) {
+		lv_obj_align_to(g_running_o3_img, g_running_mid, LV_ALIGN_RIGHT_MID, 90, 40);
+	}
 }
 
 //将童锁按钮对齐到运行页中间栏右侧
@@ -5074,6 +5091,12 @@ static void build_running(void)
 		lv_obj_set_style_image_opa(lock_img, LV_OPA_40, LV_PART_MAIN);
 		lv_obj_center(lock_img);
 		ui_encoder_group_add(g_group_running, child_lock);
+
+		/* O3 图标：跟随童锁右侧 */
+		g_running_o3_img = lv_image_create(root);
+		lv_image_set_src(g_running_o3_img, &O3_logo);
+		lv_obj_align_to(g_running_o3_img, g_running_mid, LV_ALIGN_RIGHT_MID, 90, 40);
+		if(!ui_ozone_get()) lv_obj_add_flag(g_running_o3_img, LV_OBJ_FLAG_HIDDEN);
 
 		/* 左侧：实时频率/水位/水量/分档 + 温度（SC_30） */
 		{
