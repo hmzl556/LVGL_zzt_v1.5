@@ -9925,7 +9925,7 @@ static void build_admin(void)
     lv_obj_align(img_menu2_bar, LV_ALIGN_TOP_MID, 0, 50);
 
     static const ui_str_id_t menu2_ids[8] = {
-        STR_ADMIN_M1_BRIGHTNESS, STR_ADMIN_M1_VENDOR_MAINT, STR_ADMIN_M1_LANGUAGE, STR_ADMIN_M2_UPGRADE,
+        STR_ADMIN_M1_BRIGHTNESS, STR_ADMIN_M1_SOUND, STR_ADMIN_M1_LANGUAGE, STR_ADMIN_M2_UPGRADE,
         STR_ADMIN_M1_FACTORY_RESET, STR_ADMIN_M1_CONTACT, STR_ADMIN_M2_PAYMENT, STR_ADMIN_M2_PASSWORD
     };
     static const lv_image_dsc_t * const menu2_icons[8] = {
