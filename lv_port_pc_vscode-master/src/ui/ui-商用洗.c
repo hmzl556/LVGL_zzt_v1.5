@@ -1214,6 +1214,7 @@ typedef enum {
     STR_MACHINE_ID_TITLE,
     STR_MACHINE_ID_CUR_NONE,
     STR_MACHINE_ID_CUR_FMT,
+    STR_MACHINE_ID_SUCCESS,
     STR_PROG_FIELD_PRICE,
     STR_PROG_FIELD_WASH,
     STR_PROG_FIELD_RINSE_DUR,
@@ -1418,6 +1419,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_MACHINE_ID_TITLE]       = "ID设置",
         [STR_MACHINE_ID_CUR_NONE]    = "当前 ID：未配置",
         [STR_MACHINE_ID_CUR_FMT]     = "当前 ID：%06u",
+        [STR_MACHINE_ID_SUCCESS]     = "机器ID设置成功",
         [STR_PROG_FIELD_PRICE]       = "程序金额",
         [STR_PROG_FIELD_WASH]        = "洗涤时长",
         [STR_PROG_FIELD_RINSE_DUR]   = "漂洗时长",
@@ -1604,6 +1606,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_MACHINE_ID_TITLE]       = "Machine ID Settings",
         [STR_MACHINE_ID_CUR_NONE]    = "Current ID: Not configured",
         [STR_MACHINE_ID_CUR_FMT]     = "Current ID: %06u",
+        [STR_MACHINE_ID_SUCCESS]     = "Machine ID set successfully",
         [STR_PROG_FIELD_PRICE]       = "Price",
         [STR_PROG_FIELD_WASH]        = "Wash Time",
         [STR_PROG_FIELD_RINSE_DUR]   = "Rinse Time",
@@ -1920,6 +1923,8 @@ static lv_obj_t * g_admin_lbl_msg_machine_id;
 static lv_obj_t * g_admin_lbl_machine_id_cur;
 static lv_obj_t * g_admin_btn_machine_confirm;
 static lv_obj_t * g_admin_btn_machine_cancel;
+static lv_obj_t * g_admin_mid_success_overlay;
+static lv_timer_t * g_admin_mid_success_timer;
 static lv_obj_t * g_admin_lbl_menu1_title;
 static lv_obj_t * g_admin_lbl_menu2_title;
 static lv_obj_t * g_admin_menu1_btns[8];
@@ -2170,6 +2175,7 @@ static void cb_admin_ta_ready(lv_event_t * e);  //输入框 READY：密码校验
 static void cb_admin_open_machine_id(lv_event_t * e);  //菜单「机器 ID 设置」入口
 static void cb_admin_machine_confirm(lv_event_t * e);  //机器 ID 确认：保存并回菜单
 static void cb_admin_machine_cancel(lv_event_t * e);   //机器 ID 取消：清空并回菜单
+static void cb_admin_mid_success_timer(lv_timer_t * t); //机器 ID 成功提示 2 秒后自动返回
 static void cb_admin_open_program_settings(lv_event_t * e);  //菜单「程序设置」入口
 static void cb_admin_open_brightness(lv_event_t * e);  //菜单「屏幕亮度」入口
 static void admin_brightness_back_to_menu1(void);  //离开屏幕亮度页：回 menu1
@@ -2482,6 +2488,7 @@ LV_IMAGE_DECLARE(pay_set);
 LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
+LV_IMAGE_DECLARE(success);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -6999,6 +7006,13 @@ static void admin_panel_show(admin_view_t view)
         lv_label_set_text(g_admin_lbl_msg_machine_id, "");
         lv_obj_add_flag(g_admin_lbl_msg_machine_id, LV_OBJ_FLAG_HIDDEN);
     }
+    if(g_admin_mid_success_overlay != NULL) {
+        lv_obj_add_flag(g_admin_mid_success_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_mid_success_timer != NULL) {
+        lv_timer_delete(g_admin_mid_success_timer);
+        g_admin_mid_success_timer = NULL;
+    }
 
     if(view == PASSWORD && g_admin_panel_pwd != NULL) {
         lv_obj_remove_flag(g_admin_panel_pwd, LV_OBJ_FLAG_HIDDEN);
@@ -7479,8 +7493,31 @@ static void cb_admin_machine_confirm(lv_event_t * e)
 {
 	(void)e;
 	if(admin_machine_id_apply()) {
-		admin_machine_id_back_to_menu1();
+		/* 显示成功提示 */
+		if(g_admin_mid_success_overlay != NULL) {
+			lv_obj_remove_flag(g_admin_mid_success_overlay, LV_OBJ_FLAG_HIDDEN);
+		}
+		if(g_admin_kb != NULL) {
+			g_admin_kb_ta = NULL;
+			lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
+		}
+		/* 2 秒后自动返回 MENU1 */
+		if(g_admin_mid_success_timer != NULL) {
+			lv_timer_delete(g_admin_mid_success_timer);
+		}
+		g_admin_mid_success_timer = lv_timer_create(cb_admin_mid_success_timer, 2000, NULL);
+		lv_timer_set_repeat_count(g_admin_mid_success_timer, 1);
 	}
+}
+
+static void cb_admin_mid_success_timer(lv_timer_t * t)
+{
+	(void)t;
+	g_admin_mid_success_timer = NULL;
+	if(g_admin_mid_success_overlay != NULL) {
+		lv_obj_add_flag(g_admin_mid_success_overlay, LV_OBJ_FLAG_HIDDEN);
+	}
+	admin_machine_id_back_to_menu1();
 }
 
 static void cb_admin_machine_cancel(lv_event_t * e)
@@ -10921,6 +10958,27 @@ static void build_admin(void)
     ui_set_obj_font(g_admin_lbl_msg_machine_id, s_font_sc_30);
     lv_obj_align(g_admin_lbl_msg_machine_id, LV_ALIGN_BOTTOM_MID, 0, 20);
     lv_obj_add_flag(g_admin_lbl_msg_machine_id, LV_OBJ_FLAG_HIDDEN);
+
+    /* 成功提示覆盖层：success 图片 + 文字，2 秒后自动消失 */
+    g_admin_mid_success_overlay = lv_obj_create(g_admin_panel_machine_id);
+    lv_obj_set_size(g_admin_mid_success_overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(g_admin_mid_success_overlay);
+    lv_obj_set_style_bg_opa(g_admin_mid_success_overlay, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(g_admin_mid_success_overlay, lv_color_hex(COL_BG), LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_mid_success_overlay, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_mid_success_overlay, 0, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_mid_success_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(g_admin_mid_success_overlay, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t * img_success = lv_image_create(g_admin_mid_success_overlay);
+    lv_image_set_src(img_success, &success);
+    lv_obj_align(img_success, LV_ALIGN_CENTER, 0, -80);
+
+    lv_obj_t * lbl_success = lv_label_create(g_admin_mid_success_overlay);
+    ui_lang_bind_label(lbl_success, STR_MACHINE_ID_SUCCESS);
+    lv_obj_set_style_text_color(lbl_success, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(lbl_success, s_font_sc_50);
+    lv_obj_align(lbl_success, LV_ALIGN_CENTER, 0, 60);
 
     /* 厂商维护：出厂序列号 */
     g_admin_panel_vendor_serial = lv_obj_create(root);

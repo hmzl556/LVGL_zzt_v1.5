@@ -93,9 +93,9 @@ password_set                √
 admin_button_box            √
 
 管理员设置主题字的橙色点阵框
-title_box
+title_box                   √
 
-set_box
+set_box                     √
 success
 failure
 
