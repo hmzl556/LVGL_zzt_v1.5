@@ -1483,8 +1483,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DATA_FORBIDDEN]         = "禁止上传",
         [STR_WIFI_SETTINGS]          = "WIFI设置",
         [STR_4G_SETTINGS]            = "4G设置",
-        [STR_4G_PROMPT]              = "使用右上方的切换开关打开4G，连接到附近的网络",
-        [STR_4G_PROVISIONING]        = "正在配网中......",
+        [STR_4G_PROMPT]              = "使用右上方的切换开关打开4G，自动连接到附近的4G网络",
+        [STR_4G_PROVISIONING]        = "正在连接附近4G网络......",
         [STR_4G_SUCCESS]             = "配网成功",
     },
     [UI_LANG_EN] = {
@@ -1670,8 +1670,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DATA_FORBIDDEN]         = "Upload Disabled",
         [STR_WIFI_SETTINGS]          = "WiFi Settings",
         [STR_4G_SETTINGS]            = "4G Settings",
-        [STR_4G_PROMPT]              = "Use the switch at top-right to enable 4G and connect to nearby networks",
-        [STR_4G_PROVISIONING]        = "Connecting......",
+        [STR_4G_PROMPT]              = "Use the top-right switch to enable 4G and auto-connect to nearby 4G networks",
+        [STR_4G_PROVISIONING]        = "Connecting to nearby 4G network......",
         [STR_4G_SUCCESS]             = "Connected successfully",
     },
 };
@@ -2098,6 +2098,8 @@ static lv_obj_t * g_admin_sw_4g;
 static lv_obj_t * g_admin_lbl_4g_prompt;
 static lv_obj_t * g_admin_lbl_4g_status;
 static lv_obj_t * g_admin_4g_done_center;
+static lv_obj_t * g_admin_4g_set_box_wrap;
+static lv_obj_t * g_admin_img_4g_title_box;
 static lv_obj_t * g_admin_img_4g_done;
 static lv_obj_t * g_admin_lbl_4g_done;
 static admin_4g_phase_t g_admin_4g_phase = ADMIN_4G_PHASE_PROMPT;
@@ -7849,7 +7851,26 @@ static void admin_brightness_apply_switch_layout(void)
 
 static void admin_4g_apply_switch_layout(void)
 {
-    admin_panel_apply_switch_layout(g_admin_sw_4g, g_admin_lbl_4g_title);
+    if(g_admin_sw_4g == NULL) return;
+
+    admin_panel_style_switch(g_admin_sw_4g);
+    lv_obj_set_size(g_admin_sw_4g, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
+    lv_obj_refr_size(g_admin_sw_4g);
+
+    const lv_coord_t radius_cap = lv_obj_get_height(g_admin_sw_4g) / 2;
+    lv_obj_set_style_radius(g_admin_sw_4g, radius_cap, LV_PART_MAIN);
+    lv_obj_update_layout(g_admin_sw_4g);
+    lv_coord_t radius_ind = lv_obj_get_content_height(g_admin_sw_4g) / 2;
+    if(radius_ind < 0) {
+        radius_ind = 0;
+    }
+    lv_obj_set_style_radius(g_admin_sw_4g, radius_ind, LV_PART_INDICATOR);
+
+    admin_sw_apply_knob_pad(g_admin_sw_4g, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
+
+    /* 自由定位：不跟随标题，直接设置 x/y（相对 g_admin_panel_4g 左上角） */
+    lv_obj_set_pos(g_admin_sw_4g, 1200, 150);
+    lv_obj_invalidate(g_admin_sw_4g);
 }
 
 /* 亮度滑条数值对齐到步进 */
@@ -9047,6 +9068,10 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
         if(done) lv_obj_add_flag(g_admin_lbl_4g_title, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_lbl_4g_title, LV_OBJ_FLAG_HIDDEN);
     }
+    if(g_admin_img_4g_title_box != NULL) {
+        if(done) lv_obj_add_flag(g_admin_img_4g_title_box, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_img_4g_title_box, LV_OBJ_FLAG_HIDDEN);
+    }
     if(g_admin_sw_4g != NULL) {
         if(done) lv_obj_add_flag(g_admin_sw_4g, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_sw_4g, LV_OBJ_FLAG_HIDDEN);
@@ -9067,6 +9092,10 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
     if(g_admin_4g_done_center != NULL) {
         if(done) lv_obj_remove_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_add_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_4g_set_box_wrap != NULL) {
+        if(done) lv_obj_add_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
     }
 
     if(g_group_admin != NULL) {
@@ -10694,13 +10723,14 @@ static void build_admin(void)
     ui_set_obj_font(g_admin_lbl_network_title, s_font_sc_30);
     lv_obj_align(g_admin_lbl_network_title, LV_ALIGN_TOP_MID, 0, 8);
 
+    // 网络设置左右两个按钮
     {
         const lv_coord_t net_btn_w = 280;
-        const lv_coord_t net_btn_h = 90;
-        const lv_coord_t net_gap = 48;
-        const lv_coord_t net_row_w = net_btn_w * 2 + net_gap;
-        const lv_coord_t net_x0 = (lv_coord_t)((UI_FIXED_W - net_row_w) / 2);
-        const lv_coord_t net_y = 150;
+        const lv_coord_t net_btn_h = 200;
+        const lv_coord_t net_gap = 60;
+        const lv_coord_t net_row_w = net_btn_w * 2 + net_gap;// 两个按钮的总宽度
+        const lv_coord_t net_x0 = (lv_coord_t)((UI_FIXED_W - net_row_w) / 2);// 整体居中
+        const lv_coord_t net_y = 150;// 距顶 Y 位置
 
         g_admin_btn_network_wifi = make_admin_menu_btn(g_admin_panel_network, ui_translation(STR_WIFI_SETTINGS), NULL);
         lv_obj_set_size(g_admin_btn_network_wifi, net_btn_w, net_btn_h);
@@ -10731,64 +10761,87 @@ static void build_admin(void)
     ui_set_obj_font(g_admin_lbl_wifi_title, s_font_sc_30);
     lv_obj_align(g_admin_lbl_wifi_title, LV_ALIGN_TOP_LEFT, 350, 30);
 
-    /* 4G 设置子面板（1600×400，三步配网） */
+    /* 4G 设置子面板（与 ID 设置页同尺寸） */
     g_admin_panel_4g = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_4g, 1600, 400);
-    lv_obj_align(g_admin_panel_4g, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_4g, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_4g, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_4g, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_4g, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_4g, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_4g, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_4g, LV_OBJ_FLAG_HIDDEN);
 
+    /* 标题 "4G设置" + title_box（与 ID 设置页位置相同） */
+    lv_obj_t * img_4g_title_box = lv_image_create(g_admin_panel_4g);
+    g_admin_img_4g_title_box = img_4g_title_box;
+    lv_image_set_src(img_4g_title_box, &title_box);
+    lv_obj_align(img_4g_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_4g_title = lv_label_create(g_admin_panel_4g);
     ui_lang_bind_label(g_admin_lbl_4g_title, STR_4G_SETTINGS);
     lv_obj_set_style_text_color(g_admin_lbl_4g_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_4g_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_4g_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_4g_title, LV_ALIGN_TOP_MID, 0, 25);
 
     g_admin_sw_4g = lv_switch_create(g_admin_panel_4g);
     admin_4g_apply_switch_layout();
     lv_obj_add_event_cb(g_admin_sw_4g, cb_admin_4g_switch_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    g_admin_lbl_4g_prompt = lv_label_create(g_admin_panel_4g);
+    /* set_box 背景（与 ID 设置页位置相同） */
+    lv_obj_t * set_box_wrap_4g = lv_obj_create(g_admin_panel_4g);
+    g_admin_4g_set_box_wrap = set_box_wrap_4g;
+    lv_obj_set_size(set_box_wrap_4g, 1117, 409);
+    lv_obj_align(set_box_wrap_4g, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(set_box_wrap_4g, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(set_box_wrap_4g, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(set_box_wrap_4g, 0, LV_PART_MAIN);
+
+    lv_obj_t * img_set_box_4g = lv_image_create(set_box_wrap_4g);
+    lv_image_set_src(img_set_box_4g, &set_box);
+    lv_obj_center(img_set_box_4g);
+
+    g_admin_lbl_4g_prompt = lv_label_create(set_box_wrap_4g);
     ui_lang_bind_label(g_admin_lbl_4g_prompt, STR_4G_PROMPT);
     lv_obj_set_style_text_color(g_admin_lbl_4g_prompt, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_4g_prompt, s_font_sc_30);
-    lv_obj_set_width(g_admin_lbl_4g_prompt, 1200);
+    lv_obj_set_width(g_admin_lbl_4g_prompt, 900);
     lv_label_set_long_mode(g_admin_lbl_4g_prompt, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(g_admin_lbl_4g_prompt, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(g_admin_lbl_4g_prompt, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_center(g_admin_lbl_4g_prompt);
 
-    g_admin_lbl_4g_status = lv_label_create(g_admin_panel_4g);
+    g_admin_lbl_4g_status = lv_label_create(set_box_wrap_4g);
     lv_label_set_text(g_admin_lbl_4g_status, ui_translation(STR_4G_PROVISIONING));
     lv_obj_set_style_text_color(g_admin_lbl_4g_status, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_4g_status, s_font_sc_30);
-    lv_obj_set_width(g_admin_lbl_4g_status, 1200);
+    lv_obj_set_width(g_admin_lbl_4g_status, 900);
     lv_label_set_long_mode(g_admin_lbl_4g_status, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(g_admin_lbl_4g_status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_align(g_admin_lbl_4g_status, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(g_admin_lbl_4g_status, LV_OBJ_FLAG_HIDDEN);
 
     g_admin_4g_done_center = lv_obj_create(g_admin_panel_4g);
-    lv_obj_set_size(g_admin_4g_done_center, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_align(g_admin_4g_done_center, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_size(g_admin_4g_done_center, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(g_admin_4g_done_center);
     lv_obj_set_style_bg_opa(g_admin_4g_done_center, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_4g_done_center, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_4g_done_center, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(g_admin_4g_done_center, 16, LV_PART_MAIN);
-    lv_obj_set_flex_flow(g_admin_4g_done_center, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(g_admin_4g_done_center, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_layout(g_admin_4g_done_center, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
 
-    LV_IMAGE_DECLARE(end);
     g_admin_img_4g_done = lv_image_create(g_admin_4g_done_center);
-    lv_image_set_src(g_admin_img_4g_done, &end);
+    lv_image_set_src(g_admin_img_4g_done, &success);
+    lv_obj_align(g_admin_img_4g_done, LV_ALIGN_CENTER, 0, -80);
 
     g_admin_lbl_4g_done = lv_label_create(g_admin_4g_done_center);
     ui_lang_bind_label(g_admin_lbl_4g_done, STR_4G_SUCCESS);
     lv_obj_set_style_text_color(g_admin_lbl_4g_done, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_4g_done, s_font_sc_30);
+    ui_set_obj_font(g_admin_lbl_4g_done, s_font_sc_50);
+    lv_obj_align(g_admin_lbl_4g_done, LV_ALIGN_CENTER, 0, 60);
+
+    /* 4G 开关移到最前，避免被 set_box/成功页遮挡而无法点击 */
+    if(g_admin_sw_4g != NULL) {
+        lv_obj_move_foreground(g_admin_sw_4g);
+    }
 
     /* 密码修改：步骤一原密码（布局仿管理员登录密码页） */
     g_admin_panel_pwd_chg_old = lv_obj_create(root);
@@ -10887,13 +10940,13 @@ static void build_admin(void)
     /* 标题 "ID设置" + title_box 橙色点阵框 */
     lv_obj_t * img_title_box = lv_image_create(g_admin_panel_machine_id);
     lv_image_set_src(img_title_box, &title_box);
-    lv_obj_align(img_title_box, LV_ALIGN_TOP_MID, 0, 16);
+    lv_obj_align(img_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
     lv_obj_t * lbl_mid_title = lv_label_create(g_admin_panel_machine_id);
     ui_lang_bind_label(lbl_mid_title, STR_ADMIN_M1_MACHINE_ID);
     lv_obj_set_style_text_color(lbl_mid_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(lbl_mid_title, s_font_sc_30);
-    lv_obj_align(lbl_mid_title, LV_ALIGN_TOP_MID, 0, 16);
+    lv_obj_align(lbl_mid_title, LV_ALIGN_TOP_MID, 0, 25);
 
     /* set_box 背景 */
     lv_obj_t * set_box_wrap = lv_obj_create(g_admin_panel_machine_id);

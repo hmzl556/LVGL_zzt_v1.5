@@ -96,7 +96,7 @@ admin_button_box            √
 title_box                   √
 
 set_box                     √
-success
+success                     √
 failure
 
 程序设置5个程序
