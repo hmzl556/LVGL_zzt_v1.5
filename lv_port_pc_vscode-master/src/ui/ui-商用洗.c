@@ -102,8 +102,14 @@ typedef void (*ui_auto_dispense_changed_cb_t)(bool enabled);
 
 static bool g_ui_auto_dispense_enabled = true;
 static ui_auto_dispense_changed_cb_t s_auto_dispense_hw_cb;
+/* 自投功能两项开关/用量（须在 ui_auto_dispense_set 之前声明） */
+static bool g_admin_auto_softener_on = false;
+static bool g_admin_auto_detergent_on = true;
+static int g_admin_auto_softener_dose = 3;   /* 0少量 1中等 2多量 3自动 */
+static int g_admin_auto_detergent_dose = 3;
+static bool g_admin_auto_dispense_ui_loading = false;
 
-static void admin_auto_dispense_sync_btn_ui(void);  //自投功能页：刷新开启/关闭按钮选中样式
+static void admin_auto_dispense_sync_btn_ui(void);  //自投功能页：刷新开关与用量按钮文字颜色
 static void admin_payment_sync_checkbox_ui(void);  //支付设置页：刷新支付方式复选框
 static void admin_payment_sync_timeout_roller_ui(void);  //支付设置页：刷新支付超时 roller
 static void admin_data_sync_upload_items_ui(void);  //数据设置页：刷新上传项复选框
@@ -133,13 +139,20 @@ bool ui_auto_dispense_get(void)
     return g_ui_auto_dispense_enabled;
 }
 
-/* 设置自投功能开关；与当前相同返回 false 且不回调；否则刷新管理员页按钮并通知硬件 */
+/* 设置自投功能总开关；与当前相同返回 false 且不回调；否则同步柔顺剂/洗衣液 UI 并通知硬件 */
 bool ui_auto_dispense_set(bool enabled)
 {
     if(enabled == g_ui_auto_dispense_enabled) {
         return false;
     }
     g_ui_auto_dispense_enabled = enabled;
+    /* 总开关开启：两项默认打开且用量为「自动」；关闭：两项均关 */
+    g_admin_auto_softener_on = enabled;
+    g_admin_auto_detergent_on = enabled;
+    if(enabled) {
+        g_admin_auto_softener_dose = 3;
+        g_admin_auto_detergent_dose = 3;
+    }
     admin_auto_dispense_sync_btn_ui();
     ui_auto_dispense_apply_hw(enabled);
     return true;
@@ -1253,6 +1266,12 @@ typedef enum {
     STR_CONTACT_SLOGAN,
     STR_AUTO_DISP_LINE1,
     STR_AUTO_DISP_LINE2,
+    STR_AUTO_SOFTENER,
+    STR_AUTO_DETERGENT,
+    STR_AUTO_DOSE_SMALL,
+    STR_AUTO_DOSE_MED,
+    STR_AUTO_DOSE_LARGE,
+    STR_AUTO_DOSE_AUTO,
     STR_OZONE_LINE1,
     STR_OZONE_LINE2,
     STR_FRESH_AIR_LINE1,
@@ -1468,6 +1487,12 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_CONTACT_SLOGAN]         = "小鸭专属热线将为您提供优质的服务体验！",
         [STR_AUTO_DISP_LINE1]        = "自动投放功能开启时，",
         [STR_AUTO_DISP_LINE2]        = "可智能调节洗涤剂与柔顺剂用量",
+        [STR_AUTO_SOFTENER]          = "柔顺剂",
+        [STR_AUTO_DETERGENT]         = "洗衣液",
+        [STR_AUTO_DOSE_SMALL]        = "少量",
+        [STR_AUTO_DOSE_MED]          = "中等",
+        [STR_AUTO_DOSE_LARGE]        = "多量",
+        [STR_AUTO_DOSE_AUTO]         = "自动",
         [STR_OZONE_LINE1]            = "开启后，可实现高效杀菌、消毒，",
         [STR_OZONE_LINE2]            = "提升洗涤效果和卫生水平",
         [STR_FRESH_AIR_LINE1]        = "开启后，洗衣完成后内筒间歇性转动，",
@@ -1665,6 +1690,12 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_CONTACT_SLOGAN]         = "Duckling hotline provides premium service!",
         [STR_AUTO_DISP_LINE1]        = "When auto dispense is enabled,",
         [STR_AUTO_DISP_LINE2]        = "detergent and softener are adjusted intelligently",
+        [STR_AUTO_SOFTENER]          = "Softener",
+        [STR_AUTO_DETERGENT]         = "Detergent",
+        [STR_AUTO_DOSE_SMALL]        = "Low",
+        [STR_AUTO_DOSE_MED]          = "Medium",
+        [STR_AUTO_DOSE_LARGE]        = "High",
+        [STR_AUTO_DOSE_AUTO]         = "Auto",
         [STR_OZONE_LINE1]            = "When enabled, provides efficient sterilization",
         [STR_OZONE_LINE2]            = "and improves wash quality and hygiene",
         [STR_FRESH_AIR_LINE1]        = "When enabled, drum rotates intermittently after wash",
@@ -2100,13 +2131,21 @@ static lv_obj_t * g_admin_lbl_contact_title;
 static lv_obj_t * g_admin_lbl_contact_line1;
 static lv_obj_t * g_admin_lbl_contact_line2;
 static lv_obj_t * g_admin_img_contact_qr;
-/* 自投功能子页控件 */
+/* 自投功能子页控件（布局同待机时间：title_box + set_box + 两项开关，说明区为用量按钮） */
 static lv_obj_t * g_admin_panel_auto_dispense;
+static lv_obj_t * g_admin_img_auto_dispense_title_box;
 static lv_obj_t * g_admin_lbl_auto_dispense_title;
-static lv_obj_t * g_admin_lbl_auto_dispense_line1;
-static lv_obj_t * g_admin_lbl_auto_dispense_line2;
-static lv_obj_t * g_admin_btn_auto_dispense_on;
-static lv_obj_t * g_admin_btn_auto_dispense_off;
+static lv_obj_t * g_admin_auto_dispense_set_box_wrap;
+static lv_obj_t * g_admin_auto_row_softener;
+static lv_obj_t * g_admin_lbl_auto_softener;
+static lv_obj_t * g_admin_sw_auto_softener;
+static lv_obj_t * g_admin_auto_softener_btns[4];
+static lv_obj_t * g_admin_auto_softener_btn_lbls[4];
+static lv_obj_t * g_admin_auto_row_detergent;
+static lv_obj_t * g_admin_lbl_auto_detergent;
+static lv_obj_t * g_admin_sw_auto_detergent;
+static lv_obj_t * g_admin_auto_detergent_btns[4];
+static lv_obj_t * g_admin_auto_detergent_btn_lbls[4];
 /* 臭氧功能子页控件 */
 static lv_obj_t * g_admin_panel_ozone;
 static lv_obj_t * g_admin_lbl_ozone_title;
@@ -2350,10 +2389,10 @@ static void cb_admin_factory_timer(lv_timer_t * t);  //2s 定时器：恢复中 
 static void cb_admin_open_factory_reset(lv_event_t * e);  //菜单「恢复默认」入口
 static void admin_contact_back_to_menu1(void);  //离开联系我们页：回 menu1
 static void cb_admin_open_contact_us(lv_event_t * e);  //菜单「联系我们」入口
-static void admin_auto_dispense_back_to_menu2(void);  //离开自投功能页：回 menu2
+static void admin_auto_dispense_back_to_menu1(void);  //离开自投功能页：回 menu1
 static void cb_admin_open_auto_dispense(lv_event_t * e);  //菜单「自投功能」入口
-static void cb_admin_auto_dispense_on(lv_event_t * e);  //自投功能「开启」：ui_auto_dispense_set(true)
-static void cb_admin_auto_dispense_off(lv_event_t * e);  //自投功能「关闭」：ui_auto_dispense_set(false)
+static void cb_admin_auto_dispense_sw_changed(lv_event_t * e);  //柔顺剂/洗衣液开关
+static void cb_admin_auto_dose_btn_clicked(lv_event_t * e);  //用量按钮：开时互斥选中，关时无响应
 static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开启/关闭按钮选中样式
 static void admin_ozone_back_to_menu2(void);  //离开臭氧功能页：回 menu2
 static void cb_admin_open_ozone(lv_event_t * e);  //菜单「臭氧功能」入口
@@ -2587,6 +2626,9 @@ LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
 LV_IMAGE_DECLARE(time_set_box);
+LV_IMAGE_DECLARE(softener_logo);
+LV_IMAGE_DECLARE(detergent_logo);
+LV_IMAGE_DECLARE(auto_put_btn_box);
 LV_IMAGE_DECLARE(success);
 LV_IMAGE_DECLARE(failure);
 
@@ -6915,18 +6957,13 @@ static void admin_encoder_rebuild(void)
         focus_first = g_admin_btn_back;
         break;
     case AUTO_DISPENSE:
-        if(g_admin_btn_auto_dispense_on != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_auto_dispense_on);
+        if(g_admin_sw_auto_softener != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_auto_softener);
         }
-        if(g_admin_btn_auto_dispense_off != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_auto_dispense_off);
+        if(g_admin_sw_auto_detergent != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_auto_detergent);
         }
-        if(!ui_auto_dispense_get() && g_admin_btn_auto_dispense_off != NULL) {
-            focus_first = g_admin_btn_auto_dispense_off;
-        }
-        else if(g_admin_btn_auto_dispense_on != NULL) {
-            focus_first = g_admin_btn_auto_dispense_on;
-        }
+        focus_first = (g_admin_sw_auto_softener != NULL) ? g_admin_sw_auto_softener : g_admin_btn_back;
         break;
     case OZONE:
         if(g_admin_btn_ozone_on != NULL) {
@@ -7568,7 +7605,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == AUTO_DISPENSE) {
-        admin_auto_dispense_back_to_menu2();
+        admin_auto_dispense_back_to_menu1();
         return;
     }
     if(g_admin_view == OZONE) {
@@ -9005,23 +9042,45 @@ static void cb_admin_open_contact_us(lv_event_t * e)
     admin_panel_show(CONTACT_US);
 }
 
-/* 自投功能页：按 ui_auto_dispense_get 刷新「开启」「关闭」橙色填充/描边 */
+/* 自投功能页：按两项开关刷新用量按钮文字颜色（关=全白；开=自动/选中项橙色） */
+
+static void admin_auto_dispense_sync_dose_labels(lv_obj_t * const * lbls, bool on, int dose)
+{
+    if(lbls == NULL) return;
+    for(int i = 0; i < 4; i++) {
+        if(lbls[i] == NULL) continue;
+        uint32_t c = COL_TEXT;
+        if(on && i == dose) c = COL_ORANGE;
+        lv_obj_set_style_text_color(lbls[i], lv_color_hex(c), LV_PART_MAIN);
+    }
+}
 
 static void admin_auto_dispense_sync_btn_ui(void)
 {
-    bool on = ui_auto_dispense_get();
-    admin_lang_btn_set_selected(g_admin_btn_auto_dispense_on, on);
-    admin_lang_btn_set_selected(g_admin_btn_auto_dispense_off, !on);
+    g_admin_auto_dispense_ui_loading = true;
+    if(g_admin_sw_auto_softener != NULL) {
+        if(g_admin_auto_softener_on) lv_obj_add_state(g_admin_sw_auto_softener, LV_STATE_CHECKED);
+        else lv_obj_remove_state(g_admin_sw_auto_softener, LV_STATE_CHECKED);
+    }
+    if(g_admin_sw_auto_detergent != NULL) {
+        if(g_admin_auto_detergent_on) lv_obj_add_state(g_admin_sw_auto_detergent, LV_STATE_CHECKED);
+        else lv_obj_remove_state(g_admin_sw_auto_detergent, LV_STATE_CHECKED);
+    }
+    admin_auto_dispense_sync_dose_labels(g_admin_auto_softener_btn_lbls,
+        g_admin_auto_softener_on, g_admin_auto_softener_dose);
+    admin_auto_dispense_sync_dose_labels(g_admin_auto_detergent_btn_lbls,
+        g_admin_auto_detergent_on, g_admin_auto_detergent_dose);
+    g_admin_auto_dispense_ui_loading = false;
 }
 
-/* 离开自投功能页：回管理员 menu2 */
+/* 离开自投功能页：回管理员 menu1 */
 
-static void admin_auto_dispense_back_to_menu2(void)
+static void admin_auto_dispense_back_to_menu1(void)
 {
-    admin_panel_show(MENU2);
+    admin_panel_show(MENU1);
 }
 
-/* 管理员 menu2「自投功能」入口 */
+/* 管理员 menu1「自投功能」入口 */
 
 static void cb_admin_open_auto_dispense(lv_event_t * e)
 {
@@ -9029,22 +9088,58 @@ static void cb_admin_open_auto_dispense(lv_event_t * e)
     admin_panel_show(AUTO_DISPENSE);
 }
 
-/* 自投功能「开启」：已是开启则无操作，否则 set 并通知硬件 */
+/* 柔顺剂/洗衣液开关：打开时用量默认「自动」并标橙；关闭时四键全白且点击无响应 */
 
-static void cb_admin_auto_dispense_on(lv_event_t * e)
+static void cb_admin_auto_dispense_sw_changed(lv_event_t * e)
 {
-    if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if(g_admin_auto_dispense_ui_loading) return;
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if(g_admin_view != AUTO_DISPENSE) return;
-    (void)ui_auto_dispense_set(true);
+
+    lv_obj_t * sw = lv_event_get_target(e);
+    bool on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    if(sw == g_admin_sw_auto_softener) {
+        g_admin_auto_softener_on = on;
+        if(on) g_admin_auto_softener_dose = 3;
+    }
+    else if(sw == g_admin_sw_auto_detergent) {
+        g_admin_auto_detergent_on = on;
+        if(on) g_admin_auto_detergent_dose = 3;
+    }
+    else {
+        return;
+    }
+
+    bool enabled = g_admin_auto_softener_on || g_admin_auto_detergent_on;
+    if(enabled != g_ui_auto_dispense_enabled) {
+        g_ui_auto_dispense_enabled = enabled;
+        ui_auto_dispense_apply_hw(enabled);
+    }
+    admin_auto_dispense_sync_btn_ui();
 }
 
-/* 自投功能「关闭」：已是关闭则无操作，否则 set 并通知硬件 */
+/* 用量按钮：开关关闭时点击无反应；打开时互斥选中（仅一项橙色） */
 
-static void cb_admin_auto_dispense_off(lv_event_t * e)
+static void cb_admin_auto_dose_btn_clicked(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     if(g_admin_view != AUTO_DISPENSE) return;
-    (void)ui_auto_dispense_set(false);
+
+    intptr_t ud = (intptr_t)lv_event_get_user_data(e);
+    bool is_softener = (ud < 10);
+    int dose = (int)(is_softener ? ud : (ud - 10));
+    if(dose < 0 || dose > 3) return;
+
+    if(is_softener) {
+        if(!g_admin_auto_softener_on) return;
+        g_admin_auto_softener_dose = dose;
+        admin_auto_dispense_sync_dose_labels(g_admin_auto_softener_btn_lbls, true, dose);
+    }
+    else {
+        if(!g_admin_auto_detergent_on) return;
+        g_admin_auto_detergent_dose = dose;
+        admin_auto_dispense_sync_dose_labels(g_admin_auto_detergent_btn_lbls, true, dose);
+    }
 }
 
 /* 臭氧功能页：按 ui_ozone_get 刷新「开启」「关闭」橙色填充/描边 */
@@ -11009,46 +11104,232 @@ static void build_admin(void)
     lv_obj_set_pos(g_admin_img_contact_qr, 1100-60, 120-10);
     lv_image_set_inner_align(g_admin_img_contact_qr, LV_IMAGE_ALIGN_STRETCH);
 
-    /* 自投功能子面板（1600×400，左文右钮竖排，布局同恢复默认/语言设置） */
+    /* 自投功能子面板（标题页：title_box + set_box，位置参数与待机时间页一致） */
     g_admin_panel_auto_dispense = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_auto_dispense, 1600, 400);
-    lv_obj_align(g_admin_panel_auto_dispense, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_auto_dispense, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_auto_dispense, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_auto_dispense, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_auto_dispense, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_auto_dispense, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_auto_dispense, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_auto_dispense, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_auto_dispense_title_box = lv_image_create(g_admin_panel_auto_dispense);
+    lv_image_set_src(g_admin_img_auto_dispense_title_box, &title_box);
+    lv_obj_align(g_admin_img_auto_dispense_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_auto_dispense_title = lv_label_create(g_admin_panel_auto_dispense);
     ui_lang_bind_label(g_admin_lbl_auto_dispense_title, STR_ADMIN_M2_AUTO_DISPENSE);
     lv_obj_set_style_text_color(g_admin_lbl_auto_dispense_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_auto_dispense_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_auto_dispense_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_auto_dispense_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_auto_dispense_line1 = lv_label_create(g_admin_panel_auto_dispense);
-    ui_lang_bind_label(g_admin_lbl_auto_dispense_line1, STR_AUTO_DISP_LINE1);
-    lv_obj_set_style_text_color(g_admin_lbl_auto_dispense_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_auto_dispense_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_auto_dispense_line1, 400, 150);
+    g_admin_auto_dispense_set_box_wrap = lv_obj_create(g_admin_panel_auto_dispense);
+    lv_obj_set_size(g_admin_auto_dispense_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_auto_dispense_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_auto_dispense_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_auto_dispense_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_auto_dispense_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_auto_dispense_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_auto_dispense_set_box_wrap, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    g_admin_lbl_auto_dispense_line2 = lv_label_create(g_admin_panel_auto_dispense);
-    ui_lang_bind_label(g_admin_lbl_auto_dispense_line2, STR_AUTO_DISP_LINE2);
-    lv_obj_set_style_text_color(g_admin_lbl_auto_dispense_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_auto_dispense_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_auto_dispense_line2, 400, 205);
+    lv_obj_t * img_auto_dispense_set_box = lv_image_create(g_admin_auto_dispense_set_box_wrap);
+    lv_image_set_src(img_auto_dispense_set_box, &set_box);
+    lv_obj_center(img_auto_dispense_set_box);
 
-    g_admin_btn_auto_dispense_on = make_orange_fill_btn(g_admin_panel_auto_dispense, ui_translation(STR_BTN_ON), 160, 44);
-    lv_obj_set_pos(g_admin_btn_auto_dispense_on, 1100 - 60, 140);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_auto_dispense_on, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_auto_dispense_on, STR_BTN_ON);
-    lv_obj_add_event_cb(g_admin_btn_auto_dispense_on, cb_admin_auto_dispense_on, LV_EVENT_CLICKED, NULL);
+    /* ===== 与待机时间页相同的行位置（row1_y/sep_y/row2_y） ===== */
+    const lv_coord_t auto_row_w   = 800;
+    const lv_coord_t auto_row1_y  = 85;   /* 同待机时间「时间设置」行 */
+    const lv_coord_t auto_sep_y   = 220;  /* 同待机时间横线 */
+    const lv_coord_t auto_row2_y  = 240;  /* 同待机时间「不熄屏」行 */
+    const lv_coord_t auto_row_pad = -15;
+    const lv_coord_t auto_title_h = 48;   /* 标题行高：文字与开关在此行内垂直居中 */
+    const lv_coord_t auto_logo_trim0 = 34;
+    const lv_coord_t auto_softener_scale_pct = 115;/* 柔顺剂图标放大倍数（为了与洗衣液图标大小一致） */
+    const lv_coord_t auto_softener_logo_w = (96 * auto_softener_scale_pct + 50) / 100;  /* 115 */
+    const lv_coord_t auto_softener_logo_h = (102 * auto_softener_scale_pct + 50) / 100; /* 122 */
+    const lv_coord_t auto_softener_trim = (auto_logo_trim0 * auto_softener_scale_pct + 50) / 100; /* 41 */
+    const lv_coord_t auto_softener_content_w = (28 * auto_softener_scale_pct + 50) / 100; /* 34 */
+    const lv_coord_t auto_detergent_trim = auto_logo_trim0;
+    const lv_coord_t auto_detergent_content_w = 30;
+    const lv_coord_t auto_icon_text_gap = 10; /* 可见图标与文字间距 */
+    const lv_coord_t auto_dose_btn_w = 153; /* auto_put_btn_box 原图 */
+    const lv_coord_t auto_dose_btn_h = 108;
+    static const ui_str_id_t auto_dose_ids[4] = {
+        STR_AUTO_DOSE_SMALL, STR_AUTO_DOSE_MED, STR_AUTO_DOSE_LARGE, STR_AUTO_DOSE_AUTO
+    };
 
-    g_admin_btn_auto_dispense_off = make_orange_fill_btn(g_admin_panel_auto_dispense, ui_translation(STR_BTN_OFF), 160, 44);
-    lv_obj_set_pos(g_admin_btn_auto_dispense_off, 1100 - 60, 200);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_auto_dispense_off, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_auto_dispense_off, STR_BTN_OFF);
-    lv_obj_add_event_cb(g_admin_btn_auto_dispense_off, cb_admin_auto_dispense_off, LV_EVENT_CLICKED, NULL);
+    /* 行1：柔顺剂（主文字+开关同排，下方 4 个用量按钮） */
+    g_admin_auto_row_softener = lv_obj_create(g_admin_auto_dispense_set_box_wrap);
+    lv_obj_set_size(g_admin_auto_row_softener, auto_row_w, 150);
+    lv_obj_align(g_admin_auto_row_softener, LV_ALIGN_TOP_MID, 0, auto_row1_y);
+    lv_obj_set_style_bg_opa(g_admin_auto_row_softener, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_auto_row_softener, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_auto_row_softener, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_auto_row_softener, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_auto_row_softener, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_auto_row_softener, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(g_admin_auto_row_softener, auto_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_auto_row_softener, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(g_admin_auto_row_softener, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
+    lv_obj_t * auto_softener_line = lv_obj_create(g_admin_auto_row_softener);
+    lv_obj_set_size(auto_softener_line, LV_PCT(100), auto_title_h);
+    lv_obj_set_style_bg_opa(auto_softener_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_softener_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(auto_softener_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(auto_softener_line, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(auto_softener_line, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(auto_softener_line, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_flag(auto_softener_line, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_clear_flag(auto_softener_line, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* logo 不参与 flex，避免撑高行高；文字与开关在同行垂直居中 */
+    lv_obj_t * img_softener_logo = lv_image_create(auto_softener_line);
+    lv_image_set_src(img_softener_logo, &softener_logo);
+    lv_obj_set_size(img_softener_logo, auto_softener_logo_w, auto_softener_logo_h); /* 原图 1.2 倍 */
+    lv_image_set_inner_align(img_softener_logo, LV_IMAGE_ALIGN_STRETCH);
+    lv_obj_add_flag(img_softener_logo, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_align(img_softener_logo, LV_ALIGN_LEFT_MID, -auto_softener_trim, 0);
+
+    g_admin_lbl_auto_softener = lv_label_create(auto_softener_line);
+    ui_lang_bind_label(g_admin_lbl_auto_softener, STR_AUTO_SOFTENER);
+    lv_obj_set_style_text_color(g_admin_lbl_auto_softener, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_auto_softener, s_font_sc_30);
+    lv_obj_set_style_margin_left(g_admin_lbl_auto_softener,
+        auto_softener_content_w + auto_icon_text_gap, LV_PART_MAIN);
+
+    g_admin_sw_auto_softener = lv_switch_create(auto_softener_line);
+    admin_data_style_switch(g_admin_sw_auto_softener);
+    lv_obj_add_event_cb(g_admin_sw_auto_softener, cb_admin_auto_dispense_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    lv_obj_t * auto_softener_btn_row = lv_obj_create(g_admin_auto_row_softener);
+    lv_obj_set_size(auto_softener_btn_row, auto_row_w, auto_dose_btn_h);
+    lv_obj_set_style_bg_opa(auto_softener_btn_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_softener_btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(auto_softener_btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(auto_softener_btn_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(auto_softener_btn_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(auto_softener_btn_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(auto_softener_btn_row, LV_OBJ_FLAG_SCROLLABLE);
+
+    for(int i = 0; i < 4; i++) {
+        g_admin_auto_softener_btns[i] = lv_obj_create(auto_softener_btn_row);
+        lv_obj_set_size(g_admin_auto_softener_btns[i], auto_dose_btn_w, auto_dose_btn_h);
+        lv_obj_set_style_bg_opa(g_admin_auto_softener_btns[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(g_admin_auto_softener_btns[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(g_admin_auto_softener_btns[i], 0, LV_PART_MAIN);
+        lv_obj_remove_flag(g_admin_auto_softener_btns[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(g_admin_auto_softener_btns[i], LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t * bg = lv_image_create(g_admin_auto_softener_btns[i]);
+        lv_image_set_src(bg, &auto_put_btn_box); /* 原尺寸 153×108，不缩放 */
+        lv_obj_center(bg);
+        lv_obj_add_flag(bg, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        g_admin_auto_softener_btn_lbls[i] = lv_label_create(g_admin_auto_softener_btns[i]);
+        ui_lang_bind_label(g_admin_auto_softener_btn_lbls[i], auto_dose_ids[i]);
+        lv_obj_set_style_text_color(g_admin_auto_softener_btn_lbls[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_auto_softener_btn_lbls[i], s_font_sc_20);
+        lv_obj_center(g_admin_auto_softener_btn_lbls[i]);
+        lv_obj_add_flag(g_admin_auto_softener_btn_lbls[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        lv_obj_add_event_cb(g_admin_auto_softener_btns[i], cb_admin_auto_dose_btn_clicked,
+            LV_EVENT_CLICKED, (void *)(intptr_t)i);
+    }
+
+    /* 两项之间的灰色横线 */
+    lv_obj_t * auto_dispense_sep = lv_obj_create(g_admin_auto_dispense_set_box_wrap);
+    lv_obj_set_size(auto_dispense_sep, auto_row_w, 1);
+    lv_obj_align(auto_dispense_sep, LV_ALIGN_TOP_MID, 0, auto_sep_y);
+    lv_obj_set_style_bg_color(auto_dispense_sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(auto_dispense_sep, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_dispense_sep, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(auto_dispense_sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+    /* 行2：洗衣液（布局同柔顺剂） */
+    g_admin_auto_row_detergent = lv_obj_create(g_admin_auto_dispense_set_box_wrap);
+    lv_obj_set_size(g_admin_auto_row_detergent, auto_row_w, 150);
+    lv_obj_align(g_admin_auto_row_detergent, LV_ALIGN_TOP_MID, 0, auto_row2_y);
+    lv_obj_set_style_bg_opa(g_admin_auto_row_detergent, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_auto_row_detergent, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_auto_row_detergent, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_auto_row_detergent, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_auto_row_detergent, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_auto_row_detergent, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(g_admin_auto_row_detergent, auto_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_auto_row_detergent, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(g_admin_auto_row_detergent, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * auto_detergent_line = lv_obj_create(g_admin_auto_row_detergent);
+    lv_obj_set_size(auto_detergent_line, LV_PCT(100), auto_title_h);
+    lv_obj_set_style_bg_opa(auto_detergent_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_detergent_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(auto_detergent_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(auto_detergent_line, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(auto_detergent_line, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(auto_detergent_line, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_flag(auto_detergent_line, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_clear_flag(auto_detergent_line, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* logo 不参与 flex，文字与开关垂直居中（洗衣液保持原尺寸） */
+    lv_obj_t * img_detergent_logo = lv_image_create(auto_detergent_line);
+    lv_image_set_src(img_detergent_logo, &detergent_logo);
+    lv_obj_add_flag(img_detergent_logo, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_align(img_detergent_logo, LV_ALIGN_LEFT_MID, -auto_detergent_trim, 0);
+
+    g_admin_lbl_auto_detergent = lv_label_create(auto_detergent_line);
+    ui_lang_bind_label(g_admin_lbl_auto_detergent, STR_AUTO_DETERGENT);
+    lv_obj_set_style_text_color(g_admin_lbl_auto_detergent, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_auto_detergent, s_font_sc_30);
+    lv_obj_set_style_margin_left(g_admin_lbl_auto_detergent,
+        auto_detergent_content_w + auto_icon_text_gap, LV_PART_MAIN);
+
+    g_admin_sw_auto_detergent = lv_switch_create(auto_detergent_line);
+    admin_data_style_switch(g_admin_sw_auto_detergent);
+    lv_obj_add_event_cb(g_admin_sw_auto_detergent, cb_admin_auto_dispense_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    lv_obj_t * auto_detergent_btn_row = lv_obj_create(g_admin_auto_row_detergent);
+    lv_obj_set_size(auto_detergent_btn_row, auto_row_w, auto_dose_btn_h);
+    lv_obj_set_style_bg_opa(auto_detergent_btn_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_detergent_btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(auto_detergent_btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(auto_detergent_btn_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(auto_detergent_btn_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(auto_detergent_btn_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(auto_detergent_btn_row, LV_OBJ_FLAG_SCROLLABLE);
+
+    for(int i = 0; i < 4; i++) {
+        g_admin_auto_detergent_btns[i] = lv_obj_create(auto_detergent_btn_row);
+        lv_obj_set_size(g_admin_auto_detergent_btns[i], auto_dose_btn_w, auto_dose_btn_h);
+        lv_obj_set_style_bg_opa(g_admin_auto_detergent_btns[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(g_admin_auto_detergent_btns[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(g_admin_auto_detergent_btns[i], 0, LV_PART_MAIN);
+        lv_obj_remove_flag(g_admin_auto_detergent_btns[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(g_admin_auto_detergent_btns[i], LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t * bg = lv_image_create(g_admin_auto_detergent_btns[i]);
+        lv_image_set_src(bg, &auto_put_btn_box); /* 原尺寸 153×108，不缩放 */
+        lv_obj_center(bg);
+        lv_obj_add_flag(bg, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        g_admin_auto_detergent_btn_lbls[i] = lv_label_create(g_admin_auto_detergent_btns[i]);
+        ui_lang_bind_label(g_admin_auto_detergent_btn_lbls[i], auto_dose_ids[i]);
+        lv_obj_set_style_text_color(g_admin_auto_detergent_btn_lbls[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_auto_detergent_btn_lbls[i], s_font_sc_20);
+        lv_obj_center(g_admin_auto_detergent_btn_lbls[i]);
+        lv_obj_add_flag(g_admin_auto_detergent_btn_lbls[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+
+        lv_obj_add_event_cb(g_admin_auto_detergent_btns[i], cb_admin_auto_dose_btn_clicked,
+            LV_EVENT_CLICKED, (void *)(intptr_t)(10 + i));
+    }
+
+    /* 默认：柔顺剂关、洗衣液开（「自动」橙色），与设计稿一致 */
+    g_admin_auto_softener_on = false;
+    g_admin_auto_detergent_on = true;
+    g_admin_auto_softener_dose = 3;
+    g_admin_auto_detergent_dose = 3;
+    g_ui_auto_dispense_enabled = true;
     admin_auto_dispense_sync_btn_ui();
 
     /* 臭氧功能子面板（1600×400，左文右钮竖排，布局同自投功能） */

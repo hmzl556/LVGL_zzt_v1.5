@@ -114,12 +114,12 @@ down_key
 down_set_dark
 
 待机时间的时间选择框
-time_set_box
+time_set_box                √
 
 自投功能
-softener_logo
-detergent_logo
-auto_put_btn_box
+softener_logo               √
+detergent_logo              √
+auto_put_btn_box            √
 
 屏幕亮度
 bright_logo
