@@ -1926,6 +1926,11 @@ typedef enum {
     ADMIN_WIFI_PHASE_FAILURE,      /* 小页面四：连接失败 */
 } admin_wifi_phase_t;
 
+typedef enum {
+    ADMIN_DATA_PAGE_LIST,
+    ADMIN_DATA_PAGE_STRATEGY,
+} admin_data_page_t;
+
 static lv_obj_t * g_scr_admin;
 static lv_obj_t * g_lbl_clock_admin;
 static lv_obj_t * g_admin_btn_back;
@@ -2101,11 +2106,19 @@ static lv_obj_t * g_admin_btn_payment_query;
 /* 数据设置子页控件 */
 static lv_obj_t * g_admin_panel_data;
 static lv_obj_t * g_admin_lbl_data_title;
-static lv_obj_t * g_admin_lbl_data_upload_hdr;
-static lv_obj_t * g_admin_lbl_data_strategy_hdr;
+static lv_obj_t * g_admin_img_data_title_box;
+static lv_obj_t * g_admin_data_set_box_wrap;
+static lv_obj_t * g_admin_data_list_view;
+static lv_obj_t * g_admin_data_strategy_view;
 static lv_obj_t * g_admin_cb_data_upload[7];
+static lv_obj_t * g_admin_lbl_data_upload[7];
+static lv_obj_t * g_admin_data_row_upload[7];
 static lv_obj_t * g_admin_cb_data_strategy[5];
+static lv_obj_t * g_admin_lbl_data_strategy[5];
+static lv_obj_t * g_admin_data_row_strategy[5];
+static admin_data_page_t g_admin_data_page = ADMIN_DATA_PAGE_LIST;
 static bool g_admin_data_strategy_ui_loading = false;
+static bool g_admin_data_upload_ui_loading = false;
 /* 网络设置子页控件 */
 static lv_obj_t * g_admin_panel_network;
 static lv_obj_t * g_admin_lbl_network_title;
@@ -2360,15 +2373,19 @@ static void admin_dormancy_back_to_menu1(void);
 static void cb_admin_dormancy_roller_changed(lv_event_t * e);
 static void cb_admin_dormancy_roller_encoder(lv_event_t * e);
 static void admin_data_back_to_menu2(void);
+static void admin_data_set_page(admin_data_page_t page);
 static void cb_admin_open_data_settings(lv_event_t * e);
 static void admin_payment_add_divider(lv_obj_t * parent, lv_coord_t x);
 static void brightness_slider_style_init(void);
 static void admin_4g_apply_switch_layout(void);
 static void admin_data_style_checkbox(lv_obj_t * cb);
+static void admin_data_style_switch(lv_obj_t * sw);
 static const ui_str_id_t g_data_upload_item_str_ids[7];
 static const ui_str_id_t g_data_strategy_str_ids[5];
-static void cb_admin_data_strategy_pressed(lv_event_t * e);
+static int admin_data_upload_index_from_cb(lv_obj_t * cb);
 static void cb_admin_data_strategy_changed(lv_event_t * e);
+static void cb_admin_data_upload_switch_changed(lv_event_t * e);
+static void admin_data_open_strategy(void);
 static void ui_idle_apply_dormancy_period(void);  //按 g_ui_dormancy_timeout_ms 刷新空闲定时器周期
 static const char * ui_dormancy_timeout_label(uint32_t ms);  //毫秒待机时长 → 界面显示文案（与待机 roller 选项一致）
 static void cb_admin_prog_roller_encoder(lv_event_t * e);  //程序设置 roller 编码器短按切换编辑/导航
@@ -6919,21 +6936,27 @@ static void admin_encoder_rebuild(void)
     case DATA_SETTINGS: {
         unsigned di;
 
-        for(di = 0; di < 7; di++) {
-            if(g_admin_cb_data_upload[di] != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_cb_data_upload[di]);
+        if(g_admin_data_page == ADMIN_DATA_PAGE_LIST) {
+            for(di = 0; di < 7; di++) {
+                if(g_admin_cb_data_upload[di] != NULL) {
+                    ui_encoder_group_add(g_group_admin, g_admin_cb_data_upload[di]);
+                }
             }
+            focus_first = (g_admin_cb_data_upload[0] != NULL) ?
+                g_admin_cb_data_upload[0] : g_admin_btn_back;
         }
-        for(di = 0; di < 5; di++) {
-            if(g_admin_cb_data_strategy[di] != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_cb_data_strategy[di]);
+        else {
+            for(di = 0; di < 5; di++) {
+                if(g_admin_cb_data_strategy[di] != NULL) {
+                    ui_encoder_group_add(g_group_admin, g_admin_cb_data_strategy[di]);
+                }
             }
+            focus_first = (g_admin_cb_data_strategy[0] != NULL) ?
+                g_admin_cb_data_strategy[0] : g_admin_btn_back;
         }
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
-        focus_first = (g_admin_cb_data_upload[0] != NULL) ?
-            g_admin_cb_data_upload[0] : g_admin_btn_back;
         break;
     }
     case NETWORK_SETTINGS:
@@ -7251,6 +7274,7 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == DATA_SETTINGS && g_admin_panel_data != NULL) {
         lv_obj_remove_flag(g_admin_panel_data, LV_OBJ_FLAG_HIDDEN);
+        admin_data_set_page(ADMIN_DATA_PAGE_LIST);
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
@@ -9668,6 +9692,18 @@ static void admin_data_style_checkbox(lv_obj_t * cb)
     lv_obj_set_style_text_color(cb, lv_color_hex(COL_DIM), LV_PART_MAIN | LV_STATE_DISABLED);
 }
 
+static void admin_data_style_switch(lv_obj_t * sw)
+{
+    if(sw == NULL) return;
+    admin_panel_style_switch(sw);
+    lv_obj_set_size(sw, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
+    lv_obj_refr_size(sw);
+    lv_obj_set_style_radius(sw, lv_obj_get_height(sw) / 2, LV_PART_MAIN);
+    lv_obj_update_layout(sw);
+    lv_obj_set_style_radius(sw, lv_obj_get_content_height(sw) / 2, LV_PART_INDICATOR);
+    admin_sw_apply_knob_pad(sw, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
+}
+
 /* 数据设置页：按 g_ui_data_upload_* 刷新左栏上传项复选框与文案 */
 static void admin_data_sync_upload_items_ui(void)
 {
@@ -9678,31 +9714,47 @@ static void admin_data_sync_upload_items_ui(void)
     };
     unsigned i;
 
+    g_admin_data_upload_ui_loading = true;
     for(i = 0; i < 7; i++) {
-        if(g_admin_cb_data_upload[i] == NULL) continue;
-        lv_checkbox_set_text(g_admin_cb_data_upload[i], ui_translation(g_data_upload_item_str_ids[i]));
-        if(*vars[i]) {
-            lv_obj_add_state(g_admin_cb_data_upload[i], LV_STATE_CHECKED);
+        if(g_admin_lbl_data_upload[i] != NULL) {
+            lv_label_set_text(g_admin_lbl_data_upload[i], ui_translation(g_data_upload_item_str_ids[i]));
         }
-        else {
-            lv_obj_remove_state(g_admin_cb_data_upload[i], LV_STATE_CHECKED);
+        if(g_admin_cb_data_upload[i] != NULL) {
+            if(*vars[i]) {
+                lv_obj_add_state(g_admin_cb_data_upload[i], LV_STATE_CHECKED);
+            }
+            else {
+                lv_obj_remove_state(g_admin_cb_data_upload[i], LV_STATE_CHECKED);
+            }
         }
     }
+    g_admin_data_upload_ui_loading = false;
 }
 
-/* 数据设置页：切换策略前临时解除右栏全部 DISABLED，便于点选其它项 */
-static void admin_data_strategy_enable_all(void)
+static void admin_data_set_page(admin_data_page_t page)
 {
-    unsigned i;
+    g_admin_data_page = page;
+    if(g_admin_panel_data == NULL) return;
 
-    for(i = 0; i < 5; i++) {
-        if(g_admin_cb_data_strategy[i] != NULL) {
-            lv_obj_remove_state(g_admin_cb_data_strategy[i], LV_STATE_DISABLED);
-        }
+    if(g_admin_data_list_view != NULL) {
+        if(page == ADMIN_DATA_PAGE_LIST) lv_obj_remove_flag(g_admin_data_list_view, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_data_list_view, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_data_strategy_view != NULL) {
+        if(page == ADMIN_DATA_PAGE_STRATEGY) lv_obj_remove_flag(g_admin_data_strategy_view, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_data_strategy_view, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_lbl_data_title != NULL) {
+        if(page == ADMIN_DATA_PAGE_LIST) lv_obj_remove_flag(g_admin_lbl_data_title, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_lbl_data_title, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_img_data_title_box != NULL) {
+        if(page == ADMIN_DATA_PAGE_LIST) lv_obj_remove_flag(g_admin_img_data_title_box, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_img_data_title_box, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
-/* 数据设置页：按 g_ui_data_upload_strategy 刷新右栏互斥复选框（选中一项，其余 unchecked+disabled） */
+/* 数据设置页：按 g_ui_data_upload_strategy 刷新策略页互斥开关 */
 static void admin_data_sync_strategy_ui(void)
 {
     unsigned i;
@@ -9710,20 +9762,30 @@ static void admin_data_sync_strategy_ui(void)
     g_admin_data_strategy_ui_loading = true;
     for(i = 0; i < 5; i++) {
         if(g_admin_cb_data_strategy[i] == NULL) continue;
-        lv_checkbox_set_text(g_admin_cb_data_strategy[i], ui_translation(g_data_strategy_str_ids[i]));
+        if(g_admin_lbl_data_strategy[i] != NULL) {
+            lv_label_set_text(g_admin_lbl_data_strategy[i], ui_translation(g_data_strategy_str_ids[i]));
+        }
         if((ui_data_upload_strategy_t)i == g_ui_data_upload_strategy) {
             lv_obj_add_state(g_admin_cb_data_strategy[i], LV_STATE_CHECKED);
-            lv_obj_remove_state(g_admin_cb_data_strategy[i], LV_STATE_DISABLED);
         }
         else {
             lv_obj_remove_state(g_admin_cb_data_strategy[i], LV_STATE_CHECKED);
-            lv_obj_add_state(g_admin_cb_data_strategy[i], LV_STATE_DISABLED);
         }
     }
     g_admin_data_strategy_ui_loading = false;
 }
 
-/* 由策略复选框对象反查下标；未找到返回 -1 */
+static int admin_data_upload_index_from_cb(lv_obj_t * cb)
+{
+    unsigned i;
+
+    for(i = 0; i < 7; i++) {
+        if(g_admin_cb_data_upload[i] == cb) return (int)i;
+    }
+    return -1;
+}
+
+/* 由策略开关对象反查下标；未找到返回 -1 */
 static int admin_data_strategy_index_from_cb(lv_obj_t * cb)
 {
     unsigned i;
@@ -9734,15 +9796,18 @@ static int admin_data_strategy_index_from_cb(lv_obj_t * cb)
     return -1;
 }
 
-/* 数据设置页：策略项按下时先解除禁用，便于切换到其它策略 */
-static void cb_admin_data_strategy_pressed(lv_event_t * e)
+/* 数据设置页：打开策略页（无标题，仅 set_box + 5 项互斥开关） */
+static void admin_data_open_strategy(void)
 {
-    if(lv_event_get_code(e) != LV_EVENT_PRESSED) return;
-    if(g_admin_view != DATA_SETTINGS) return;
-    admin_data_strategy_enable_all();
+    admin_data_set_page(ADMIN_DATA_PAGE_STRATEGY);
+    admin_data_sync_strategy_ui();
+    if(g_group_admin != NULL) {
+        lv_group_set_editing(g_group_admin, false);
+    }
+    admin_encoder_rebuild();
 }
 
-/* 数据设置页：策略项 VALUE_CHANGED 互斥回调（仅更新 g_ui 状态，不接上传后端） */
+/* 数据设置页：策略项 VALUE_CHANGED 互斥回调（只允许一项开启） */
 
 static void cb_admin_data_strategy_changed(lv_event_t * e)
 {
@@ -9759,11 +9824,43 @@ static void cb_admin_data_strategy_changed(lv_event_t * e)
 
     if(lv_obj_has_state(cb, LV_STATE_CHECKED)) {
         ui_data_upload_strategy_set((ui_data_upload_strategy_t)idx);
+        for(unsigned i = 0; i < 5; i++) {
+            if(g_admin_cb_data_strategy[i] != NULL && i != (unsigned)idx) {
+                lv_obj_remove_state(g_admin_cb_data_strategy[i], LV_STATE_CHECKED);
+            }
+        }
     }
     else if((ui_data_upload_strategy_t)idx == g_ui_data_upload_strategy) {
         g_admin_data_strategy_ui_loading = true;
         lv_obj_add_state(cb, LV_STATE_CHECKED);
         g_admin_data_strategy_ui_loading = false;
+    }
+}
+
+static void cb_admin_data_upload_switch_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if(g_admin_view != DATA_SETTINGS) return;
+    if(g_admin_data_page != ADMIN_DATA_PAGE_LIST) return;
+    if(g_admin_data_upload_ui_loading) return;
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    if(sw == NULL) return;
+    int idx = admin_data_upload_index_from_cb(sw);
+    if(idx < 0) return;
+    bool on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    switch(idx) {
+    case 0: ui_data_upload_basic_set(on); break;
+    case 1: ui_data_upload_sensor_set(on); break;
+    case 2: ui_data_upload_fault_set(on); break;
+    case 3: ui_data_upload_auto_dispense_set(on); break;
+    case 4: ui_data_upload_payment_order_set(on); break;
+    case 5: ui_data_upload_user_op_set(on); break;
+    case 6: ui_data_upload_device_set(on); break;
+    default: break;
+    }
+    /* 开关打开后跳转到策略页 */
+    if(on) {
+        admin_data_open_strategy();
     }
 }
 
@@ -9839,6 +9936,15 @@ static void cb_admin_open_payment_settings(lv_event_t * e)
 
 static void admin_data_back_to_menu2(void)
 {
+    if(g_admin_data_page == ADMIN_DATA_PAGE_STRATEGY) {
+        admin_data_set_page(ADMIN_DATA_PAGE_LIST);
+        admin_data_sync_upload_items_ui();
+        if(g_group_admin != NULL) {
+            lv_group_set_editing(g_group_admin, false);
+        }
+        admin_encoder_rebuild();
+        return;
+    }
     admin_panel_show(MENU2);
 }
 
@@ -9847,6 +9953,7 @@ static void admin_data_back_to_menu2(void)
 static void cb_admin_open_data_settings(lv_event_t * e)
 {
     (void)e;
+    admin_data_set_page(ADMIN_DATA_PAGE_LIST);
     admin_panel_show(DATA_SETTINGS);
 }
 
@@ -10548,56 +10655,6 @@ static void build_admin(void)
 
     admin_lang_sync_btn_ui();
 
-    /* 恢复默认子面板（1600×400，左文右钮竖排） */
-    g_admin_panel_factory = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_factory, 1600, 400);
-    lv_obj_align(g_admin_panel_factory, LV_ALIGN_TOP_MID, 0, 100);
-    lv_obj_set_style_bg_opa(g_admin_panel_factory, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(g_admin_panel_factory, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(g_admin_panel_factory, 0, LV_PART_MAIN);
-    lv_obj_set_style_layout(g_admin_panel_factory, LV_LAYOUT_NONE, LV_PART_MAIN);
-    lv_obj_add_flag(g_admin_panel_factory, LV_OBJ_FLAG_HIDDEN);
-
-    g_admin_lbl_factory_title = lv_label_create(g_admin_panel_factory);
-    ui_lang_bind_label(g_admin_lbl_factory_title, STR_ADMIN_M1_FACTORY_RESET);
-    lv_obj_set_style_text_color(g_admin_lbl_factory_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_factory_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_factory_title, LV_ALIGN_TOP_LEFT, 350, 30);
-
-    g_admin_lbl_factory_line1 = lv_label_create(g_admin_panel_factory);
-    ui_lang_bind_label(g_admin_lbl_factory_line1, STR_FACTORY_CONFIRM_Q);
-    lv_obj_set_style_text_color(g_admin_lbl_factory_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_factory_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_factory_line1, 400, 150);
-
-    g_admin_lbl_factory_line2 = lv_label_create(g_admin_panel_factory);
-    ui_lang_bind_label(g_admin_lbl_factory_line2, STR_FACTORY_CONFIRM_HINT);
-    lv_obj_set_style_text_color(g_admin_lbl_factory_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_factory_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_factory_line2, 400-15, 205);
-
-    g_admin_lbl_factory_status = lv_label_create(g_admin_panel_factory);
-    lv_label_set_text(g_admin_lbl_factory_status, ui_translation(STR_FACTORY_RESTORING));
-    lv_obj_set_style_text_color(g_admin_lbl_factory_status, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_factory_status, s_font_sc_30);
-    lv_obj_set_width(g_admin_lbl_factory_status, 1200);
-    lv_label_set_long_mode(g_admin_lbl_factory_status, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(g_admin_lbl_factory_status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(g_admin_lbl_factory_status, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_flag(g_admin_lbl_factory_status, LV_OBJ_FLAG_HIDDEN);
-
-    g_admin_btn_factory_ok = make_orange_fill_btn(g_admin_panel_factory, ui_translation(STR_BTN_OK), 160, 44);
-    lv_obj_set_pos(g_admin_btn_factory_ok, 1100-60, 140);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_factory_ok, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_factory_ok, STR_BTN_OK);
-    lv_obj_add_event_cb(g_admin_btn_factory_ok, cb_admin_factory_ok, LV_EVENT_CLICKED, NULL);
-
-    g_admin_btn_factory_cancel = make_orange_outline_btn(g_admin_panel_factory, ui_translation(STR_BTN_CANCEL), 160, 44);
-    lv_obj_set_pos(g_admin_btn_factory_cancel, 1100-60, 200);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_factory_cancel, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_factory_cancel, STR_BTN_CANCEL);
-    lv_obj_add_event_cb(g_admin_btn_factory_cancel, cb_admin_factory_cancel, LV_EVENT_CLICKED, NULL);
-
     /* 联系我们子面板（1600×400，左文右二维码，布局同恢复默认） */
     g_admin_panel_contact = lv_obj_create(root);
     lv_obj_set_size(g_admin_panel_contact, 1600, 400);
@@ -10888,7 +10945,7 @@ static void build_admin(void)
     admin_payment_sync_checkbox_ui();
     admin_payment_sync_timeout_roller_ui();
 
-    /* 数据设置子面板（1600×400，两栏：上传项 / 上传策略） */
+    /* 数据设置子面板（标题页：title_box + set_box + 7 行滚动开关） */
     g_admin_panel_data = lv_obj_create(root);
     lv_obj_set_size(g_admin_panel_data, 1600, 500);
     lv_obj_align(g_admin_panel_data, LV_ALIGN_TOP_MID, 0, 100);
@@ -10898,43 +10955,124 @@ static void build_admin(void)
     lv_obj_set_style_layout(g_admin_panel_data, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_data, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_data_title_box = lv_image_create(g_admin_panel_data);
+    lv_image_set_src(g_admin_img_data_title_box, &title_box);
+    lv_obj_align(g_admin_img_data_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_data_title = lv_label_create(g_admin_panel_data);
     ui_lang_bind_label(g_admin_lbl_data_title, STR_ADMIN_M2_DATA);
     lv_obj_set_style_text_color(g_admin_lbl_data_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_data_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_data_title, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_align(g_admin_lbl_data_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    admin_payment_add_divider(g_admin_panel_data, 800);
+    g_admin_data_set_box_wrap = lv_obj_create(g_admin_panel_data);
+    lv_obj_set_size(g_admin_data_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_data_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_data_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_data_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_data_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_data_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
 
-    g_admin_lbl_data_upload_hdr = lv_label_create(g_admin_panel_data);
-    ui_lang_bind_label(g_admin_lbl_data_upload_hdr, STR_DATA_UPLOAD_HDR);
-    lv_obj_set_style_text_color(g_admin_lbl_data_upload_hdr, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_data_upload_hdr, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_data_upload_hdr, LV_ALIGN_TOP_MID, -400, 70);
+    lv_obj_t * img_data_set_box = lv_image_create(g_admin_data_set_box_wrap);
+    lv_image_set_src(img_data_set_box, &set_box);
+    lv_obj_center(img_data_set_box);
 
-    g_admin_lbl_data_strategy_hdr = lv_label_create(g_admin_panel_data);
-    ui_lang_bind_label(g_admin_lbl_data_strategy_hdr, STR_DATA_STRATEGY_HDR);
-    lv_obj_set_style_text_color(g_admin_lbl_data_strategy_hdr, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_data_strategy_hdr, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_data_strategy_hdr, LV_ALIGN_TOP_MID, 400, 70);
+    /* 数据设置页统一宽度（列表/策略行、视图、横线共用，改这个值可整体缩放） */
+    const lv_coord_t data_row_w = 800;
+
+    g_admin_data_list_view = lv_obj_create(g_admin_data_set_box_wrap);
+    lv_obj_set_size(g_admin_data_list_view, data_row_w, 300);
+    lv_obj_align(g_admin_data_list_view, LV_ALIGN_TOP_MID, 0, 70);
+    lv_obj_set_style_bg_opa(g_admin_data_list_view, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_data_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_data_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(g_admin_data_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(g_admin_data_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_data_list_view, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_data_list_view, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_data_list_view, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(g_admin_data_list_view, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(g_admin_data_list_view, LV_SCROLLBAR_MODE_OFF);
+
+    g_admin_data_strategy_view = lv_obj_create(g_admin_data_set_box_wrap);
+    lv_obj_set_size(g_admin_data_strategy_view, data_row_w, LV_SIZE_CONTENT);
+    lv_obj_align(g_admin_data_strategy_view, LV_ALIGN_TOP_MID, 0, 70);
+    lv_obj_set_style_bg_opa(g_admin_data_strategy_view, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_data_strategy_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_data_strategy_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(g_admin_data_strategy_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(g_admin_data_strategy_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_data_strategy_view, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_data_strategy_view, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_data_strategy_view, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(g_admin_data_strategy_view, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(g_admin_data_strategy_view, LV_SCROLLBAR_MODE_OFF);
 
     for(int i = 0; i < 7; i++) {
-        g_admin_cb_data_upload[i] = lv_checkbox_create(g_admin_panel_data);
-        lv_checkbox_set_text(g_admin_cb_data_upload[i], ui_translation(g_data_upload_item_str_ids[i]));
-        admin_data_style_checkbox(g_admin_cb_data_upload[i]);
-        lv_obj_set_width(g_admin_cb_data_upload[i], 400);
-        lv_obj_set_pos(g_admin_cb_data_upload[i], 200, 130 + i * 45);
+        g_admin_data_row_upload[i] = lv_obj_create(g_admin_data_list_view);
+        lv_obj_set_size(g_admin_data_row_upload[i], data_row_w, 60);
+        lv_obj_set_style_bg_opa(g_admin_data_row_upload[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(g_admin_data_row_upload[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(g_admin_data_row_upload[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_layout(g_admin_data_row_upload[i], LV_LAYOUT_FLEX, LV_PART_MAIN);
+        lv_obj_set_flex_flow(g_admin_data_row_upload[i], LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(g_admin_data_row_upload[i], LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_clear_flag(g_admin_data_row_upload[i], LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+        g_admin_lbl_data_upload[i] = lv_label_create(g_admin_data_row_upload[i]);
+        lv_obj_set_style_text_color(g_admin_lbl_data_upload[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_lbl_data_upload[i], s_font_sc_30);
+        lv_label_set_long_mode(g_admin_lbl_data_upload[i], LV_LABEL_LONG_DOT);
+        lv_obj_set_width(g_admin_lbl_data_upload[i], LV_SIZE_CONTENT);
+
+        g_admin_cb_data_upload[i] = lv_switch_create(g_admin_data_row_upload[i]);
+        admin_data_style_switch(g_admin_cb_data_upload[i]);
+        lv_obj_add_event_cb(g_admin_cb_data_upload[i], cb_admin_data_upload_switch_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+        /* 7 行之间用灰色横线隔开（宽度随行宽变化） */
+        if(i < 6) {
+            lv_obj_t * sep = lv_obj_create(g_admin_data_list_view);
+            lv_obj_set_size(sep, data_row_w, 1);
+            lv_obj_set_style_bg_color(sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+            lv_obj_clear_flag(sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        }
     }
 
     for(int i = 0; i < 5; i++) {
-        g_admin_cb_data_strategy[i] = lv_checkbox_create(g_admin_panel_data);
-        lv_checkbox_set_text(g_admin_cb_data_strategy[i], ui_translation(g_data_strategy_str_ids[i]));
-        admin_data_style_checkbox(g_admin_cb_data_strategy[i]);
-        lv_obj_set_width(g_admin_cb_data_strategy[i], 380);
-        lv_obj_set_pos(g_admin_cb_data_strategy[i], 960, 130 + i * 45);
-        lv_obj_add_event_cb(g_admin_cb_data_strategy[i], cb_admin_data_strategy_pressed, LV_EVENT_PRESSED, NULL);
+        g_admin_data_row_strategy[i] = lv_obj_create(g_admin_data_strategy_view);
+        lv_obj_set_size(g_admin_data_row_strategy[i], data_row_w, 60);
+        lv_obj_set_style_bg_opa(g_admin_data_row_strategy[i], LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(g_admin_data_row_strategy[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(g_admin_data_row_strategy[i], 0, LV_PART_MAIN);
+        lv_obj_set_style_layout(g_admin_data_row_strategy[i], LV_LAYOUT_FLEX, LV_PART_MAIN);
+        lv_obj_set_flex_flow(g_admin_data_row_strategy[i], LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(g_admin_data_row_strategy[i], LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_clear_flag(g_admin_data_row_strategy[i], LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+        g_admin_lbl_data_strategy[i] = lv_label_create(g_admin_data_row_strategy[i]);
+        lv_obj_set_style_text_color(g_admin_lbl_data_strategy[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_lbl_data_strategy[i], s_font_sc_30);
+        lv_label_set_long_mode(g_admin_lbl_data_strategy[i], LV_LABEL_LONG_DOT);
+        lv_obj_set_width(g_admin_lbl_data_strategy[i], LV_SIZE_CONTENT);
+
+        g_admin_cb_data_strategy[i] = lv_switch_create(g_admin_data_row_strategy[i]);
+        admin_data_style_switch(g_admin_cb_data_strategy[i]);
         lv_obj_add_event_cb(g_admin_cb_data_strategy[i], cb_admin_data_strategy_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+        /* 5 行之间用灰色横线隔开 */
+        if(i < 4) {
+            lv_obj_t * sep = lv_obj_create(g_admin_data_strategy_view);
+            lv_obj_set_size(sep, data_row_w, 1);
+            lv_obj_set_style_bg_color(sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+            lv_obj_clear_flag(sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        }
     }
+
+    lv_obj_add_flag(g_admin_data_strategy_view, LV_OBJ_FLAG_HIDDEN);
 
     admin_data_sync_upload_items_ui();
     admin_data_sync_strategy_ui();
