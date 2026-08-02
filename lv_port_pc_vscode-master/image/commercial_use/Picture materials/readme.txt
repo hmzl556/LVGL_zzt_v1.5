@@ -129,7 +129,7 @@ touch_sound_logo
 sound_logo
 
 联系我们
-QR_code_xiaoya
+QR_code_xiaoya              √
 
 支付设置
 wechat_logo

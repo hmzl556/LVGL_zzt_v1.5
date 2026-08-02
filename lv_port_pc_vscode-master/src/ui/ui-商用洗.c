@@ -2127,9 +2127,11 @@ static lv_obj_t * g_admin_lbl_factory_line2;
 static lv_obj_t * g_admin_lbl_factory_status;
 static lv_obj_t * g_admin_btn_factory_ok;
 static lv_obj_t * g_admin_btn_factory_cancel;
-/* 联系我们子页控件 */
+/* 联系我们子页控件（布局同待机时间 title_box+set_box；文案/二维码坐标保持原值） */
 static lv_obj_t * g_admin_panel_contact;
+static lv_obj_t * g_admin_img_contact_title_box;
 static lv_obj_t * g_admin_lbl_contact_title;
+static lv_obj_t * g_admin_contact_set_box_wrap;
 static lv_obj_t * g_admin_lbl_contact_line1;
 static lv_obj_t * g_admin_lbl_contact_line2;
 static lv_obj_t * g_admin_img_contact_qr;
@@ -11123,39 +11125,60 @@ static void build_admin(void)
     if(g_admin_btn_lang_en != NULL) lv_obj_move_foreground(g_admin_btn_lang_en);
     admin_lang_sync_btn_ui();
 
-    /* 联系我们子面板（1600×400，左文右二维码，布局同恢复默认） */
+    /* 联系我们子面板（title_box/set_box 同待机时间；文案/二维码坐标保持原值） */
     g_admin_panel_contact = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_contact, 1600, 400);
-    lv_obj_align(g_admin_panel_contact, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_contact, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_contact, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_contact, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_contact, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_contact, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_contact, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_contact, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_contact_title_box = lv_image_create(g_admin_panel_contact);
+    lv_image_set_src(g_admin_img_contact_title_box, &title_box);
+    lv_obj_align(g_admin_img_contact_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_contact_title = lv_label_create(g_admin_panel_contact);
     ui_lang_bind_label(g_admin_lbl_contact_title, STR_ADMIN_M1_CONTACT);
     lv_obj_set_style_text_color(g_admin_lbl_contact_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_contact_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_contact_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_contact_title, LV_ALIGN_TOP_MID, 0, 25);
 
+    g_admin_contact_set_box_wrap = lv_obj_create(g_admin_panel_contact);
+    lv_obj_set_size(g_admin_contact_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_contact_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_contact_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_contact_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_contact_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_contact_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * img_contact_set_box = lv_image_create(g_admin_contact_set_box_wrap);
+    lv_image_set_src(img_contact_set_box, &set_box);
+    lv_obj_center(img_contact_set_box);
+
+    /* 两行文案 + 二维码：整体相对原坐标下移 100px */
     g_admin_lbl_contact_line1 = lv_label_create(g_admin_panel_contact);
     ui_lang_bind_label(g_admin_lbl_contact_line1, STR_CONTACT_HOTLINE);
     lv_obj_set_style_text_color(g_admin_lbl_contact_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_contact_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_contact_line1, 400, 150);
+    lv_obj_set_pos(g_admin_lbl_contact_line1, 400, 230);
 
     g_admin_lbl_contact_line2 = lv_label_create(g_admin_panel_contact);
     ui_lang_bind_label(g_admin_lbl_contact_line2, STR_CONTACT_SLOGAN);
     lv_obj_set_style_text_color(g_admin_lbl_contact_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_contact_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_contact_line2, 400, 205);
+    lv_obj_set_pos(g_admin_lbl_contact_line2, 400, 285);
 
     g_admin_img_contact_qr = lv_image_create(g_admin_panel_contact);
     lv_image_set_src(g_admin_img_contact_qr, &QR_code_xiaoya);
-    lv_obj_set_size(g_admin_img_contact_qr, 160, 160);//小鸭二维码大小
-    lv_obj_set_pos(g_admin_img_contact_qr, 1100-60, 120-10);
+    lv_obj_set_size(g_admin_img_contact_qr, 160, 160); /* 小鸭二维码大小 */
+    lv_obj_set_pos(g_admin_img_contact_qr, 1040, 190);
     lv_image_set_inner_align(g_admin_img_contact_qr, LV_IMAGE_ALIGN_STRETCH);
+
+    if(g_admin_lbl_contact_line1 != NULL) lv_obj_move_foreground(g_admin_lbl_contact_line1);
+    if(g_admin_lbl_contact_line2 != NULL) lv_obj_move_foreground(g_admin_lbl_contact_line2);
+    if(g_admin_img_contact_qr != NULL) lv_obj_move_foreground(g_admin_img_contact_qr);
 
     /* 自投功能子面板（标题页：title_box + set_box，位置参数与待机时间页一致） */
     g_admin_panel_auto_dispense = lv_obj_create(root);
