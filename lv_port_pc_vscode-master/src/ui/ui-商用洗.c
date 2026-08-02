@@ -1240,6 +1240,11 @@ typedef enum {
     STR_DORM_1H,
     STR_DORM_2H,
     STR_DORM_NO_SLEEP,
+    STR_DORM_TIME_SET,
+    STR_DORM_TIME_HINT,
+    STR_DORM_NO_SLEEP_HINT,
+    STR_DORM_TIME_PREFIX,
+    STR_DORM_TIME_SUFFIX,
     STR_FACTORY_CONFIRM_Q,
     STR_FACTORY_CONFIRM_HINT,
     STR_FACTORY_RESTORING,
@@ -1438,7 +1443,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_BRIGHTNESS_LINE2]       = "如若关闭，则在运行过程中无操作自动熄灭屏幕",
         [STR_SOUND_TOUCH]            = "触控声音：",
         [STR_SOUND_VOICE]            = "声音播报：",
-        [STR_DORMANCY_TITLE]         = "待机时间设置",
+        [STR_DORMANCY_TITLE]         = "待机时间",
         [STR_DORMANCY_CUR_FMT]       = "当前：%s",
         [STR_DORMANCY_ROLLER]        = "1分钟\n2分钟\n5分钟\n10分钟\n15分钟\n30分钟\n1小时\n2小时\n不熄屏",
         [STR_DORM_1MIN]              = "1分钟",
@@ -1450,6 +1455,11 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DORM_1H]                = "1小时",
         [STR_DORM_2H]                = "2小时",
         [STR_DORM_NO_SLEEP]          = "不熄屏",
+        [STR_DORM_TIME_SET]          = "时间设置",
+        [STR_DORM_TIME_HINT]         = "可设置屏幕进入休眠状态的时间，默认时间5分钟",
+        [STR_DORM_NO_SLEEP_HINT]     = "屏幕一直处于常亮状态",
+        [STR_DORM_TIME_PREFIX]       = "机器将在",
+        [STR_DORM_TIME_SUFFIX]       = "后熄屏",
         [STR_FACTORY_CONFIRM_Q]      = "是否需要恢复默认设置？",
         [STR_FACTORY_CONFIRM_HINT]   = "（所有设置都将恢复出厂设置）",
         [STR_FACTORY_RESTORING]      = "正在恢复出厂设置......",
@@ -1630,7 +1640,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_BRIGHTNESS_LINE2]       = "If off, screen turns off after inactivity during operation",
         [STR_SOUND_TOUCH]            = "Touch Sound:",
         [STR_SOUND_VOICE]            = "Voice Broadcast:",
-        [STR_DORMANCY_TITLE]         = "Standby Timeout",
+        [STR_DORMANCY_TITLE]         = "Standby",
         [STR_DORMANCY_CUR_FMT]       = "Current: %s",
         [STR_DORMANCY_ROLLER]        = "1 min\n2 min\n5 min\n10 min\n15 min\n30 min\n1 hour\n2 hour\nAlways On",
         [STR_DORM_1MIN]              = "1 min",
@@ -1642,6 +1652,11 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DORM_1H]                = "1 hour",
         [STR_DORM_2H]                = "2 hour",
         [STR_DORM_NO_SLEEP]          = "Always On",
+        [STR_DORM_TIME_SET]          = "Time",
+        [STR_DORM_TIME_HINT]         = "Set how long before the screen sleeps. Default 5 min",
+        [STR_DORM_NO_SLEEP_HINT]     = "Keep the screen always on",
+        [STR_DORM_TIME_PREFIX]       = "Screen will turn off in",
+        [STR_DORM_TIME_SUFFIX]       = "",
         [STR_FACTORY_CONFIRM_Q]      = "Restore factory settings?",
         [STR_FACTORY_CONFIRM_HINT]   = "(All settings will be reset to factory defaults)",
         [STR_FACTORY_RESTORING]      = "Restoring factory settings......",
@@ -2019,9 +2034,29 @@ static lv_obj_t * s_admin_group_prev_focus;     /* 编码器 focus_cb：检测 m
 static lv_obj_t * g_admin_panel_program;
 static lv_obj_t * g_admin_panel_brightness;
 static lv_obj_t * g_admin_panel_dormancy;
-static lv_obj_t * g_admin_dormancy_roller;
-static lv_obj_t * g_admin_lbl_dormancy_cur;
-static lv_obj_t * g_admin_btn_dormancy_confirm;
+static lv_obj_t * g_admin_img_dormancy_title_box;
+static lv_obj_t * g_admin_lbl_dormancy_title;
+static lv_obj_t * g_admin_dormancy_set_box_wrap;
+static lv_obj_t * g_admin_dormancy_row_time;
+static lv_obj_t * g_admin_lbl_dormancy_time;
+static lv_obj_t * g_admin_lbl_dormancy_time_hint;
+static lv_obj_t * g_admin_dormancy_sw_time;
+static lv_obj_t * g_admin_dormancy_row_no_sleep;
+static lv_obj_t * g_admin_lbl_dormancy_no_sleep;
+static lv_obj_t * g_admin_lbl_dormancy_no_sleep_hint;
+static lv_obj_t * g_admin_dormancy_sw_no_sleep;
+static bool g_admin_dormancy_ui_loading = false;
+/* 待机时间选择子页控件 */
+static lv_obj_t * g_admin_dormancy_tp_wrap;        /* 时间选择子页容器 */
+static lv_obj_t * g_admin_dormancy_tp_lbl_prefix;  /* "机器将在" */
+static lv_obj_t * g_admin_dormancy_tp_lbl_suffix;  /* "后熄屏" */
+static lv_obj_t * g_admin_dormancy_tp_digit_imgs[4]; /* 4 个 time_set_box 数字图 */
+static lv_obj_t * g_admin_dormancy_tp_digit_rollers[4]; /* 4 个数字滚动条（叠在图上） */
+static lv_obj_t * g_admin_dormancy_tp_lbl_colon;   /* 冒号 ":" */
+static lv_obj_t * g_admin_dormancy_tp_btn_ok;      /* 确定 */
+static lv_obj_t * g_admin_dormancy_tp_btn_cancel;  /* 取消 */
+static uint32_t g_admin_dormancy_tp_minutes;        /* 编辑中的分钟数 */
+static bool g_admin_dormancy_tp_active = false;     /* 时间选择页是否显示中 */
 /* 屏幕亮度子页控件 */
 static lv_obj_t * g_admin_lbl_brightness_title;
 static lv_obj_t * g_admin_lbl_brightness_line1;
@@ -2210,6 +2245,8 @@ static void cb_admin_ta_key_enter(lv_event_t * e);  //编码器 Enter：进入�
 static void cb_admin_ta_kb_focus(lv_event_t * e);  //密码/机器 ID 输入框：弹出键盘并进入逐键选择
 static void admin_encoder_group_add_kb(lv_group_t * group);  //将管理员键盘加入编码器 group（无外层描边）
 static void admin_panel_show(admin_view_t view);  //切换管理员子面板显示并重建编码器焦点
+static void admin_dormancy_show_time_picker(void);  //待机时间选择子页
+static void admin_dormancy_hide_time_picker(void);  //隐藏时间选择子页
 static void admin_session_reset(void);  //退出管理员：清除解锁状态并回到密码页
 static void admin_encoder_rebuild(void);  //按当前管理员子页重建编码器 focus 顺序
 static void admin_group_edge_cb(lv_group_t * group, bool forward);  //menu1 第8钮右转进入 menu2
@@ -2295,7 +2332,7 @@ static void admin_sound_touch_sound_volume_slider_exit_edit(lv_obj_t * slider); 
 static void admin_gradient_slider_fill_inner(lv_obj_t * frame, lv_obj_t ** out_bar, lv_obj_t ** out_slider,
                                              lv_obj_t ** out_focus);  //渐变滑条内层 bar/slider/focus
 static void cb_admin_open_dormancy_standby(lv_event_t * e);  //菜单「待机时间」入口
-static void cb_admin_dormancy_confirm(lv_event_t * e);  //待机时间确认：写入超时并回菜单
+static void cb_admin_dormancy_sw_changed(lv_event_t * e);  //待机时间开关：时间设置/不息屏互斥
 static void admin_lang_btn_set_selected(lv_obj_t * btn, bool selected);  //语言页按钮：填充/描边
 static void admin_lang_sync_btn_ui(void);  //语言页按钮与 g_ui_lang 对齐
 static void admin_lang_back_to_menu1(void);  //离开语言设置页：回 menu1
@@ -2368,10 +2405,9 @@ static void cb_admin_payment_wechat_changed(lv_event_t * e);  //支付设置：�
 static void cb_admin_payment_timeout_roller_encoder(lv_event_t * e);  //支付超时 roller 编码器短按切换编辑/导航
 static void admin_payment_back_to_menu2(void);  //离开支付设置页：回 menu2
 static void cb_admin_open_payment_settings(lv_event_t * e);  //menu2「支付设置」入口
-static void admin_dormancy_sync_roller(void);
+static void admin_dormancy_sync_switches(void);
 static void admin_dormancy_back_to_menu1(void);
-static void cb_admin_dormancy_roller_changed(lv_event_t * e);
-static void cb_admin_dormancy_roller_encoder(lv_event_t * e);
+static void cb_admin_dormancy_sw_changed(lv_event_t * e);
 static void admin_data_back_to_menu2(void);
 static void admin_data_set_page(admin_data_page_t page);
 static void cb_admin_open_data_settings(lv_event_t * e);
@@ -2420,6 +2456,7 @@ static lv_obj_t * g_off_btn_power;
 static lv_obj_t * g_scr_before_off;                /* 空闲进待机前所在界面；NULL 表示开机首屏待机 */
 static lv_timer_t * g_idle_timer;
 static uint32_t g_ui_dormancy_timeout_ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
+static bool g_ui_dormancy_no_sleep = false;   /* 不息屏：屏幕一直常亮，不启动空闲待机 */
 static lv_coord_t g_idle_last_ptr_x = -1;
 static lv_coord_t g_idle_last_ptr_y = -1;
 static lv_obj_t * g_mode_carousel;
@@ -2549,6 +2586,7 @@ LV_IMAGE_DECLARE(pay_set);
 LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
+LV_IMAGE_DECLARE(time_set_box);
 LV_IMAGE_DECLARE(success);
 LV_IMAGE_DECLARE(failure);
 
@@ -2735,6 +2773,7 @@ static const lv_font_t * s_font_sc_30;
 static const lv_font_t * s_font_sc_35;
 static const lv_font_t * s_font_sc_40;
 static const lv_font_t * s_font_sc_50;
+static const lv_font_t * s_font_sc_70;
 static const lv_font_t * s_font_sc_125;
 
 static void ui_fsm_poll_running_pause_sync(void);
@@ -2829,6 +2868,7 @@ static void ui_apply_chinese_font(void)  //绑定中文字体并应用到 LVGL �
 	s_font_sc_35 = ui_font_get_sc_35();
 	s_font_sc_40 = ui_font_get_sc_40();
 	s_font_sc_50 = ui_font_get_sc_50();
+	s_font_sc_70 = ui_font_get_sc_70();
 	s_font_sc_125 = ui_font_get_sc_125();
 
 	lv_display_t * d = lv_display_get_default();
@@ -6821,13 +6861,27 @@ static void admin_encoder_rebuild(void)
             g_admin_sw_touch_sound : g_admin_btn_back;
         break;
     case DORMANCY_STANDBY:
-        if(g_admin_dormancy_roller != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_dormancy_roller);
+        if(g_admin_dormancy_tp_active) {
+            /* 时间选择子页：4 个数字滚动条 → 确定 → 取消 */
+            for(int i = 0; i < 4; i++) {
+                if(g_admin_dormancy_tp_digit_rollers[i] != NULL)
+                    ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_digit_rollers[i]);
+            }
+            if(g_admin_dormancy_tp_btn_ok != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_btn_ok);
+            if(g_admin_dormancy_tp_btn_cancel != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_btn_cancel);
+            focus_first = (g_admin_dormancy_tp_digit_rollers[0] != NULL) ?
+                g_admin_dormancy_tp_digit_rollers[0] : g_admin_btn_back;
+        } else {
+            if(g_admin_dormancy_sw_time != NULL) {
+                ui_encoder_group_add(g_group_admin, g_admin_dormancy_sw_time);
+            }
+            if(g_admin_dormancy_sw_no_sleep != NULL) {
+                ui_encoder_group_add(g_group_admin, g_admin_dormancy_sw_no_sleep);
+            }
+            focus_first = (g_admin_dormancy_sw_time != NULL) ? g_admin_dormancy_sw_time : g_admin_btn_back;
         }
-        if(g_admin_btn_dormancy_confirm != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_dormancy_confirm);
-        }
-        focus_first = (g_admin_dormancy_roller != NULL) ? g_admin_dormancy_roller : g_admin_btn_back;
         break;
     case LANGUAGE_SETTINGS:
         if(g_admin_btn_lang_zh != NULL) {
@@ -7027,11 +7081,6 @@ static void admin_encoder_rebuild(void)
         if(focus_first == g_admin_kb && g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
             admin_kb_encoder_select_first(g_admin_kb);
         }
-        /* 待机时间页：初始焦点在 roller 且直接进入编辑，旋转即可改选项 */
-        if(g_admin_view == DORMANCY_STANDBY && focus_first == g_admin_dormancy_roller &&
-           g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, true);
-        }
         if(g_admin_view == SCREEN_BRIGHTNESS) {
             admin_brightness_slider_sync_focus_frame();
         }
@@ -7175,6 +7224,10 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == DORMANCY_STANDBY && g_admin_panel_dormancy != NULL) {
         lv_obj_remove_flag(g_admin_panel_dormancy, LV_OBJ_FLAG_HIDDEN);
+        /* 确保回到开关页 */
+        if(g_admin_dormancy_tp_active) {
+            admin_dormancy_hide_time_picker();
+        }
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
@@ -7182,7 +7235,7 @@ static void admin_panel_show(admin_view_t view)
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
-        admin_dormancy_sync_roller();
+        admin_dormancy_sync_switches();
     }
     else if(view == LANGUAGE_SETTINGS && g_admin_panel_lang != NULL) {
         lv_obj_remove_flag(g_admin_panel_lang, LV_OBJ_FLAG_HIDDEN);
@@ -7495,7 +7548,11 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == DORMANCY_STANDBY) {
-        admin_dormancy_back_to_menu1();
+        if(g_admin_dormancy_tp_active) {
+            admin_dormancy_hide_time_picker();
+        } else {
+            admin_dormancy_back_to_menu1();
+        }
         return;
     }
     if(g_admin_view == LANGUAGE_SETTINGS) {
@@ -7605,7 +7662,7 @@ static void cb_admin_machine_cancel(lv_event_t * e)
 static void ui_idle_apply_dormancy_period(void)
 {
     if(g_idle_timer == NULL) return;
-    if(g_ui_dormancy_timeout_ms == UI_DORMANCY_DISABLED_MS) {
+    if(g_ui_dormancy_no_sleep || g_ui_dormancy_timeout_ms == UI_DORMANCY_DISABLED_MS) {
         lv_timer_pause(g_idle_timer);
         return;
     }
@@ -7683,23 +7740,26 @@ static uint32_t ui_dormancy_roller_index_from_ms(uint32_t ms)
     return DORMANCY_ROLLER_DEFAULT_IDX;
 }
 
-/* 刷新「当前：xx」标签（按 g_ui_dormancy_timeout_ms 已保存值） */
+/* 进入待机时间页时：按 g_ui_dormancy_timeout_ms / g_ui_dormancy_no_sleep 同步两个独立开关 */
 
-static void admin_dormancy_label_update(void)
+static void admin_dormancy_sync_switches(void)
 {
-    if(g_admin_lbl_dormancy_cur == NULL) return;
-    char buf[48];
-    lv_snprintf(buf, sizeof(buf), ui_translation(STR_DORMANCY_CUR_FMT), ui_dormancy_timeout_label(g_ui_dormancy_timeout_ms));
-    lv_label_set_text(g_admin_lbl_dormancy_cur, buf);
-}
-
-/* 进入待机时间页时：roller 选中项与「当前」标签对齐已保存配置 */
-
-static void admin_dormancy_sync_roller(void)
-{
-    if(g_admin_dormancy_roller == NULL) return;
-    lv_roller_set_selected(g_admin_dormancy_roller, ui_dormancy_roller_index_from_ms(g_ui_dormancy_timeout_ms), LV_ANIM_OFF);
-    admin_dormancy_label_update();
+    if(g_admin_dormancy_sw_time == NULL || g_admin_dormancy_sw_no_sleep == NULL) return;
+    g_admin_dormancy_ui_loading = true;
+    bool time_on = (g_ui_dormancy_timeout_ms != UI_DORMANCY_DISABLED_MS);
+    if(time_on) {
+        lv_obj_add_state(g_admin_dormancy_sw_time, LV_STATE_CHECKED);
+    }
+    else {
+        lv_obj_remove_state(g_admin_dormancy_sw_time, LV_STATE_CHECKED);
+    }
+    if(g_ui_dormancy_no_sleep) {
+        lv_obj_add_state(g_admin_dormancy_sw_no_sleep, LV_STATE_CHECKED);
+    }
+    else {
+        lv_obj_remove_state(g_admin_dormancy_sw_no_sleep, LV_STATE_CHECKED);
+    }
+    g_admin_dormancy_ui_loading = false;
 }
 
 /* 离开待机时间子页：关闭 group 编辑态并回到管理员菜单 */
@@ -7712,84 +7772,152 @@ static void admin_dormancy_back_to_menu1(void)
     admin_panel_show(MENU1);
 }
 
-/* 待机 roller 数值变化：仅更新「当前」预览，不写 g_ui_dormancy_timeout_ms（确认键才保存） */
+/* 待机时间两个开关联动（互斥）：
+ *   1. 打开「时间设置」→ 关闭「不息屏」，进入时间选择子页（TODO 布局）
+ *   2. 关闭「时间设置」→ 打开「不息屏」，永不休眠
+ *   3. 打开「不息屏」→ 关闭「时间设置」
+ *   4. 关闭「不息屏」→ 打开「时间设置」（默认5分钟，不跳转子页）
+ */
 
-static void cb_admin_dormancy_roller_changed(lv_event_t * e)
+static void cb_admin_dormancy_sw_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
-    if(g_admin_dormancy_roller == NULL || g_admin_lbl_dormancy_cur == NULL) return;
-    uint32_t idx = lv_roller_get_selected(g_admin_dormancy_roller);
-    if(idx >= DORMANCY_ROLLER_CNT) return;
-    char buf[48];
-    lv_snprintf(buf, sizeof(buf), ui_translation(STR_DORMANCY_CUR_FMT), ui_dormancy_timeout_label(g_dormancy_timeout_ms_tbl[idx]));
-    lv_label_set_text(g_admin_lbl_dormancy_cur, buf);
-}
-
-/*
- * 待机时间 roller 退出编码器编辑态。
- * 短按第二次编码器 / 失焦时调用；先同步 LVGL 内部 ori 再 editing=false，避免选项被回滚。
- */
-
-static void admin_dormancy_roller_exit_edit(lv_obj_t * roller)
-{
-    if(g_group_admin == NULL || roller == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != roller) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    /* LVGL：editing→false 触发的 FOCUSED 会把选中项恢复为 sel_opt_id_ori */
-    uint32_t sel = lv_roller_get_selected(roller);
-    if(sel < DORMANCY_ROLLER_CNT) {
-        lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
-    }
-    lv_group_set_editing(g_group_admin, false);
-}
-
-/*
- * 待机时间 roller：外设编码器短按发 LV_EVENT_CLICKED，在编辑/导航间切换。
- * 进页默认编辑态；短按退出后可再短按进入；失焦时自动退出编辑。
- */
-
-static void cb_admin_dormancy_roller_encoder(lv_event_t * e)
-{
-    lv_obj_t * roller = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
     if(g_admin_view != DORMANCY_STANDBY) return;
-    if(roller == NULL || lv_obj_has_flag(roller, LV_OBJ_FLAG_HIDDEN)) return;
+    if(g_admin_dormancy_ui_loading) return;
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    if(sw == NULL) return;
+    bool on = lv_obj_has_state(sw, LV_STATE_CHECKED);
 
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_dormancy_roller_exit_edit(roller);
+    g_admin_dormancy_ui_loading = true;
+
+    if(sw == g_admin_dormancy_sw_time) {
+        if(on) {
+            /* 情况1：打开时间设置 → 关不息屏，进时间选择子页 */
+            g_ui_dormancy_timeout_ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
+            g_ui_dormancy_no_sleep   = false;
+            lv_obj_remove_state(g_admin_dormancy_sw_no_sleep, LV_STATE_CHECKED);
+            admin_dormancy_show_time_picker();
+        } else {
+            /* 情况2：关闭时间设置 → 开不息屏 */
+            g_ui_dormancy_timeout_ms = UI_DORMANCY_DISABLED_MS;
+            g_ui_dormancy_no_sleep   = true;
+            lv_obj_add_state(g_admin_dormancy_sw_no_sleep, LV_STATE_CHECKED);
         }
-        return;
     }
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != roller) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_dormancy_roller_exit_edit(roller);
-    }
-    else {
-        uint32_t sel = lv_roller_get_selected(roller);
-        if(sel < DORMANCY_ROLLER_CNT) {
-            lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
+    else if(sw == g_admin_dormancy_sw_no_sleep) {
+        if(on) {
+            /* 情况3：打开不息屏 → 关时间设置 */
+            g_ui_dormancy_no_sleep   = true;
+            g_ui_dormancy_timeout_ms = UI_DORMANCY_DISABLED_MS;
+            lv_obj_remove_state(g_admin_dormancy_sw_time, LV_STATE_CHECKED);
+        } else {
+            /* 情况4：关闭不息屏 → 开时间设置（默认5分钟，不跳转子页） */
+            g_ui_dormancy_no_sleep   = false;
+            g_ui_dormancy_timeout_ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
+            lv_obj_add_state(g_admin_dormancy_sw_time, LV_STATE_CHECKED);
         }
-        lv_group_set_editing(g_group_admin, true);
     }
-    lv_event_stop_processing(e);
+
+    g_admin_dormancy_ui_loading = false;
+    ui_idle_apply_dormancy_period();
 }
 
-/* 待机时间「确认」：写入 g_ui_dormancy_timeout_ms、刷新空闲定时器并回菜单 */
+/* ===== 时间选择子页（time_set_box 数字 + 确定/取消） ===== */
 
-static void cb_admin_dormancy_confirm(lv_event_t * e)
+/* 将 g_admin_dormancy_tp_minutes 刷新到 4 个数字滚动条 */
+static void admin_dormancy_tp_sync_digits(void)
+{
+    uint32_t m = g_admin_dormancy_tp_minutes;
+    if(m > 99) m = 99;
+    if(g_admin_dormancy_tp_digit_rollers[0] != NULL)
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[0], m / 10, LV_ANIM_OFF);
+    if(g_admin_dormancy_tp_digit_rollers[1] != NULL)
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[1], m % 10, LV_ANIM_OFF);
+    if(g_admin_dormancy_tp_digit_rollers[2] != NULL)
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[2], 0, LV_ANIM_OFF);
+    if(g_admin_dormancy_tp_digit_rollers[3] != NULL)
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[3], 0, LV_ANIM_OFF);
+}
+
+/* 显示时间选择子页 */
+static void admin_dormancy_show_time_picker(void)
+{
+    if(g_admin_dormancy_tp_wrap == NULL) return;
+
+    uint32_t ms = g_ui_dormancy_timeout_ms;
+    if(ms == UI_DORMANCY_DISABLED_MS) ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
+    g_admin_dormancy_tp_minutes = ms / 60000u;
+    if(g_admin_dormancy_tp_minutes < 1) g_admin_dormancy_tp_minutes = 1;
+    if(g_admin_dormancy_tp_minutes > 99) g_admin_dormancy_tp_minutes = 99;
+
+    admin_dormancy_tp_sync_digits();
+
+    if(g_admin_dormancy_set_box_wrap != NULL)
+        lv_obj_add_flag(g_admin_dormancy_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_img_dormancy_title_box != NULL)
+        lv_obj_add_flag(g_admin_img_dormancy_title_box, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_lbl_dormancy_title != NULL)
+        lv_obj_add_flag(g_admin_lbl_dormancy_title, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_remove_flag(g_admin_dormancy_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+    g_admin_dormancy_tp_active = true;
+
+    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
+    admin_encoder_rebuild();
+}
+
+/* 隐藏时间选择子页，回到开关页 */
+static void admin_dormancy_hide_time_picker(void)
+{
+    if(g_admin_dormancy_tp_wrap == NULL) return;
+
+    lv_obj_add_flag(g_admin_dormancy_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_dormancy_set_box_wrap != NULL)
+        lv_obj_remove_flag(g_admin_dormancy_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_img_dormancy_title_box != NULL)
+        lv_obj_remove_flag(g_admin_img_dormancy_title_box, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_lbl_dormancy_title != NULL)
+        lv_obj_remove_flag(g_admin_lbl_dormancy_title, LV_OBJ_FLAG_HIDDEN);
+
+    g_admin_dormancy_tp_active = false;
+
+    if(g_group_admin != NULL) {
+        lv_group_set_editing(g_group_admin, false);
+    }
+    admin_encoder_rebuild();
+}
+
+/* 确定：应用选中时间 */
+static void cb_admin_dormancy_tp_confirm(lv_event_t * e)
 {
     (void)e;
-    if(g_admin_dormancy_roller == NULL) return;
-    uint32_t idx = lv_roller_get_selected(g_admin_dormancy_roller);
-    if(idx >= DORMANCY_ROLLER_CNT) idx = DORMANCY_ROLLER_DEFAULT_IDX;
-    g_ui_dormancy_timeout_ms = g_dormancy_timeout_ms_tbl[idx];
+    if(!g_admin_dormancy_tp_active) return;
+    uint32_t ms = g_admin_dormancy_tp_minutes * 60000u;
+    g_ui_dormancy_timeout_ms = ms;
     ui_idle_apply_dormancy_period();
-    admin_dormancy_back_to_menu1();
+    admin_dormancy_hide_time_picker();
+}
+
+/* 取消：不保存，回到开关页 */
+static void cb_admin_dormancy_tp_cancel(lv_event_t * e)
+{
+    (void)e;
+    if(!g_admin_dormancy_tp_active) return;
+    admin_dormancy_hide_time_picker();
+}
+
+/* 任意数字滚动条变化 → 重新计算分钟数 */
+static void cb_admin_dormancy_tp_digit_roller_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if(!g_admin_dormancy_tp_active) return;
+    uint32_t m = 0;
+    if(g_admin_dormancy_tp_digit_rollers[0] != NULL)
+        m += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[0]) * 10;
+    if(g_admin_dormancy_tp_digit_rollers[1] != NULL)
+        m += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[1]);
+    if(m < 1) m = 1;
+    g_admin_dormancy_tp_minutes = m;
 }
 
 /* 管理员菜单「待机时间」入口：进入待机时间设置子页 */
@@ -8724,6 +8852,7 @@ static void admin_factory_run_restore(void)
 {
     program_admin_init_factory();
     g_ui_dormancy_timeout_ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
+    g_ui_dormancy_no_sleep = false;
     ui_idle_apply_dormancy_period();
     g_machine_id = 1u;
     g_ui_lang = UI_LANG_ZH;
@@ -9193,13 +9322,6 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
 
 static void ui_lang_refresh_rollers(void)
 {
-    if(g_admin_dormancy_roller != NULL) {
-        uint32_t sel = lv_roller_get_selected(g_admin_dormancy_roller);
-        lv_roller_set_options(g_admin_dormancy_roller, ui_translation(STR_DORMANCY_ROLLER), LV_ROLLER_MODE_NORMAL);
-        if(sel < DORMANCY_ROLLER_CNT) {
-            lv_roller_set_selected(g_admin_dormancy_roller, sel, LV_ANIM_OFF);
-        }
-    }
     if(g_admin_payment_timeout_roller != NULL) {
         uint32_t sel = lv_roller_get_selected(g_admin_payment_timeout_roller);
         lv_roller_set_options(g_admin_payment_timeout_roller, ui_translation(STR_PAYMENT_TIMEOUT_ROLLER),
@@ -9275,7 +9397,6 @@ static void ui_lang_apply_all(void)
         }
     }
     ui_lang_refresh_rollers();
-    admin_dormancy_label_update();
     admin_machine_id_label_update();
     program_admin_refresh_i18n();
     admin_payment_sync_checkbox_ui();
@@ -10373,58 +10494,257 @@ static void build_admin(void)
         }
     }
 
-    /* 待机时间子面板（1600×600 屏：顶栏下 y=60，内容区高 400） */
+    /* 待机时间子面板（标题页：title_box + set_box + 两项互斥开关） */
     g_admin_panel_dormancy = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_dormancy, 1600, 400);
-    lv_obj_align(g_admin_panel_dormancy, LV_ALIGN_TOP_MID, 0, 60);
-    lv_obj_set_style_bg_opa(g_admin_panel_dormancy, LV_OPA_TRANSP, LV_PART_MAIN);//20%透明
+    lv_obj_set_size(g_admin_panel_dormancy, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_dormancy, LV_ALIGN_TOP_MID, 0, body_y);
+    lv_obj_set_style_bg_opa(g_admin_panel_dormancy, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_dormancy, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_dormancy, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_dormancy, LV_LAYOUT_NONE, LV_PART_MAIN);
-    lv_obj_add_flag(g_admin_panel_dormancy, LV_OBJ_FLAG_OVERFLOW_VISIBLE);//溢出可见
     lv_obj_add_flag(g_admin_panel_dormancy, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_t * lbl_dormancy_title = lv_label_create(g_admin_panel_dormancy);
-    ui_lang_bind_label(lbl_dormancy_title, STR_DORMANCY_TITLE);
-    lv_obj_set_style_text_color(lbl_dormancy_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(lbl_dormancy_title, s_font_sc_30);
-    lv_obj_align(lbl_dormancy_title, LV_ALIGN_TOP_MID, 0, 16);
+    g_admin_img_dormancy_title_box = lv_image_create(g_admin_panel_dormancy);
+    lv_image_set_src(g_admin_img_dormancy_title_box, &title_box);
+    lv_obj_align(g_admin_img_dormancy_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_dormancy_cur = lv_label_create(g_admin_panel_dormancy);//当前：几分钟
-    lv_obj_set_style_text_color(g_admin_lbl_dormancy_cur, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_dormancy_cur, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_dormancy_cur, LV_ALIGN_TOP_MID, 0, 105);
+    g_admin_lbl_dormancy_title = lv_label_create(g_admin_panel_dormancy);
+    ui_lang_bind_label(g_admin_lbl_dormancy_title, STR_DORMANCY_TITLE);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_dormancy_title, s_font_sc_30);
+    lv_obj_align(g_admin_lbl_dormancy_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    lv_obj_t * dormancy_box = lv_obj_create(g_admin_panel_dormancy);//滚动条区域
-    lv_obj_set_size(dormancy_box, 420, 100);
-    lv_obj_align(dormancy_box, LV_ALIGN_TOP_MID, 0, 165);
-    lv_obj_set_style_radius(dormancy_box, 8, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(dormancy_box, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(dormancy_box, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(dormancy_box, 0, LV_PART_MAIN);
-    lv_obj_add_flag(dormancy_box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    g_admin_dormancy_set_box_wrap = lv_obj_create(g_admin_panel_dormancy);
+    lv_obj_set_size(g_admin_dormancy_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_dormancy_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_dormancy_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_dormancy_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_dormancy_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_dormancy_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
 
-    g_admin_dormancy_roller = lv_roller_create(dormancy_box);
-    lv_obj_set_size(g_admin_dormancy_roller, 380, 100);
-    lv_roller_set_options(g_admin_dormancy_roller, ui_translation(STR_DORMANCY_ROLLER), LV_ROLLER_MODE_NORMAL);
-    lv_roller_set_visible_row_count(g_admin_dormancy_roller,1);//可见行数
-    lv_obj_set_style_text_font(g_admin_dormancy_roller, s_font_sc_30, LV_PART_MAIN);
-    lv_obj_set_style_text_font(g_admin_dormancy_roller, s_font_sc_30, LV_PART_SELECTED);
-    lv_obj_set_style_bg_opa(g_admin_dormancy_roller, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(g_admin_dormancy_roller, LV_OPA_TRANSP, LV_PART_SELECTED);
-    lv_obj_set_style_text_color(g_admin_dormancy_roller, lv_color_hex(0x000000), LV_PART_MAIN);
-    lv_obj_set_style_text_color(g_admin_dormancy_roller, lv_color_hex(0x000000), LV_PART_SELECTED);
-    lv_obj_set_style_border_width(g_admin_dormancy_roller, 0, LV_PART_MAIN);
-    lv_obj_center(g_admin_dormancy_roller);
-    lv_obj_add_event_cb(g_admin_dormancy_roller, cb_admin_dormancy_roller_changed, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_event_cb(g_admin_dormancy_roller, cb_admin_dormancy_roller_encoder, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(g_admin_dormancy_roller, cb_admin_dormancy_roller_encoder, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_t * img_dormancy_set_box = lv_image_create(g_admin_dormancy_set_box_wrap);
+    lv_image_set_src(img_dormancy_set_box, &set_box);
+    lv_obj_center(img_dormancy_set_box);
 
-    g_admin_btn_dormancy_confirm = make_orange_fill_btn(g_admin_panel_dormancy, ui_translation(STR_BTN_CONFIRM), 160, 44);
-    lv_obj_align(g_admin_btn_dormancy_confirm, LV_ALIGN_BOTTOM_MID, 0, -50);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_dormancy_confirm, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_dormancy_confirm, STR_BTN_CONFIRM);
-    lv_obj_add_event_cb(g_admin_btn_dormancy_confirm, cb_admin_dormancy_confirm, LV_EVENT_CLICKED, NULL);
+    /* ===== 待机时间页尺寸/间距集中配置（改这里即可统一调整） ===== */
+    const lv_coord_t dorm_row_w   = 800;   /* 行宽（横线、说明文字宽度同此） */
+    const lv_coord_t dorm_row1_y  = 85;    /* 行1 顶部 Y（相对 set_box 顶） */
+    const lv_coord_t dorm_sep_y   = 200;   /* 横线 Y（行1 与行2 之间） */
+    const lv_coord_t dorm_row2_y  = 240;   /* 行2 顶部 Y */
+    const lv_coord_t dorm_row_pad = 20;     /* 主文字与小文字的间距 */
+
+    /* 行1：时间设置（主文字+开关同排垂直居中，说明小字在下） */
+    g_admin_dormancy_row_time = lv_obj_create(g_admin_dormancy_set_box_wrap);
+    lv_obj_set_size(g_admin_dormancy_row_time, dorm_row_w, 150);
+    lv_obj_align(g_admin_dormancy_row_time, LV_ALIGN_TOP_MID, 0, dorm_row1_y);
+    lv_obj_set_style_bg_opa(g_admin_dormancy_row_time, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_dormancy_row_time, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_dormancy_row_time, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_dormancy_row_time, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_dormancy_row_time, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_dormancy_row_time, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(g_admin_dormancy_row_time, dorm_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_dormancy_row_time, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    /* 主文字 + 开关 同一行（文字左、开关右、垂直居中） */
+    lv_obj_t * dormancy_time_line = lv_obj_create(g_admin_dormancy_row_time);
+    lv_obj_set_size(dormancy_time_line, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(dormancy_time_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dormancy_time_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(dormancy_time_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(dormancy_time_line, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(dormancy_time_line, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(dormancy_time_line, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    g_admin_lbl_dormancy_time = lv_label_create(dormancy_time_line);
+    ui_lang_bind_label(g_admin_lbl_dormancy_time, STR_DORM_TIME_SET);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_time, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_dormancy_time, s_font_sc_30);
+
+    g_admin_dormancy_sw_time = lv_switch_create(dormancy_time_line);
+    admin_data_style_switch(g_admin_dormancy_sw_time);
+    lv_obj_add_event_cb(g_admin_dormancy_sw_time, cb_admin_dormancy_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* 说明小字 */
+    g_admin_lbl_dormancy_time_hint = lv_label_create(g_admin_dormancy_row_time);
+    ui_lang_bind_label(g_admin_lbl_dormancy_time_hint, STR_DORM_TIME_HINT);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_time_hint, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_dormancy_time_hint, s_font_sc_27);
+    lv_obj_set_width(g_admin_lbl_dormancy_time_hint, dorm_row_w);
+    lv_label_set_long_mode(g_admin_lbl_dormancy_time_hint, LV_LABEL_LONG_DOT);
+
+    /* 两项之间的灰色横线 */
+    lv_obj_t * dormancy_sep = lv_obj_create(g_admin_dormancy_set_box_wrap);
+    lv_obj_set_size(dormancy_sep, dorm_row_w, 1);
+    lv_obj_align(dormancy_sep, LV_ALIGN_TOP_MID, 0, dorm_sep_y);
+    lv_obj_set_style_bg_color(dormancy_sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dormancy_sep, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dormancy_sep, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(dormancy_sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+    /* 行2：不息屏（主文字+开关同排垂直居中，说明小字在下） */
+    g_admin_dormancy_row_no_sleep = lv_obj_create(g_admin_dormancy_set_box_wrap);
+    lv_obj_set_size(g_admin_dormancy_row_no_sleep, dorm_row_w, 150);
+    lv_obj_align(g_admin_dormancy_row_no_sleep, LV_ALIGN_TOP_MID, 0, dorm_row2_y);
+    lv_obj_set_style_bg_opa(g_admin_dormancy_row_no_sleep, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_dormancy_row_no_sleep, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_dormancy_row_no_sleep, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_dormancy_row_no_sleep, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_dormancy_row_no_sleep, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_dormancy_row_no_sleep, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(g_admin_dormancy_row_no_sleep, dorm_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_dormancy_row_no_sleep, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    /* 主文字 + 开关 同一行（文字左、开关右、垂直居中） */
+    lv_obj_t * dormancy_nosleep_line = lv_obj_create(g_admin_dormancy_row_no_sleep);
+    lv_obj_set_size(dormancy_nosleep_line, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(dormancy_nosleep_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dormancy_nosleep_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(dormancy_nosleep_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(dormancy_nosleep_line, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(dormancy_nosleep_line, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(dormancy_nosleep_line, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    g_admin_lbl_dormancy_no_sleep = lv_label_create(dormancy_nosleep_line);
+    ui_lang_bind_label(g_admin_lbl_dormancy_no_sleep, STR_DORM_NO_SLEEP);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_no_sleep, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_dormancy_no_sleep, s_font_sc_30);
+
+    g_admin_dormancy_sw_no_sleep = lv_switch_create(dormancy_nosleep_line);
+    admin_data_style_switch(g_admin_dormancy_sw_no_sleep);
+    lv_obj_add_event_cb(g_admin_dormancy_sw_no_sleep, cb_admin_dormancy_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* 说明小字 */
+    g_admin_lbl_dormancy_no_sleep_hint = lv_label_create(g_admin_dormancy_row_no_sleep);
+    ui_lang_bind_label(g_admin_lbl_dormancy_no_sleep_hint, STR_DORM_NO_SLEEP_HINT);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_no_sleep_hint, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_dormancy_no_sleep_hint, s_font_sc_27);
+    lv_obj_set_width(g_admin_lbl_dormancy_no_sleep_hint, dorm_row_w);
+    lv_label_set_long_mode(g_admin_lbl_dormancy_no_sleep_hint, LV_LABEL_LONG_DOT);
+
+    admin_dormancy_sync_switches();
+
+    /* ===== 时间选择子页（无 title_box/set_box，纯文字+数字瓦片+滚动条+按钮） ===== */
+    g_admin_dormancy_tp_wrap = lv_obj_create(g_admin_panel_dormancy);
+    lv_obj_set_size(g_admin_dormancy_tp_wrap, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_dormancy_tp_wrap, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_opa(g_admin_dormancy_tp_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_dormancy_tp_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_dormancy_tp_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_dormancy_tp_wrap, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_dormancy_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+
+    /* ---- 数字瓦片行："机器将在" + 4×time_set_box + ":" + "后熄屏"，同一行水平居中 ---- */
+    {
+        const lv_coord_t tile_w   = 78;
+        const lv_coord_t tile_h   = 101;
+        const lv_coord_t gap      = 8;
+        const lv_coord_t colon_w  = 24;   /* 冒号占宽 */
+        /* 总宽 = 前缀 + gap + 4*tile + 3*gap + colon + gap + 后缀 */
+        /* 先算中间组宽：4*78 + 3*8 + 24 = 360 */
+        const lv_coord_t group_w  = tile_w * 4 + gap * 3 + colon_w;  /* 360 */
+        const lv_coord_t row_y    = 180;  /* 行 Y（相对 wrap 顶） */
+
+        /* "机器将在" */
+        g_admin_dormancy_tp_lbl_prefix = lv_label_create(g_admin_dormancy_tp_wrap);
+        ui_lang_bind_label(g_admin_dormancy_tp_lbl_prefix, STR_DORM_TIME_PREFIX);
+        lv_obj_set_style_text_color(g_admin_dormancy_tp_lbl_prefix, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_dormancy_tp_lbl_prefix, s_font_sc_50);
+
+        /* "后熄屏" */
+        g_admin_dormancy_tp_lbl_suffix = lv_label_create(g_admin_dormancy_tp_wrap);
+        ui_lang_bind_label(g_admin_dormancy_tp_lbl_suffix, STR_DORM_TIME_SUFFIX);
+        lv_obj_set_style_text_color(g_admin_dormancy_tp_lbl_suffix, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_dormancy_tp_lbl_suffix, s_font_sc_50);
+
+        /* 先让标签自适应大小后再计算居中偏移 */
+        lv_obj_update_layout(g_admin_dormancy_tp_lbl_prefix);
+        lv_obj_update_layout(g_admin_dormancy_tp_lbl_suffix);
+        const lv_coord_t prefix_w = lv_obj_get_width(g_admin_dormancy_tp_lbl_prefix);
+        const lv_coord_t suffix_w = lv_obj_get_width(g_admin_dormancy_tp_lbl_suffix);
+        const lv_coord_t row_total_w = prefix_w + gap + group_w + gap + suffix_w;
+        const lv_coord_t row_start_x = (UI_FIXED_W - row_total_w) / 2 - 80;  /* 整体偏移 */
+
+        /* 放置前缀 */
+        lv_obj_set_pos(g_admin_dormancy_tp_lbl_prefix, row_start_x - 15,
+            row_y + (tile_h - lv_obj_get_height(g_admin_dormancy_tp_lbl_prefix)) / 2);
+
+        /* 放置后缀 */
+        lv_obj_set_pos(g_admin_dormancy_tp_lbl_suffix,
+            row_start_x + prefix_w + gap + group_w + gap + 15,
+            row_y + (tile_h - lv_obj_get_height(g_admin_dormancy_tp_lbl_suffix)) / 2);
+
+        /* 数字瓦片组起始 x */
+        const lv_coord_t tiles_x0 = row_start_x + prefix_w + gap;
+
+        /* 4 个 time_set_box 背景 + 独立数字滚动条（0~9） */
+        for(int i = 0; i < 4; i++) {
+            lv_coord_t tx;
+            if(i == 0) tx = 0;
+            else if(i == 1) tx = tile_w + gap;
+            else if(i == 2) tx = (tile_w + gap) * 2 + colon_w;
+            else tx = (tile_w + gap) * 3 + colon_w;
+
+            /* time_set_box 背景图 */
+            g_admin_dormancy_tp_digit_imgs[i] = lv_image_create(g_admin_dormancy_tp_wrap);
+            lv_image_set_src(g_admin_dormancy_tp_digit_imgs[i], &time_set_box);
+            lv_obj_set_size(g_admin_dormancy_tp_digit_imgs[i], tile_w, tile_h);
+            lv_obj_set_pos(g_admin_dormancy_tp_digit_imgs[i], tiles_x0 + tx, row_y);
+
+            /* 数字滚动条叠在图上 */
+            g_admin_dormancy_tp_digit_rollers[i] = lv_roller_create(g_admin_dormancy_tp_wrap);
+            lv_roller_set_visible_row_count(g_admin_dormancy_tp_digit_rollers[i], 1);
+            lv_obj_set_style_bg_opa(g_admin_dormancy_tp_digit_rollers[i], LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(g_admin_dormancy_tp_digit_rollers[i], LV_OPA_TRANSP, LV_PART_SELECTED);
+            lv_obj_set_style_text_color(g_admin_dormancy_tp_digit_rollers[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+            lv_obj_set_style_text_color(g_admin_dormancy_tp_digit_rollers[i], lv_color_hex(COL_TEXT), LV_PART_SELECTED);
+            lv_obj_set_style_border_width(g_admin_dormancy_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(g_admin_dormancy_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_text_line_space(g_admin_dormancy_tp_digit_rollers[i], 30, LV_PART_MAIN);
+            lv_obj_set_style_text_line_space(g_admin_dormancy_tp_digit_rollers[i], 30, LV_PART_SELECTED);
+            lv_obj_set_style_radius(g_admin_dormancy_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_text_font(g_admin_dormancy_tp_digit_rollers[i], s_font_sc_70, LV_PART_MAIN);
+            lv_obj_set_style_text_font(g_admin_dormancy_tp_digit_rollers[i], s_font_sc_70, LV_PART_SELECTED);
+            lv_obj_set_style_text_align(g_admin_dormancy_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+            lv_obj_set_style_text_align(g_admin_dormancy_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_SELECTED);
+            lv_roller_set_options(g_admin_dormancy_tp_digit_rollers[i], "0\n1\n2\n3\n4\n5\n6\n7\n8\n9",
+                LV_ROLLER_MODE_NORMAL);
+            lv_obj_set_size(g_admin_dormancy_tp_digit_rollers[i], tile_w, tile_h);
+            lv_obj_set_pos(g_admin_dormancy_tp_digit_rollers[i], tiles_x0 + tx, row_y);
+            lv_obj_add_event_cb(g_admin_dormancy_tp_digit_rollers[i],
+                cb_admin_dormancy_tp_digit_roller_changed, LV_EVENT_VALUE_CHANGED, NULL);
+        }
+
+        /* 冒号 ":" */
+        g_admin_dormancy_tp_lbl_colon = lv_label_create(g_admin_dormancy_tp_wrap);
+        lv_label_set_text(g_admin_dormancy_tp_lbl_colon, ":");
+        lv_obj_set_style_text_color(g_admin_dormancy_tp_lbl_colon, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_dormancy_tp_lbl_colon, s_font_sc_70);
+        lv_obj_update_layout(g_admin_dormancy_tp_lbl_colon);
+        lv_obj_set_pos(g_admin_dormancy_tp_lbl_colon,
+            tiles_x0 + (tile_w + gap) * 2 + (colon_w - lv_obj_get_width(g_admin_dormancy_tp_lbl_colon)) / 2 + (-2),
+            row_y + (tile_h - lv_obj_get_height(g_admin_dormancy_tp_lbl_colon)) / 2 + (-10));
+    }
+
+    /* ---- 右侧按钮：确定（填充）+ 取消（描边） ---- */
+    {
+        const lv_coord_t btn_w = 110;
+        const lv_coord_t btn_h = 50;
+        const lv_coord_t btn_y = -40;//y偏移，越大越往下
+        g_admin_dormancy_tp_btn_ok = make_orange_fill_btn(g_admin_dormancy_tp_wrap,
+            ui_translation(STR_BTN_CONFIRM), btn_w, btn_h);
+        lv_obj_align(g_admin_dormancy_tp_btn_ok, LV_ALIGN_RIGHT_MID, -300, -50 + btn_y);
+        ui_set_obj_font(lv_obj_get_child(g_admin_dormancy_tp_btn_ok, 0), s_font_sc_30);
+        orange_btn_bind_i18n(g_admin_dormancy_tp_btn_ok, STR_BTN_CONFIRM);
+        lv_obj_add_event_cb(g_admin_dormancy_tp_btn_ok, cb_admin_dormancy_tp_confirm, LV_EVENT_CLICKED, NULL);
+
+        g_admin_dormancy_tp_btn_cancel = make_orange_outline_btn(g_admin_dormancy_tp_wrap,
+            ui_translation(STR_BTN_CANCEL), btn_w, btn_h);
+        lv_obj_align(g_admin_dormancy_tp_btn_cancel, LV_ALIGN_RIGHT_MID, -300, 50 + btn_y);
+        ui_set_obj_font(lv_obj_get_child(g_admin_dormancy_tp_btn_cancel, 0), s_font_sc_30);
+        orange_btn_bind_i18n(g_admin_dormancy_tp_btn_cancel, STR_BTN_CANCEL);
+        lv_obj_add_event_cb(g_admin_dormancy_tp_btn_cancel, cb_admin_dormancy_tp_cancel, LV_EVENT_CLICKED, NULL);
+    }
 
     /* 屏幕亮度子面板（1600×400，布局同恢复默认；标题左、开关与标题同行右侧） */
     g_admin_panel_brightness = lv_obj_create(root);
@@ -10947,8 +11267,8 @@ static void build_admin(void)
 
     /* 数据设置子面板（标题页：title_box + set_box + 7 行滚动开关） */
     g_admin_panel_data = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_data, 1600, 500);
-    lv_obj_align(g_admin_panel_data, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_data, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_data, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_data, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_data, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_data, 0, LV_PART_MAIN);

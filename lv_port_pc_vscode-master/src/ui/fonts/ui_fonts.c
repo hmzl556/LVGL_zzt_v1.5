@@ -30,6 +30,11 @@ const lv_font_t * ui_font_get_sc_50(void)
 	return &ui_font_SC_50;
 }
 
+const lv_font_t * ui_font_get_sc_70(void)
+{
+	return &ui_font_SC_70;
+}
+
 const lv_font_t * ui_font_get_sc_125(void)
 {
 	return &ui_font_SC_125;
