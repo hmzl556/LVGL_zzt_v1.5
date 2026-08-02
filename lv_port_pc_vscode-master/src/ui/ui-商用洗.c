@@ -2166,9 +2166,11 @@ static lv_obj_t * g_admin_fresh_air_set_box_wrap;
 static lv_obj_t * g_admin_lbl_fresh_air_prompt;
 static lv_obj_t * g_admin_sw_fresh_air;
 static bool g_admin_fresh_air_ui_loading = false;
-/* 系统升级子页控件 */
+/* 系统升级子页控件（布局同待机时间 title_box+set_box；确定钮同 ID 取消） */
 static lv_obj_t * g_admin_panel_system_upgrade;
+static lv_obj_t * g_admin_img_system_upgrade_title_box;
 static lv_obj_t * g_admin_lbl_system_upgrade_title;
+static lv_obj_t * g_admin_system_upgrade_set_box_wrap;
 static lv_obj_t * g_admin_lbl_system_upgrade_line1;
 static lv_obj_t * g_admin_lbl_system_upgrade_status;
 static lv_obj_t * g_admin_btn_system_upgrade_ok;
@@ -9295,6 +9297,7 @@ static void admin_system_upgrade_set_phase(admin_system_upgrade_phase_t phase)
             else {
                 lv_label_set_text(g_admin_lbl_system_upgrade_status, ui_translation(STR_UPGRADE_LATEST));
             }
+            lv_obj_center(g_admin_lbl_system_upgrade_status);
         }
     }
 
@@ -11510,43 +11513,69 @@ static void build_admin(void)
     }
     admin_fresh_air_care_sync_btn_ui();
 
-    /* 系统升级子面板（1600×400，左文右钮，布局同恢复默认） */
+    /* 系统升级子面板（title_box/set_box 同待机时间；确定钮同 ID 取消） */
     g_admin_panel_system_upgrade = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_system_upgrade, 1600, 400);
-    lv_obj_align(g_admin_panel_system_upgrade, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_system_upgrade, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_system_upgrade, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_system_upgrade, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_system_upgrade, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_system_upgrade, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_system_upgrade, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_system_upgrade, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_system_upgrade_title_box = lv_image_create(g_admin_panel_system_upgrade);
+    lv_image_set_src(g_admin_img_system_upgrade_title_box, &title_box);
+    lv_obj_align(g_admin_img_system_upgrade_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_system_upgrade_title = lv_label_create(g_admin_panel_system_upgrade);
     ui_lang_bind_label(g_admin_lbl_system_upgrade_title, STR_ADMIN_M2_UPGRADE);
     lv_obj_set_style_text_color(g_admin_lbl_system_upgrade_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_system_upgrade_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_system_upgrade_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_system_upgrade_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_system_upgrade_line1 = lv_label_create(g_admin_panel_system_upgrade);
+    g_admin_system_upgrade_set_box_wrap = lv_obj_create(g_admin_panel_system_upgrade);
+    lv_obj_set_size(g_admin_system_upgrade_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_system_upgrade_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_system_upgrade_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_system_upgrade_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_system_upgrade_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_system_upgrade_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * img_system_upgrade_set_box = lv_image_create(g_admin_system_upgrade_set_box_wrap);
+    lv_image_set_src(img_system_upgrade_set_box, &set_box);
+    lv_obj_center(img_system_upgrade_set_box);
+
+    /* 第一页：左侧确认文案（与右侧按钮垂直居中） */
+    g_admin_lbl_system_upgrade_line1 = lv_label_create(g_admin_system_upgrade_set_box_wrap);
     ui_lang_bind_label(g_admin_lbl_system_upgrade_line1, STR_UPGRADE_CONFIRM_Q);
     lv_obj_set_style_text_color(g_admin_lbl_system_upgrade_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_system_upgrade_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_system_upgrade_line1, 400, (150+205)/2);
+    lv_obj_align(g_admin_lbl_system_upgrade_line1, LV_ALIGN_CENTER, -200, 0);
 
-    g_admin_lbl_system_upgrade_status = lv_label_create(g_admin_panel_system_upgrade);
+    /* 第二/三页：状态文案居中（升级中 / 已是最新） */
+    g_admin_lbl_system_upgrade_status = lv_label_create(g_admin_system_upgrade_set_box_wrap);
     lv_label_set_text(g_admin_lbl_system_upgrade_status, ui_translation(STR_UPGRADE_IN_PROGRESS));
     lv_obj_set_style_text_color(g_admin_lbl_system_upgrade_status, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_system_upgrade_status, s_font_sc_30);
-    lv_obj_set_width(g_admin_lbl_system_upgrade_status, 1200);
+    lv_obj_set_width(g_admin_lbl_system_upgrade_status, 900);
     lv_label_set_long_mode(g_admin_lbl_system_upgrade_status, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(g_admin_lbl_system_upgrade_status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_align(g_admin_lbl_system_upgrade_status, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_center(g_admin_lbl_system_upgrade_status);
     lv_obj_add_flag(g_admin_lbl_system_upgrade_status, LV_OBJ_FLAG_HIDDEN);
 
-    g_admin_btn_system_upgrade_ok = make_orange_outline_btn(g_admin_panel_system_upgrade, ui_translation(STR_BTN_CONFIRM), 160, 44);
-    lv_obj_set_pos(g_admin_btn_system_upgrade_ok, 1100 - 60, (140+200)/2);
+    /* 确定：与 ID 取消按钮完全一致（outline、110×50、右侧 x=400），y=0 与文案垂直居中 */
+    const lv_coord_t upgrade_btn_w = 110;
+    const lv_coord_t upgrade_btn_h = 50;
+    g_admin_btn_system_upgrade_ok = make_orange_outline_btn(g_admin_system_upgrade_set_box_wrap,
+        ui_translation(STR_BTN_OK), upgrade_btn_w, upgrade_btn_h);
+    lv_obj_align(g_admin_btn_system_upgrade_ok, LV_ALIGN_CENTER, 400, 0);
     ui_set_obj_font(lv_obj_get_child(g_admin_btn_system_upgrade_ok, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_system_upgrade_ok, STR_BTN_CONFIRM);
+    orange_btn_bind_i18n(g_admin_btn_system_upgrade_ok, STR_BTN_OK);
     lv_obj_add_event_cb(g_admin_btn_system_upgrade_ok, cb_admin_system_upgrade_ok, LV_EVENT_CLICKED, NULL);
+
+    if(g_admin_btn_system_upgrade_ok != NULL) {
+        lv_obj_move_foreground(g_admin_btn_system_upgrade_ok);
+    }
 
     /* 支付设置子面板（1600×400，三栏：支付方式 / 支付超时 / 订单查询） */
     g_admin_panel_payment = lv_obj_create(root);
