@@ -214,7 +214,7 @@ static bool g_ui_ozone_enabled = true;
 static lv_obj_t * g_running_o3_img;           /* 前置声明：运行页 O3 图标 */
 static ui_ozone_changed_cb_t s_ozone_hw_cb;
 
-static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开启/关闭按钮选中样式
+static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开关与 ui_ozone_get 一致
 
 /* 通知已注册的臭氧硬件回调（未注册则无操作） */
 static void ui_ozone_apply_hw(bool enabled)
@@ -1493,7 +1493,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_AUTO_DOSE_MED]          = "中等",
         [STR_AUTO_DOSE_LARGE]        = "多量",
         [STR_AUTO_DOSE_AUTO]         = "自动",
-        [STR_OZONE_LINE1]            = "开启后，可实现高效杀菌、消毒，",
+        [STR_OZONE_LINE1]            = "使用右上方开关可打开臭氧功能，打开后洗涤界面O3图案常亮",
         [STR_OZONE_LINE2]            = "提升洗涤效果和卫生水平",
         [STR_FRESH_AIR_LINE1]        = "开启后，洗衣完成后内筒间歇性转动，",
         [STR_FRESH_AIR_LINE2]        = "有效促进湿气散发，保持衣物干爽",
@@ -1696,7 +1696,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_AUTO_DOSE_MED]          = "Medium",
         [STR_AUTO_DOSE_LARGE]        = "High",
         [STR_AUTO_DOSE_AUTO]         = "Auto",
-        [STR_OZONE_LINE1]            = "When enabled, provides efficient sterilization",
+        [STR_OZONE_LINE1]            = "Use the top-right switch to enable ozone; the O3 icon stays on during wash",
         [STR_OZONE_LINE2]            = "and improves wash quality and hygiene",
         [STR_FRESH_AIR_LINE1]        = "When enabled, drum rotates intermittently after wash",
         [STR_FRESH_AIR_LINE2]        = "to release moisture and keep clothes dry",
@@ -2146,13 +2146,14 @@ static lv_obj_t * g_admin_lbl_auto_detergent;
 static lv_obj_t * g_admin_sw_auto_detergent;
 static lv_obj_t * g_admin_auto_detergent_btns[4];
 static lv_obj_t * g_admin_auto_detergent_btn_lbls[4];
-/* 臭氧功能子页控件 */
+/* 臭氧功能子页控件（布局同待机时间 title_box+set_box；开关/文案位置同 WIFI） */
 static lv_obj_t * g_admin_panel_ozone;
+static lv_obj_t * g_admin_img_ozone_title_box;
 static lv_obj_t * g_admin_lbl_ozone_title;
-static lv_obj_t * g_admin_lbl_ozone_line1;
-static lv_obj_t * g_admin_lbl_ozone_line2;
-static lv_obj_t * g_admin_btn_ozone_on;
-static lv_obj_t * g_admin_btn_ozone_off;
+static lv_obj_t * g_admin_ozone_set_box_wrap;
+static lv_obj_t * g_admin_lbl_ozone_prompt;
+static lv_obj_t * g_admin_sw_ozone;
+static bool g_admin_ozone_ui_loading = false;
 /* 新风护理子页控件 */
 static lv_obj_t * g_admin_panel_fresh_air_care;
 static lv_obj_t * g_admin_lbl_fresh_air_care_title;
@@ -2393,11 +2394,11 @@ static void admin_auto_dispense_back_to_menu1(void);  //离开自投功能页：
 static void cb_admin_open_auto_dispense(lv_event_t * e);  //菜单「自投功能」入口
 static void cb_admin_auto_dispense_sw_changed(lv_event_t * e);  //柔顺剂/洗衣液开关
 static void cb_admin_auto_dose_btn_clicked(lv_event_t * e);  //用量按钮：开时互斥选中，关时无响应
-static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开启/关闭按钮选中样式
-static void admin_ozone_back_to_menu2(void);  //离开臭氧功能页：回 menu2
+static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开关与 ui_ozone_get 一致
+static void admin_ozone_apply_switch_layout(void);  //臭氧开关布局（与 WIFI 完全一致）
+static void admin_ozone_back_to_menu1(void);  //离开臭氧功能页：回 menu1
 static void cb_admin_open_ozone(lv_event_t * e);  //菜单「臭氧功能」入口
-static void cb_admin_ozone_on(lv_event_t * e);  //臭氧功能「开启」：ui_ozone_set(true)
-static void cb_admin_ozone_off(lv_event_t * e);  //臭氧功能「关闭」：ui_ozone_set(false)
+static void cb_admin_ozone_sw_changed(lv_event_t * e);  //臭氧开关
 static void admin_fresh_air_care_sync_btn_ui(void);  //新风护理页：刷新开启/关闭按钮选中样式
 static void admin_fresh_air_care_back_to_menu2(void);  //离开新风护理页：回 menu2
 static void cb_admin_open_fresh_air_care(lv_event_t * e);  //菜单「新风护理」入口
@@ -6966,17 +6967,9 @@ static void admin_encoder_rebuild(void)
         focus_first = (g_admin_sw_auto_softener != NULL) ? g_admin_sw_auto_softener : g_admin_btn_back;
         break;
     case OZONE:
-        if(g_admin_btn_ozone_on != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_ozone_on);
-        }
-        if(g_admin_btn_ozone_off != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_ozone_off);
-        }
-        if(!ui_ozone_get() && g_admin_btn_ozone_off != NULL) {
-            focus_first = g_admin_btn_ozone_off;
-        }
-        else if(g_admin_btn_ozone_on != NULL) {
-            focus_first = g_admin_btn_ozone_on;
+        if(g_admin_sw_ozone != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_ozone);
+            focus_first = g_admin_sw_ozone;
         }
         break;
     case FRESH_AIR_CARE:
@@ -7609,7 +7602,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == OZONE) {
-        admin_ozone_back_to_menu2();
+        admin_ozone_back_to_menu1();
         return;
     }
     if(g_admin_view == FRESH_AIR_CARE) {
@@ -9142,23 +9135,50 @@ static void cb_admin_auto_dose_btn_clicked(lv_event_t * e)
     }
 }
 
-/* 臭氧功能页：按 ui_ozone_get 刷新「开启」「关闭」橙色填充/描边 */
+/* 臭氧功能页：按 ui_ozone_get 刷新右上角开关 */
 
 static void admin_ozone_sync_btn_ui(void)
 {
-    bool on = ui_ozone_get();
-    admin_lang_btn_set_selected(g_admin_btn_ozone_on, on);
-    admin_lang_btn_set_selected(g_admin_btn_ozone_off, !on);
+    if(g_admin_sw_ozone == NULL) return;
+    g_admin_ozone_ui_loading = true;
+    if(ui_ozone_get()) lv_obj_add_state(g_admin_sw_ozone, LV_STATE_CHECKED);
+    else lv_obj_remove_state(g_admin_sw_ozone, LV_STATE_CHECKED);
+    g_admin_ozone_ui_loading = false;
 }
 
-/* 离开臭氧功能页：回管理员 menu2 */
+/* 臭氧开关布局：与 WIFI 设置页 admin_wifi_apply_switch_layout 完全一致 */
 
-static void admin_ozone_back_to_menu2(void)
+static void admin_ozone_apply_switch_layout(void)
 {
-    admin_panel_show(MENU2);
+    if(g_admin_sw_ozone == NULL) return;
+
+    admin_panel_style_switch(g_admin_sw_ozone);
+    lv_obj_set_size(g_admin_sw_ozone, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
+    lv_obj_refr_size(g_admin_sw_ozone);
+
+    const lv_coord_t radius_cap = lv_obj_get_height(g_admin_sw_ozone) / 2;
+    lv_obj_set_style_radius(g_admin_sw_ozone, radius_cap, LV_PART_MAIN);
+    lv_obj_update_layout(g_admin_sw_ozone);
+    lv_coord_t radius_ind = lv_obj_get_content_height(g_admin_sw_ozone) / 2;
+    if(radius_ind < 0) {
+        radius_ind = 0;
+    }
+    lv_obj_set_style_radius(g_admin_sw_ozone, radius_ind, LV_PART_INDICATOR);
+
+    admin_sw_apply_knob_pad(g_admin_sw_ozone, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
+
+    lv_obj_set_pos(g_admin_sw_ozone, 1200, 150);
+    lv_obj_invalidate(g_admin_sw_ozone);
 }
 
-/* 管理员 menu2「臭氧功能」入口 */
+/* 离开臭氧功能页：回管理员 menu1 */
+
+static void admin_ozone_back_to_menu1(void)
+{
+    admin_panel_show(MENU1);
+}
+
+/* 管理员 menu1「臭氧功能」入口 */
 
 static void cb_admin_open_ozone(lv_event_t * e)
 {
@@ -9166,22 +9186,15 @@ static void cb_admin_open_ozone(lv_event_t * e)
     admin_panel_show(OZONE);
 }
 
-/* 臭氧功能「开启」：已是开启则无操作，否则 set 并通知硬件 */
+/* 臭氧开关：写入 ui_ozone_set */
 
-static void cb_admin_ozone_on(lv_event_t * e)
+static void cb_admin_ozone_sw_changed(lv_event_t * e)
 {
-    if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if(g_admin_ozone_ui_loading) return;
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if(g_admin_view != OZONE) return;
-    (void)ui_ozone_set(true);
-}
-
-/* 臭氧功能「关闭」：已是关闭则无操作，否则 set 并通知硬件 */
-
-static void cb_admin_ozone_off(lv_event_t * e)
-{
-    if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-    if(g_admin_view != OZONE) return;
-    (void)ui_ozone_set(false);
+    lv_obj_t * sw = lv_event_get_target(e);
+    (void)ui_ozone_set(lv_obj_has_state(sw, LV_STATE_CHECKED));
 }
 
 /* 新风护理页：按 ui_fresh_air_care_get 刷新「开启」「关闭」橙色填充/描边 */
@@ -11332,46 +11345,55 @@ static void build_admin(void)
     g_ui_auto_dispense_enabled = true;
     admin_auto_dispense_sync_btn_ui();
 
-    /* 臭氧功能子面板（1600×400，左文右钮竖排，布局同自投功能） */
+    /* 臭氧功能子面板（title_box/set_box 同待机时间；开关/说明文案同 WIFI） */
     g_admin_panel_ozone = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_ozone, 1600, 400);
-    lv_obj_align(g_admin_panel_ozone, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_ozone, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_ozone, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_ozone, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_ozone, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_ozone, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_ozone, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_ozone, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_ozone_title_box = lv_image_create(g_admin_panel_ozone);
+    lv_image_set_src(g_admin_img_ozone_title_box, &title_box);
+    lv_obj_align(g_admin_img_ozone_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_ozone_title = lv_label_create(g_admin_panel_ozone);
     ui_lang_bind_label(g_admin_lbl_ozone_title, STR_ADMIN_M2_OZONE);
     lv_obj_set_style_text_color(g_admin_lbl_ozone_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_ozone_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_ozone_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_ozone_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_ozone_line1 = lv_label_create(g_admin_panel_ozone);
-    ui_lang_bind_label(g_admin_lbl_ozone_line1, STR_OZONE_LINE1);
-    lv_obj_set_style_text_color(g_admin_lbl_ozone_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_ozone_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_ozone_line1, 400, 150);
+    g_admin_sw_ozone = lv_switch_create(g_admin_panel_ozone);
+    admin_ozone_apply_switch_layout(); /* 与 WIFI：pos(1200,150)、ADMIN_SW_SIZE、样式相同 */
+    lv_obj_add_event_cb(g_admin_sw_ozone, cb_admin_ozone_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    g_admin_lbl_ozone_line2 = lv_label_create(g_admin_panel_ozone);
-    ui_lang_bind_label(g_admin_lbl_ozone_line2, STR_OZONE_LINE2);
-    lv_obj_set_style_text_color(g_admin_lbl_ozone_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_ozone_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_ozone_line2, 400, 205);
+    g_admin_ozone_set_box_wrap = lv_obj_create(g_admin_panel_ozone);
+    lv_obj_set_size(g_admin_ozone_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_ozone_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_ozone_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_ozone_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_ozone_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_ozone_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
 
-    g_admin_btn_ozone_on = make_orange_fill_btn(g_admin_panel_ozone, ui_translation(STR_BTN_ON), 160, 44);
-    lv_obj_set_pos(g_admin_btn_ozone_on, 1100 - 60, 140);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_ozone_on, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_ozone_on, STR_BTN_ON);
-    lv_obj_add_event_cb(g_admin_btn_ozone_on, cb_admin_ozone_on, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * img_ozone_set_box = lv_image_create(g_admin_ozone_set_box_wrap);
+    lv_image_set_src(img_ozone_set_box, &set_box);
+    lv_obj_center(img_ozone_set_box);
 
-    g_admin_btn_ozone_off = make_orange_fill_btn(g_admin_panel_ozone, ui_translation(STR_BTN_OFF), 160, 44);
-    lv_obj_set_pos(g_admin_btn_ozone_off, 1100 - 60, 200);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_ozone_off, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_ozone_off, STR_BTN_OFF);
-    lv_obj_add_event_cb(g_admin_btn_ozone_off, cb_admin_ozone_off, LV_EVENT_CLICKED, NULL);
+    /* 说明文字：与 WIFI prompt 相同宽/字号/居中 */
+    g_admin_lbl_ozone_prompt = lv_label_create(g_admin_ozone_set_box_wrap);
+    ui_lang_bind_label(g_admin_lbl_ozone_prompt, STR_OZONE_LINE1);
+    lv_obj_set_style_text_color(g_admin_lbl_ozone_prompt, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_ozone_prompt, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_ozone_prompt, 900);
+    lv_label_set_long_mode(g_admin_lbl_ozone_prompt, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(g_admin_lbl_ozone_prompt, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_center(g_admin_lbl_ozone_prompt);
 
+    if(g_admin_sw_ozone != NULL) {
+        lv_obj_move_foreground(g_admin_sw_ozone);
+    }
     admin_ozone_sync_btn_ui();
 
     /* 新风护理子面板（1600×400，左文右钮竖排，布局同自投功能） */
