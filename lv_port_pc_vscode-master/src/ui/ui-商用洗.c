@@ -2111,9 +2111,11 @@ static lv_obj_t * g_admin_lbl_touch_sound_icon;
 static lv_obj_t * g_admin_touch_sound_volume_bar;
 static lv_obj_t * g_admin_slider_touch_sound_volume;
 static lv_obj_t * g_admin_touch_sound_volume_slider_focus;
-/* 语言设置子页控件 */
+/* 语言设置子页控件（布局同待机时间 title_box+set_box；右侧按钮同 ID；文案同 WIFI 样式） */
 static lv_obj_t * g_admin_panel_lang;
+static lv_obj_t * g_admin_img_lang_title_box;
 static lv_obj_t * g_admin_lbl_lang_title;
+static lv_obj_t * g_admin_lang_set_box_wrap;
 static lv_obj_t * g_admin_lbl_lang_line1;
 static lv_obj_t * g_admin_btn_lang_zh;
 static lv_obj_t * g_admin_btn_lang_en;
@@ -11060,40 +11062,65 @@ static void build_admin(void)
 
     admin_sound_sync_ui();
 
-    /* 语言设置子面板（1600×400，左文右钮竖排，布局同恢复默认） */
+    /* 语言设置子面板（title_box/set_box 同待机时间；右侧按钮同 ID；说明文案同 WIFI 样式） */
     g_admin_panel_lang = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_lang, 1600, 400);
-    lv_obj_align(g_admin_panel_lang, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_lang, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_lang, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_lang, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_lang, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_lang, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_lang, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_lang, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_lang_title_box = lv_image_create(g_admin_panel_lang);
+    lv_image_set_src(g_admin_img_lang_title_box, &title_box);
+    lv_obj_align(g_admin_img_lang_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_lang_title = lv_label_create(g_admin_panel_lang);
+    ui_lang_bind_label(g_admin_lbl_lang_title, STR_ADMIN_LANG_TITLE);
     lv_obj_set_style_text_color(g_admin_lbl_lang_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_lang_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_lang_title, LV_ALIGN_TOP_LEFT, 350, 30);
-    ui_lang_bind_label(g_admin_lbl_lang_title, STR_ADMIN_LANG_TITLE);
+    lv_obj_align(g_admin_lbl_lang_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_lang_line1 = lv_label_create(g_admin_panel_lang);
+    g_admin_lang_set_box_wrap = lv_obj_create(g_admin_panel_lang);
+    lv_obj_set_size(g_admin_lang_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_lang_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_lang_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_lang_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_lang_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_lang_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * img_lang_set_box = lv_image_create(g_admin_lang_set_box_wrap);
+    lv_image_set_src(img_lang_set_box, &set_box);
+    lv_obj_center(img_lang_set_box);
+
+    /* 说明文字：与 WIFI prompt 相同宽/字号/居中（在 set_box 内） */
+    g_admin_lbl_lang_line1 = lv_label_create(g_admin_lang_set_box_wrap);
+    ui_lang_bind_label(g_admin_lbl_lang_line1, STR_ADMIN_LANG_HINT);
     lv_obj_set_style_text_color(g_admin_lbl_lang_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_lang_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_lang_line1, 400, 150+20);
-    ui_lang_bind_label(g_admin_lbl_lang_line1, STR_ADMIN_LANG_HINT);
+    lv_obj_set_width(g_admin_lbl_lang_line1, 900);
+    lv_label_set_long_mode(g_admin_lbl_lang_line1, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(g_admin_lbl_lang_line1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_center(g_admin_lbl_lang_line1);
 
-    g_admin_btn_lang_zh = make_orange_fill_btn(g_admin_panel_lang, ui_translation(STR_ADMIN_LANG_BTN_ZH), 160, 44);
-    lv_obj_set_pos(g_admin_btn_lang_zh, 1100-60, 140);
+    /* 右侧按钮：与 ID 设置 mid_btn 完全一致（110×50，CENTER 400/±35），文字改为中文/英文 */
+    const lv_coord_t lang_btn_w = 110;
+    const lv_coord_t lang_btn_h = 50;
+    g_admin_btn_lang_zh = make_orange_fill_btn(g_admin_lang_set_box_wrap, ui_translation(STR_ADMIN_LANG_BTN_ZH), lang_btn_w, lang_btn_h);
+    lv_obj_align(g_admin_btn_lang_zh, LV_ALIGN_CENTER, 400, -35);
     ui_set_obj_font(lv_obj_get_child(g_admin_btn_lang_zh, 0), s_font_sc_30);
-    lv_obj_add_event_cb(g_admin_btn_lang_zh, cb_admin_lang_zh, LV_EVENT_CLICKED, NULL);
     ui_lang_bind_label(lv_obj_get_child(g_admin_btn_lang_zh, 0), STR_ADMIN_LANG_BTN_ZH);
+    lv_obj_add_event_cb(g_admin_btn_lang_zh, cb_admin_lang_zh, LV_EVENT_CLICKED, NULL);
 
-    g_admin_btn_lang_en = make_orange_fill_btn(g_admin_panel_lang, ui_translation(STR_ADMIN_LANG_BTN_EN), 160, 44);
-    lv_obj_set_pos(g_admin_btn_lang_en, 1100-60, 200);
+    g_admin_btn_lang_en = make_orange_fill_btn(g_admin_lang_set_box_wrap, ui_translation(STR_ADMIN_LANG_BTN_EN), lang_btn_w, lang_btn_h);
+    lv_obj_align(g_admin_btn_lang_en, LV_ALIGN_CENTER, 400, 35);
     ui_set_obj_font(lv_obj_get_child(g_admin_btn_lang_en, 0), s_font_sc_30);
-    lv_obj_add_event_cb(g_admin_btn_lang_en, cb_admin_lang_en, LV_EVENT_CLICKED, NULL);
     ui_lang_bind_label(lv_obj_get_child(g_admin_btn_lang_en, 0), STR_ADMIN_LANG_BTN_EN);
+    lv_obj_add_event_cb(g_admin_btn_lang_en, cb_admin_lang_en, LV_EVENT_CLICKED, NULL);
 
+    if(g_admin_btn_lang_zh != NULL) lv_obj_move_foreground(g_admin_btn_lang_zh);
+    if(g_admin_btn_lang_en != NULL) lv_obj_move_foreground(g_admin_btn_lang_en);
     admin_lang_sync_btn_ui();
 
     /* 联系我们子面板（1600×400，左文右二维码，布局同恢复默认） */
