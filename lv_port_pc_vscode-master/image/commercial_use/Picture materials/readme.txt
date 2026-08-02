@@ -97,7 +97,7 @@ title_box                   √
 
 set_box                     √
 success                     √
-failure
+failure                     √
 
 程序设置5个程序
 dawu_set

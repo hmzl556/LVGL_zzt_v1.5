@@ -1282,6 +1282,10 @@ typedef enum {
     STR_4G_PROVISIONING,
     STR_4G_SUCCESS,
     STR_4G_FAIL,
+    STR_WIFI_PROMPT,
+    STR_WIFI_PROVISIONING,
+    STR_WIFI_SUCCESS,
+    STR_WIFI_FAIL,
     STR_COUNT
 } ui_str_id_t;
 
@@ -1483,6 +1487,10 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DATA_4G_ONLY]           = "仅 4G 上传",
         [STR_DATA_FORBIDDEN]         = "禁止上传",
         [STR_WIFI_SETTINGS]          = "WIFI设置",
+        [STR_WIFI_PROMPT]            = "使用右上方的切换开关打开无线，连接到附近的无线网络",
+        [STR_WIFI_PROVISIONING]      = "正在连接无线网络......",
+        [STR_WIFI_SUCCESS]           = "配网成功",
+        [STR_WIFI_FAIL]              = "连接失败，请重新连接！",
         [STR_4G_SETTINGS]            = "4G设置",
         [STR_4G_PROMPT]              = "使用右上方的切换开关打开4G，自动连接到附近的4G网络",
         [STR_4G_PROVISIONING]        = "正在连接附近4G网络......",
@@ -1671,6 +1679,10 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DATA_4G_ONLY]           = "4G Only",
         [STR_DATA_FORBIDDEN]         = "Upload Disabled",
         [STR_WIFI_SETTINGS]          = "WiFi Settings",
+        [STR_WIFI_PROMPT]            = "Use the top-right switch to enable Wi-Fi and connect to nearby wireless networks",
+        [STR_WIFI_PROVISIONING]      = "Connecting to wireless network......",
+        [STR_WIFI_SUCCESS]           = "Connected successfully",
+        [STR_WIFI_FAIL]              = "Connection failed, please retry!",
         [STR_4G_SETTINGS]            = "4G Settings",
         [STR_4G_PROMPT]              = "Use the top-right switch to enable 4G and auto-connect to nearby 4G networks",
         [STR_4G_PROVISIONING]        = "Connecting to nearby 4G network......",
@@ -1907,6 +1919,13 @@ typedef enum {
     ADMIN_4G_PHASE_FAILURE,      /* 小页面四：配网失败 */
 } admin_4g_phase_t;
 
+typedef enum {
+    ADMIN_WIFI_PHASE_PROMPT,       /* 小页面一：说明 + 开关 */
+    ADMIN_WIFI_PHASE_PROVISIONING, /* 小页面二：正在连接中 */
+    ADMIN_WIFI_PHASE_SUCCESS,      /* 小页面三：连接成功 */
+    ADMIN_WIFI_PHASE_FAILURE,      /* 小页面四：连接失败 */
+} admin_wifi_phase_t;
+
 static lv_obj_t * g_scr_admin;
 static lv_obj_t * g_lbl_clock_admin;
 static lv_obj_t * g_admin_btn_back;
@@ -2095,6 +2114,17 @@ static lv_obj_t * g_admin_btn_network_4g;
 /* WIFI 设置子页控件 */
 static lv_obj_t * g_admin_panel_wifi;
 static lv_obj_t * g_admin_lbl_wifi_title;
+static lv_obj_t * g_admin_sw_wifi;
+static lv_obj_t * g_admin_lbl_wifi_prompt;
+static lv_obj_t * g_admin_lbl_wifi_status;
+static lv_obj_t * g_admin_wifi_done_center;
+static lv_obj_t * g_admin_wifi_set_box_wrap;
+static lv_obj_t * g_admin_img_wifi_title_box;
+static lv_obj_t * g_admin_img_wifi_done;
+static lv_obj_t * g_admin_lbl_wifi_done;
+static admin_wifi_phase_t g_admin_wifi_phase = ADMIN_WIFI_PHASE_PROMPT;
+static lv_timer_t * g_admin_wifi_timer;
+static bool g_admin_wifi_ui_loading;
 /* 4G 设置子页控件 */
 static lv_obj_t * g_admin_panel_4g;
 static lv_obj_t * g_admin_lbl_4g_title;
@@ -2303,6 +2333,14 @@ static void cb_admin_open_wifi_settings(lv_event_t * e);  //网络设置「WIFI�
 static void cb_admin_open_4g_settings(lv_event_t * e);  //网络设置「4G设置」入口
 static void admin_network_back_to_menu2(void);  //离开网络设置页：回 menu2
 static void admin_wifi_back_to_network(void);  //离开 WIFI 设置页：回网络设置
+static void admin_wifi_set_phase(admin_wifi_phase_t phase);  //WIFI 设置子页：切换说明/连接中/成功/失败 UI
+static void admin_wifi_ui_enter(void);  //进入 WIFI 设置页：复位为说明态并同步开关
+static void admin_wifi_timer_stop(void);  //停止 WIFI 连接 2s 完成态定时器
+static void admin_wifi_start_provisioning(void);  //WIFI 开关 OFF→ON：进入连接中并启动 2s 定时器
+static void cb_admin_wifi_switch_changed(lv_event_t * e);  //WIFI 开关切换：更新状态或触发连接流程
+static void cb_admin_wifi_timer(lv_timer_t * t);  //2s 定时器：连接中 → 成功/失败态
+static void admin_wifi_apply_switch_layout(void);  //WIFI 设置页：刷新 WIFI 开关布局
+static void admin_wifi_sync_switch_ui(void);  //WIFI 设置页：刷新开关与状态一致
 static void admin_pwd_chg_enter(void);  //密码修改入口：进入原密码校验页
 static void admin_pwd_chg_old_try(void);  //密码修改步骤一：键盘 OK 校验原密码
 static void admin_pwd_chg_show_new(void);  //密码修改步骤二：显示双新密码输入页
@@ -6909,7 +6947,13 @@ static void admin_encoder_rebuild(void)
             g_admin_btn_network_wifi : g_admin_btn_back;
         break;
     case WIFI_SETTINGS:
-        focus_first = g_admin_btn_back;
+        if(g_admin_wifi_phase == ADMIN_WIFI_PHASE_PROMPT && g_admin_sw_wifi != NULL) {
+            ui_encoder_group_add(g_group_admin, g_admin_sw_wifi);
+            focus_first = g_admin_sw_wifi;
+        }
+        else {
+            focus_first = g_admin_btn_back;
+        }
         break;
     case SETTINGS_4G:
         if(g_admin_4g_phase == ADMIN_4G_PHASE_PROMPT && g_admin_sw_4g != NULL) {
@@ -7236,6 +7280,7 @@ static void admin_panel_show(admin_view_t view)
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
+        admin_wifi_ui_enter();
     }
     else if(view == SETTINGS_4G && g_admin_panel_4g != NULL) {
         lv_obj_remove_flag(g_admin_panel_4g, LV_OBJ_FLAG_HIDDEN);
@@ -9190,6 +9235,9 @@ static void admin_refresh_visible_status_text(void)
     if(g_admin_view == SETTINGS_4G) {
         admin_4g_set_phase(g_admin_4g_phase);
     }
+    if(g_admin_view == WIFI_SETTINGS) {
+        admin_wifi_set_phase(g_admin_wifi_phase);
+    }
 }
 
 /* 切换语言后刷新：已绑定标签 + 轮播名 + 运行页 + 管理员子页 */
@@ -9244,6 +9292,10 @@ static void admin_4g_back_to_menu2(void)
  * 硬件模块 extern 此变量并直接写入，无需调用 setter。 */
 int8_t g_ui_4g_connect_result = 0;
 
+/* 硬件接口：WIFI连接结果全局变量，1=成功 0=失败（PC 默认模拟失败）。
+ * 硬件模块 extern 此变量并直接写入。 */
+int8_t g_ui_wifi_connect_result = 0;
+
 /* 2s 定时器：配网中 → 成功/失败态 */
 static void cb_admin_4g_timer(lv_timer_t * t)
 {
@@ -9262,7 +9314,7 @@ static void cb_admin_4g_timer(lv_timer_t * t)
 static void admin_4g_start_provisioning(void)
 {
     admin_4g_timer_stop();
-    g_ui_4g_connect_result = 0;  /* PC 默认失败；实机由 ui_4g_connect_result_set 覆盖 */
+    g_ui_4g_connect_result = 1;//PC默认值，2秒后读取硬件反馈的值
     admin_4g_set_phase(ADMIN_4G_PHASE_PROVISIONING);
     g_admin_4g_timer = lv_timer_create(cb_admin_4g_timer, 2000, NULL);
     lv_timer_set_repeat_count(g_admin_4g_timer, 1);
@@ -9326,10 +9378,185 @@ static void admin_network_back_to_menu2(void)
 /* 离开 WIFI 设置页：回网络设置 */
 static void admin_wifi_back_to_network(void)
 {
+    admin_wifi_timer_stop();
     if(g_group_admin != NULL) {
         lv_group_set_editing(g_group_admin, false);
     }
     admin_panel_show(NETWORK_SETTINGS);
+}
+
+/* 停止 WIFI 连接页的 2s 完成态定时器 */
+
+static void admin_wifi_timer_stop(void)
+{
+    if(g_admin_wifi_timer != NULL) {
+        lv_timer_delete(g_admin_wifi_timer);
+        g_admin_wifi_timer = NULL;
+    }
+}
+
+/* WIFI 设置页：按 ui_4g_get 刷新开关状态（WIFI 暂用同一底层 4G 开关） */
+
+static void admin_wifi_sync_switch_ui(void)
+{
+    if(g_admin_sw_wifi == NULL) return;
+    g_admin_wifi_ui_loading = true;
+    if(ui_4g_get()) {
+        lv_obj_add_state(g_admin_sw_wifi, LV_STATE_CHECKED);
+    }
+    else {
+        lv_obj_remove_state(g_admin_sw_wifi, LV_STATE_CHECKED);
+    }
+    g_admin_wifi_ui_loading = false;
+}
+
+/* WIFI 设置子页：切换说明 / 连接中 / 成功 / 失败 的控件可见性 */
+
+static void admin_wifi_set_phase(admin_wifi_phase_t phase)
+{
+    g_admin_wifi_phase = phase;
+    if(g_admin_view != WIFI_SETTINGS) return;
+
+    const bool prompt = (phase == ADMIN_WIFI_PHASE_PROMPT);
+    const bool provisioning = (phase == ADMIN_WIFI_PHASE_PROVISIONING);
+    const bool result_page = (phase == ADMIN_WIFI_PHASE_SUCCESS || phase == ADMIN_WIFI_PHASE_FAILURE);
+
+    if(g_admin_lbl_wifi_title != NULL) {
+        if(result_page) lv_obj_add_flag(g_admin_lbl_wifi_title, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_lbl_wifi_title, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_img_wifi_title_box != NULL) {
+        if(result_page) lv_obj_add_flag(g_admin_img_wifi_title_box, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_img_wifi_title_box, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_sw_wifi != NULL) {
+        if(result_page) lv_obj_add_flag(g_admin_sw_wifi, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_sw_wifi, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_lbl_wifi_prompt != NULL) {
+        if(prompt) lv_obj_remove_flag(g_admin_lbl_wifi_prompt, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_lbl_wifi_prompt, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_lbl_wifi_status != NULL) {
+        if(provisioning) {
+            lv_label_set_text(g_admin_lbl_wifi_status, ui_translation(STR_WIFI_PROVISIONING));
+            lv_obj_remove_flag(g_admin_lbl_wifi_status, LV_OBJ_FLAG_HIDDEN);
+        }
+        else {
+            lv_obj_add_flag(g_admin_lbl_wifi_status, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if(g_admin_wifi_done_center != NULL) {
+        if(result_page) {
+            lv_obj_remove_flag(g_admin_wifi_done_center, LV_OBJ_FLAG_HIDDEN);
+            if(g_admin_img_wifi_done != NULL) {
+                lv_image_set_src(g_admin_img_wifi_done,
+                    (phase == ADMIN_WIFI_PHASE_SUCCESS) ? &success : &failure);
+            }
+            if(g_admin_lbl_wifi_done != NULL) {
+                lv_label_set_text(g_admin_lbl_wifi_done,
+                    ui_translation((phase == ADMIN_WIFI_PHASE_SUCCESS) ? STR_WIFI_SUCCESS : STR_WIFI_FAIL));
+            }
+        } else {
+            lv_obj_add_flag(g_admin_wifi_done_center, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if(g_admin_wifi_set_box_wrap != NULL) {
+        if(result_page) lv_obj_add_flag(g_admin_wifi_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(g_admin_wifi_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if(g_group_admin != NULL) {
+        lv_group_set_editing(g_group_admin, false);
+    }
+    admin_encoder_rebuild();
+}
+
+/* 进入 WIFI 设置页：停止定时器、复位为说明态并同步开关 */
+
+static void admin_wifi_ui_enter(void)
+{
+    admin_wifi_timer_stop();
+    admin_wifi_apply_switch_layout();
+    admin_wifi_sync_switch_ui();
+    admin_wifi_set_phase(ADMIN_WIFI_PHASE_PROMPT);
+}
+
+/* 2s 定时器：连接中 → 成功/失败态 */
+
+static void cb_admin_wifi_timer(lv_timer_t * t)
+{
+    (void)t;
+    g_admin_wifi_timer = NULL;
+    if(g_admin_view == WIFI_SETTINGS) {
+        if(g_ui_wifi_connect_result == 1) {
+            admin_wifi_set_phase(ADMIN_WIFI_PHASE_SUCCESS);
+        } else {
+            admin_wifi_set_phase(ADMIN_WIFI_PHASE_FAILURE);
+        }
+    }
+}
+
+/* WIFI 开关 OFF→ON：进入连接中 UI，2s 后显示结果 */
+
+static void admin_wifi_start_provisioning(void)
+{
+    admin_wifi_timer_stop();
+    g_ui_wifi_connect_result = 1;//PC默认值，2秒后读取硬件反馈的值
+    admin_wifi_set_phase(ADMIN_WIFI_PHASE_PROVISIONING);
+    g_admin_wifi_timer = lv_timer_create(cb_admin_wifi_timer, 2000, NULL);
+    lv_timer_set_repeat_count(g_admin_wifi_timer, 1);
+}
+
+/* WIFI 开关切换：更新状态；OFF→ON 触发连接，OFF 时中止流程 */
+
+static void cb_admin_wifi_switch_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if(g_admin_view != WIFI_SETTINGS) return;
+    if(g_admin_wifi_ui_loading) return;
+
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    bool on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+    if(on) {
+        if(g_admin_wifi_phase == ADMIN_WIFI_PHASE_PROMPT) {
+            ui_4g_set(true);
+            admin_wifi_start_provisioning();
+        }
+    }
+    else {
+        ui_4g_set(false);
+        if(g_admin_wifi_phase != ADMIN_WIFI_PHASE_PROMPT) {
+            admin_wifi_timer_stop();
+            admin_wifi_set_phase(ADMIN_WIFI_PHASE_PROMPT);
+        }
+    }
+}
+
+/* WIFI 设置页：刷新 WIFI 开关布局 */
+
+static void admin_wifi_apply_switch_layout(void)
+{
+    if(g_admin_sw_wifi == NULL) return;
+
+    admin_panel_style_switch(g_admin_sw_wifi);
+    lv_obj_set_size(g_admin_sw_wifi, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
+    lv_obj_refr_size(g_admin_sw_wifi);
+
+    const lv_coord_t radius_cap = lv_obj_get_height(g_admin_sw_wifi) / 2;
+    lv_obj_set_style_radius(g_admin_sw_wifi, radius_cap, LV_PART_MAIN);
+    lv_obj_update_layout(g_admin_sw_wifi);
+    lv_coord_t radius_ind = lv_obj_get_content_height(g_admin_sw_wifi) / 2;
+    if(radius_ind < 0) {
+        radius_ind = 0;
+    }
+    lv_obj_set_style_radius(g_admin_sw_wifi, radius_ind, LV_PART_INDICATOR);
+
+    admin_sw_apply_knob_pad(g_admin_sw_wifi, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
+
+    lv_obj_set_pos(g_admin_sw_wifi, 1200, 150);
+    lv_obj_invalidate(g_admin_sw_wifi);
 }
 
 /* 支付设置页：复选框统一样式（未选空心橙框，已选橙色对号） */
@@ -10750,21 +10977,87 @@ static void build_admin(void)
         lv_obj_add_event_cb(g_admin_btn_network_4g, cb_admin_open_4g_settings, LV_EVENT_CLICKED, NULL);
     }
 
-    /* WIFI 设置子面板（1600×400，占位） */
+    /* WIFI 设置子面板（与 4G 设置页同尺寸） */
     g_admin_panel_wifi = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_wifi, 1600, 400);
-    lv_obj_align(g_admin_panel_wifi, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_wifi, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_wifi, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_wifi, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_wifi, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_wifi, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_wifi, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_wifi, LV_OBJ_FLAG_HIDDEN);
 
+    /* 标题 "WIFI设置" + title_box */
+    lv_obj_t * img_wifi_title_box = lv_image_create(g_admin_panel_wifi);
+    g_admin_img_wifi_title_box = img_wifi_title_box;
+    lv_image_set_src(img_wifi_title_box, &title_box);
+    lv_obj_align(img_wifi_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_wifi_title = lv_label_create(g_admin_panel_wifi);
     ui_lang_bind_label(g_admin_lbl_wifi_title, STR_WIFI_SETTINGS);
     lv_obj_set_style_text_color(g_admin_lbl_wifi_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_wifi_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_wifi_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_wifi_title, LV_ALIGN_TOP_MID, 0, 25);
+
+    g_admin_sw_wifi = lv_switch_create(g_admin_panel_wifi);
+    admin_wifi_apply_switch_layout();
+    lv_obj_add_event_cb(g_admin_sw_wifi, cb_admin_wifi_switch_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* set_box 背景 */
+    lv_obj_t * wifi_set_box_wrap = lv_obj_create(g_admin_panel_wifi);
+    g_admin_wifi_set_box_wrap = wifi_set_box_wrap;
+    lv_obj_set_size(wifi_set_box_wrap, 1117, 409);
+    lv_obj_align(wifi_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(wifi_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(wifi_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(wifi_set_box_wrap, 0, LV_PART_MAIN);
+
+    lv_obj_t * img_set_box_wifi = lv_image_create(wifi_set_box_wrap);
+    lv_image_set_src(img_set_box_wifi, &set_box);
+    lv_obj_center(img_set_box_wifi);
+
+    g_admin_lbl_wifi_prompt = lv_label_create(wifi_set_box_wrap);
+    ui_lang_bind_label(g_admin_lbl_wifi_prompt, STR_WIFI_PROMPT);
+    lv_obj_set_style_text_color(g_admin_lbl_wifi_prompt, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_wifi_prompt, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_wifi_prompt, 900);
+    lv_label_set_long_mode(g_admin_lbl_wifi_prompt, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(g_admin_lbl_wifi_prompt, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_center(g_admin_lbl_wifi_prompt);
+
+    g_admin_lbl_wifi_status = lv_label_create(wifi_set_box_wrap);
+    lv_label_set_text(g_admin_lbl_wifi_status, ui_translation(STR_WIFI_PROVISIONING));
+    lv_obj_set_style_text_color(g_admin_lbl_wifi_status, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_wifi_status, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_wifi_status, 900);
+    lv_label_set_long_mode(g_admin_lbl_wifi_status, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(g_admin_lbl_wifi_status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_align(g_admin_lbl_wifi_status, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(g_admin_lbl_wifi_status, LV_OBJ_FLAG_HIDDEN);
+
+    g_admin_wifi_done_center = lv_obj_create(g_admin_panel_wifi);
+    lv_obj_set_size(g_admin_wifi_done_center, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(g_admin_wifi_done_center);
+    lv_obj_set_style_bg_opa(g_admin_wifi_done_center, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_wifi_done_center, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_wifi_done_center, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_wifi_done_center, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_wifi_done_center, LV_OBJ_FLAG_HIDDEN);
+
+    g_admin_img_wifi_done = lv_image_create(g_admin_wifi_done_center);
+    lv_image_set_src(g_admin_img_wifi_done, &success);
+    lv_obj_align(g_admin_img_wifi_done, LV_ALIGN_CENTER, 0, -80);
+
+    g_admin_lbl_wifi_done = lv_label_create(g_admin_wifi_done_center);
+    ui_lang_bind_label(g_admin_lbl_wifi_done, STR_WIFI_SUCCESS);
+    lv_obj_set_style_text_color(g_admin_lbl_wifi_done, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_wifi_done, s_font_sc_50);
+    lv_obj_align(g_admin_lbl_wifi_done, LV_ALIGN_CENTER, 0, 60);
+
+    /* WIFI 开关移到最前，避免被遮挡 */
+    if(g_admin_sw_wifi != NULL) {
+        lv_obj_move_foreground(g_admin_sw_wifi);
+    }
 
     /* 4G 设置子面板（与 ID 设置页同尺寸） */
     g_admin_panel_4g = lv_obj_create(root);
