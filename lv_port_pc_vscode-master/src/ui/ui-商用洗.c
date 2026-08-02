@@ -2314,6 +2314,7 @@ static void admin_dormancy_hide_time_picker(void);  //隐藏时间选择子页
 static void admin_session_reset(void);  //退出管理员：清除解锁状态并回到密码页
 static void admin_encoder_rebuild(void);  //按当前管理员子页重建编码器 focus 顺序
 static void admin_group_edge_cb(lv_group_t * group, bool forward);  //menu1 第8钮右转进入 menu2
+static void cb_admin_menu_gesture(lv_event_t * e);  //menu1 左滑→menu2，menu2 右滑→menu1
 static void admin_group_focus_cb(lv_group_t * group);  //menu2 第1钮左转回到 menu1 第8钮
 static void admin_machine_id_label_update(void);  //刷新机器 ID「当前 ID」标签
 static void admin_password_try(void);  //校验管理员密码并进入菜单
@@ -10263,6 +10264,27 @@ static void admin_group_edge_cb(lv_group_t * group, bool forward)
     }
 }
 
+/* menu1 左滑进入 menu2；menu2 右滑回到 menu1 */
+
+static void cb_admin_menu_gesture(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_GESTURE) return;
+    if(g_admin_view != MENU1 && g_admin_view != MENU2) return;
+
+    lv_indev_t * indev = lv_indev_active();
+    if(indev == NULL) return;
+
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if(g_admin_view == MENU1 && dir == LV_DIR_LEFT) {
+        lv_indev_wait_release(indev);
+        admin_panel_show(MENU2);
+    }
+    else if(g_admin_view == MENU2 && dir == LV_DIR_RIGHT) {
+        lv_indev_wait_release(indev);
+        admin_panel_show(MENU1);
+    }
+}
+
 /* menu2 第 1 钮左转落到电源时：回到 menu1 第 8 钮 */
 
 static void admin_group_focus_cb(lv_group_t * group)
@@ -10575,6 +10597,10 @@ static void build_admin(void)
     lv_obj_set_style_border_width(g_admin_panel_menu1, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_menu1, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_menu1, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_panel_menu1, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_panel_menu1, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(g_admin_panel_menu1, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(g_admin_panel_menu1, cb_admin_menu_gesture, LV_EVENT_GESTURE, NULL);
     lv_obj_add_flag(g_admin_panel_menu1, LV_OBJ_FLAG_HIDDEN);
 
     g_admin_lbl_menu1_title = lv_label_create(g_admin_panel_menu1);
@@ -10582,11 +10608,13 @@ static void build_admin(void)
     ui_set_obj_font(g_admin_lbl_menu1_title, s_font_sc_30);
     lv_obj_align(g_admin_lbl_menu1_title, LV_ALIGN_TOP_MID, 0, 10);
     ui_lang_bind_label(g_admin_lbl_menu1_title, STR_ADMIN_MENU_TITLE);
+    lv_obj_add_flag(g_admin_lbl_menu1_title, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     /* title_bar 横条 */
     lv_obj_t * img_menu1_bar = lv_image_create(g_admin_panel_menu1);
     lv_image_set_src(img_menu1_bar, &title_bar);
     lv_obj_align(img_menu1_bar, LV_ALIGN_TOP_MID, 0, 50);
+    lv_obj_add_flag(img_menu1_bar, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     static const ui_str_id_t menu1_ids[8] = {
         STR_ADMIN_M1_MACHINE_ID, STR_ADMIN_M2_NETWORK, STR_ADMIN_M2_DATA, STR_ADMIN_M1_PROGRAM,
@@ -10630,6 +10658,7 @@ static void build_admin(void)
         } else if(i == 7) {
             lv_obj_add_event_cb(g_admin_menu1_btns[i], cb_admin_open_fresh_air_care, LV_EVENT_CLICKED, NULL);
         }
+        lv_obj_add_flag(g_admin_menu1_btns[i], LV_OBJ_FLAG_GESTURE_BUBBLE);
     }
 
     /* 管理员设置页2（8 宫格） */
@@ -10640,6 +10669,10 @@ static void build_admin(void)
     lv_obj_set_style_border_width(g_admin_panel_menu2, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_menu2, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_menu2, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_panel_menu2, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_panel_menu2, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(g_admin_panel_menu2, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(g_admin_panel_menu2, cb_admin_menu_gesture, LV_EVENT_GESTURE, NULL);
     lv_obj_add_flag(g_admin_panel_menu2, LV_OBJ_FLAG_HIDDEN);
 
     g_admin_lbl_menu2_title = lv_label_create(g_admin_panel_menu2);
@@ -10647,11 +10680,13 @@ static void build_admin(void)
     ui_set_obj_font(g_admin_lbl_menu2_title, s_font_sc_30);
     lv_obj_align(g_admin_lbl_menu2_title, LV_ALIGN_TOP_MID, 0, 10);
     ui_lang_bind_label(g_admin_lbl_menu2_title, STR_ADMIN_MENU_TITLE);
+    lv_obj_add_flag(g_admin_lbl_menu2_title, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     /* title_bar 横条 */
     lv_obj_t * img_menu2_bar = lv_image_create(g_admin_panel_menu2);
     lv_image_set_src(img_menu2_bar, &title_bar);
     lv_obj_align(img_menu2_bar, LV_ALIGN_TOP_MID, 0, 50);
+    lv_obj_add_flag(img_menu2_bar, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     static const ui_str_id_t menu2_ids[8] = {
         STR_ADMIN_M1_BRIGHTNESS, STR_ADMIN_M1_SOUND, STR_ADMIN_M1_LANGUAGE, STR_ADMIN_M2_UPGRADE,
@@ -10695,6 +10730,7 @@ static void build_admin(void)
         else if(i == 7) {
             lv_obj_add_event_cb(g_admin_menu2_btns[i], cb_admin_open_password_change, LV_EVENT_CLICKED, NULL);
         }
+        lv_obj_add_flag(g_admin_menu2_btns[i], LV_OBJ_FLAG_GESTURE_BUBBLE);
     }
 
     /* 待机时间子面板（标题页：title_box + set_box + 两项互斥开关） */
