@@ -1281,6 +1281,7 @@ typedef enum {
     STR_4G_PROMPT,
     STR_4G_PROVISIONING,
     STR_4G_SUCCESS,
+    STR_4G_FAIL,
     STR_COUNT
 } ui_str_id_t;
 
@@ -1486,6 +1487,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_4G_PROMPT]              = "使用右上方的切换开关打开4G，自动连接到附近的4G网络",
         [STR_4G_PROVISIONING]        = "正在连接附近4G网络......",
         [STR_4G_SUCCESS]             = "配网成功",
+        [STR_4G_FAIL]                = "配网失败，请重新连接！",
     },
     [UI_LANG_EN] = {
         [STR_PROG_DAWU]      = "Heavy",
@@ -1673,6 +1675,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_4G_PROMPT]              = "Use the top-right switch to enable 4G and auto-connect to nearby 4G networks",
         [STR_4G_PROVISIONING]        = "Connecting to nearby 4G network......",
         [STR_4G_SUCCESS]             = "Connected successfully",
+        [STR_4G_FAIL]                = "Connection failed, please retry!",
     },
 };
 
@@ -1900,7 +1903,8 @@ typedef enum {
 typedef enum {
     ADMIN_4G_PHASE_PROMPT,       /* 小页面一：说明 + 开关 */
     ADMIN_4G_PHASE_PROVISIONING, /* 小页面二：正在配网中 */
-    ADMIN_4G_PHASE_DONE,         /* 小页面三：配网成功 */
+    ADMIN_4G_PHASE_SUCCESS,      /* 小页面三：配网成功 */
+    ADMIN_4G_PHASE_FAILURE,      /* 小页面四：配网失败 */
 } admin_4g_phase_t;
 
 static lv_obj_t * g_scr_admin;
@@ -2491,6 +2495,7 @@ LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
 LV_IMAGE_DECLARE(success);
+LV_IMAGE_DECLARE(failure);
 
 static const lv_image_dsc_t * const g_program_imgs[TOTAL_PROGRAMS] = {
     &img_01_dawu, &img_02_dantuoshui, &img_03_biaozhunxi, &img_04_tongzijie, &img_05_kuaixi
@@ -9062,18 +9067,18 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
 
     const bool prompt = (phase == ADMIN_4G_PHASE_PROMPT);
     const bool provisioning = (phase == ADMIN_4G_PHASE_PROVISIONING);
-    const bool done = (phase == ADMIN_4G_PHASE_DONE);
+    const bool result_page = (phase == ADMIN_4G_PHASE_SUCCESS || phase == ADMIN_4G_PHASE_FAILURE);
 
     if(g_admin_lbl_4g_title != NULL) {
-        if(done) lv_obj_add_flag(g_admin_lbl_4g_title, LV_OBJ_FLAG_HIDDEN);
+        if(result_page) lv_obj_add_flag(g_admin_lbl_4g_title, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_lbl_4g_title, LV_OBJ_FLAG_HIDDEN);
     }
     if(g_admin_img_4g_title_box != NULL) {
-        if(done) lv_obj_add_flag(g_admin_img_4g_title_box, LV_OBJ_FLAG_HIDDEN);
+        if(result_page) lv_obj_add_flag(g_admin_img_4g_title_box, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_img_4g_title_box, LV_OBJ_FLAG_HIDDEN);
     }
     if(g_admin_sw_4g != NULL) {
-        if(done) lv_obj_add_flag(g_admin_sw_4g, LV_OBJ_FLAG_HIDDEN);
+        if(result_page) lv_obj_add_flag(g_admin_sw_4g, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_sw_4g, LV_OBJ_FLAG_HIDDEN);
     }
     if(g_admin_lbl_4g_prompt != NULL) {
@@ -9090,11 +9095,22 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
         }
     }
     if(g_admin_4g_done_center != NULL) {
-        if(done) lv_obj_remove_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
+        if(result_page) {
+            lv_obj_remove_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
+            if(g_admin_img_4g_done != NULL) {
+                lv_image_set_src(g_admin_img_4g_done,
+                    (phase == ADMIN_4G_PHASE_SUCCESS) ? &success : &failure);
+            }
+            if(g_admin_lbl_4g_done != NULL) {
+                lv_label_set_text(g_admin_lbl_4g_done,
+                    ui_translation((phase == ADMIN_4G_PHASE_SUCCESS) ? STR_4G_SUCCESS : STR_4G_FAIL));
+            }
+        } else {
+            lv_obj_add_flag(g_admin_4g_done_center, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     if(g_admin_4g_set_box_wrap != NULL) {
-        if(done) lv_obj_add_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+        if(result_page) lv_obj_add_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
     }
 
@@ -9206,7 +9222,6 @@ static void ui_lang_apply_all(void)
 }
 
 /* 进入 4G 设置页：停止定时器、复位为说明态并同步开关 */
-
 static void admin_4g_ui_enter(void)
 {
     admin_4g_timer_stop();
@@ -9216,7 +9231,6 @@ static void admin_4g_ui_enter(void)
 }
 
 /* 离开 4G 设置页：回 menu2 */
-
 static void admin_4g_back_to_menu2(void)
 {
     admin_4g_timer_stop();
@@ -9226,29 +9240,35 @@ static void admin_4g_back_to_menu2(void)
     admin_panel_show(MENU2);
 }
 
-/* 2s 定时器：配网中 → 成功态 */
+/* 硬件接口：配网结果全局变量，1=成功 0=失败（PC 默认模拟失败）。
+ * 硬件模块 extern 此变量并直接写入，无需调用 setter。 */
+int8_t g_ui_4g_connect_result = 0;
 
+/* 2s 定时器：配网中 → 成功/失败态 */
 static void cb_admin_4g_timer(lv_timer_t * t)
 {
     (void)t;
     g_admin_4g_timer = NULL;
     if(g_admin_view == SETTINGS_4G) {
-        admin_4g_set_phase(ADMIN_4G_PHASE_DONE);
+        if(g_ui_4g_connect_result == 1) {                   //判断是否配网成功
+            admin_4g_set_phase(ADMIN_4G_PHASE_SUCCESS);
+        } else {
+            admin_4g_set_phase(ADMIN_4G_PHASE_FAILURE);
+        }
     }
 }
 
 /* 4G 开关 OFF→ON：进入配网中 UI，2s 后显示成功 */
-
 static void admin_4g_start_provisioning(void)
 {
     admin_4g_timer_stop();
+    g_ui_4g_connect_result = 0;  /* PC 默认失败；实机由 ui_4g_connect_result_set 覆盖 */
     admin_4g_set_phase(ADMIN_4G_PHASE_PROVISIONING);
     g_admin_4g_timer = lv_timer_create(cb_admin_4g_timer, 2000, NULL);
     lv_timer_set_repeat_count(g_admin_4g_timer, 1);
 }
 
 /* 4G 开关切换：更新状态；OFF→ON 触发配网，OFF 时中止流程 */
-
 static void cb_admin_4g_switch_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
@@ -9274,7 +9294,6 @@ static void cb_admin_4g_switch_changed(lv_event_t * e)
 }
 
 /* menu2「网络设置」入口 */
-
 static void cb_admin_open_network_settings(lv_event_t * e)
 {
     (void)e;
@@ -9282,7 +9301,6 @@ static void cb_admin_open_network_settings(lv_event_t * e)
 }
 
 /* 网络设置「WIFI设置」入口 */
-
 static void cb_admin_open_wifi_settings(lv_event_t * e)
 {
     (void)e;
@@ -9290,7 +9308,6 @@ static void cb_admin_open_wifi_settings(lv_event_t * e)
 }
 
 /* 网络设置「4G设置」入口 */
-
 static void cb_admin_open_4g_settings(lv_event_t * e)
 {
     (void)e;
@@ -9298,7 +9315,6 @@ static void cb_admin_open_4g_settings(lv_event_t * e)
 }
 
 /* 离开网络设置页：回 menu2 */
-
 static void admin_network_back_to_menu2(void)
 {
     if(g_group_admin != NULL) {
@@ -9308,7 +9324,6 @@ static void admin_network_back_to_menu2(void)
 }
 
 /* 离开 WIFI 设置页：回网络设置 */
-
 static void admin_wifi_back_to_network(void)
 {
     if(g_group_admin != NULL) {
@@ -9318,7 +9333,6 @@ static void admin_wifi_back_to_network(void)
 }
 
 /* 支付设置页：复选框统一样式（未选空心橙框，已选橙色对号） */
-
 static void admin_payment_style_checkbox(lv_obj_t * cb)
 {
     if(cb == NULL) return;
@@ -9342,7 +9356,6 @@ static void admin_payment_style_checkbox(lv_obj_t * cb)
 }
 
 /* 支付设置页：竖向分隔线 */
-
 static void admin_payment_add_divider(lv_obj_t * parent, lv_coord_t x)
 {
     lv_obj_t * div = lv_obj_create(parent);
@@ -9355,7 +9368,6 @@ static void admin_payment_add_divider(lv_obj_t * parent, lv_coord_t x)
 }
 
 /* 已保存的支付超时秒数 → roller 选项下标 */
-
 static uint32_t ui_payment_timeout_roller_index_from_sec(uint16_t sec)
 {
     for(uint32_t i = 0; i < PAYMENT_TIMEOUT_ROLLER_CNT; i++) {
@@ -9365,7 +9377,6 @@ static uint32_t ui_payment_timeout_roller_index_from_sec(uint16_t sec)
 }
 
 /* 支付设置页：按 g_ui_payment_* 刷新支付方式复选框与文案 */
-
 static void cb_admin_payment_alipay_changed(lv_event_t * e)
 {
     lv_obj_t * cb = lv_event_get_target(e);
@@ -9424,7 +9435,6 @@ static const ui_str_id_t g_data_strategy_str_ids[5] = {
 };
 
 /* 数据设置页：复选框统一样式（含禁用态灰字） */
-
 static void admin_data_style_checkbox(lv_obj_t * cb)
 {
     admin_payment_style_checkbox(cb);
@@ -9432,7 +9442,6 @@ static void admin_data_style_checkbox(lv_obj_t * cb)
 }
 
 /* 数据设置页：按 g_ui_data_upload_* 刷新左栏上传项复选框与文案 */
-
 static void admin_data_sync_upload_items_ui(void)
 {
     static bool * const vars[7] = {
@@ -9455,7 +9464,6 @@ static void admin_data_sync_upload_items_ui(void)
 }
 
 /* 数据设置页：切换策略前临时解除右栏全部 DISABLED，便于点选其它项 */
-
 static void admin_data_strategy_enable_all(void)
 {
     unsigned i;
@@ -9468,7 +9476,6 @@ static void admin_data_strategy_enable_all(void)
 }
 
 /* 数据设置页：按 g_ui_data_upload_strategy 刷新右栏互斥复选框（选中一项，其余 unchecked+disabled） */
-
 static void admin_data_sync_strategy_ui(void)
 {
     unsigned i;
@@ -9490,7 +9497,6 @@ static void admin_data_sync_strategy_ui(void)
 }
 
 /* 由策略复选框对象反查下标；未找到返回 -1 */
-
 static int admin_data_strategy_index_from_cb(lv_obj_t * cb)
 {
     unsigned i;
@@ -9502,7 +9508,6 @@ static int admin_data_strategy_index_from_cb(lv_obj_t * cb)
 }
 
 /* 数据设置页：策略项按下时先解除禁用，便于切换到其它策略 */
-
 static void cb_admin_data_strategy_pressed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_PRESSED) return;
