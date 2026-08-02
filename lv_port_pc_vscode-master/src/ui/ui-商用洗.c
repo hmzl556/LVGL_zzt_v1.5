@@ -1221,6 +1221,7 @@ typedef enum {
     STR_PWD_WRONG_RETRY,
     STR_PWD_ENTER_OLD,
     STR_PWD_ENTER_NEW,
+    STR_PWD_ENTER_NEW_AGAIN,
     STR_PWD_WRONG_REENTER,
     STR_PWD_MISMATCH,
     STR_PWD_CHANGE_OK,
@@ -1440,10 +1441,11 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_BTN_QUERY]              = "查询",
         [STR_PWD_ENTER_ADMIN]        = "请输入管理员密码",
         [STR_PWD_WRONG_RETRY]        = "密码错误，请稍后再试！",
-        [STR_PWD_ENTER_OLD]          = "请输入原密码",
-        [STR_PWD_ENTER_NEW]          = "请输入新密码",
-        [STR_PWD_WRONG_REENTER]      = "密码错误，请重新输入",
-        [STR_PWD_MISMATCH]           = "两次输入不一致，请重新输入",
+        [STR_PWD_ENTER_OLD]          = "输入原密码：",
+        [STR_PWD_ENTER_NEW]          = "输入新密码：",
+        [STR_PWD_ENTER_NEW_AGAIN]    = "再次输入新密码：",
+        [STR_PWD_WRONG_REENTER]      = "原密码错误，请重新输入！",
+        [STR_PWD_MISMATCH]           = "两次输入不一致，请重新输入！",
         [STR_PWD_CHANGE_OK]          = "密码修改成功",
         [STR_MACHINE_ID_TITLE]       = "ID设置",
         [STR_MACHINE_ID_CUR_NONE]    = "当前 ID：未配置",
@@ -1480,7 +1482,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_DORM_TIME_PREFIX]       = "机器将在",
         [STR_DORM_TIME_SUFFIX]       = "后熄屏",
         [STR_FACTORY_CONFIRM_Q]      = "是否需要恢复默认设置？",
-        [STR_FACTORY_CONFIRM_HINT]   = "（所有设置都将恢复出厂设置）",
+        [STR_FACTORY_CONFIRM_HINT]   = "(所有设置都将恢复出厂设置)",
         [STR_FACTORY_RESTORING]      = "正在恢复出厂设置......",
         [STR_FACTORY_DONE]           = "所有设置已恢复出厂设置",
         [STR_CONTACT_HOTLINE]        = "24小时服务热线：400-999-999",
@@ -1643,10 +1645,11 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_BTN_QUERY]              = "Query",
         [STR_PWD_ENTER_ADMIN]        = "Enter admin password",
         [STR_PWD_WRONG_RETRY]        = "Wrong password, try again later!",
-        [STR_PWD_ENTER_OLD]          = "Enter current password",
-        [STR_PWD_ENTER_NEW]          = "Enter new password",
-        [STR_PWD_WRONG_REENTER]      = "Wrong password, please re-enter",
-        [STR_PWD_MISMATCH]           = "Passwords do not match, please re-enter",
+        [STR_PWD_ENTER_OLD]          = "Current password:",
+        [STR_PWD_ENTER_NEW]          = "New password:",
+        [STR_PWD_ENTER_NEW_AGAIN]    = "Confirm new password:",
+        [STR_PWD_WRONG_REENTER]      = "Wrong current password, please re-enter!",
+        [STR_PWD_MISMATCH]           = "Passwords do not match, please re-enter!",
         [STR_PWD_CHANGE_OK]          = "Password changed successfully",
         [STR_MACHINE_ID_TITLE]       = "Machine ID Settings",
         [STR_MACHINE_ID_CUR_NONE]    = "Current ID: Not configured",
@@ -2119,9 +2122,11 @@ static lv_obj_t * g_admin_lang_set_box_wrap;
 static lv_obj_t * g_admin_lbl_lang_line1;
 static lv_obj_t * g_admin_btn_lang_zh;
 static lv_obj_t * g_admin_btn_lang_en;
-/* 恢复默认子页控件 */
+/* 恢复默认子页控件（布局同待机时间 title_box+set_box；确定/取消同 ID） */
 static lv_obj_t * g_admin_panel_factory;
+static lv_obj_t * g_admin_img_factory_title_box;
 static lv_obj_t * g_admin_lbl_factory_title;
+static lv_obj_t * g_admin_factory_set_box_wrap;
 static lv_obj_t * g_admin_lbl_factory_line1;
 static lv_obj_t * g_admin_lbl_factory_line2;
 static lv_obj_t * g_admin_lbl_factory_status;
@@ -2234,15 +2239,27 @@ static lv_obj_t * g_admin_lbl_4g_done;
 static admin_4g_phase_t g_admin_4g_phase = ADMIN_4G_PHASE_PROMPT;
 static lv_timer_t * g_admin_4g_timer;
 static bool g_admin_4g_ui_loading;
-/* 密码修改子页控件 */
+/* 密码修改子页控件（title_box 同待机时间；无 set_box；结果页同配网成功/失败） */
 static lv_obj_t * g_admin_panel_pwd_chg_old;
+static lv_obj_t * g_admin_img_pwd_chg_old_title_box;
+static lv_obj_t * g_admin_lbl_pwd_chg_old_title;
+static lv_obj_t * g_admin_pwd_chg_old_content;
+static lv_obj_t * g_admin_lbl_pwd_chg_old;
 static lv_obj_t * g_admin_ta_pwd_chg_old;
-static lv_obj_t * g_admin_lbl_msg_pwd_chg_old;
-static lv_obj_t * g_admin_panel_pwd_chg_new;
+static lv_obj_t * g_admin_lbl_pwd_chg_new1;
 static lv_obj_t * g_admin_ta_pwd_chg_new1;
+static lv_obj_t * g_admin_panel_pwd_chg_new;
+static lv_obj_t * g_admin_img_pwd_chg_new_title_box;
+static lv_obj_t * g_admin_lbl_pwd_chg_new_title;
+static lv_obj_t * g_admin_pwd_chg_new_content;
+static lv_obj_t * g_admin_lbl_pwd_chg_new2;
 static lv_obj_t * g_admin_ta_pwd_chg_new2;
-static lv_obj_t * g_admin_lbl_msg_pwd_chg_new;
-static uint8_t g_admin_pwd_chg_new_step;  /* 0=第一框 1=第二框 */
+static lv_obj_t * g_admin_pwd_chg_result;       /* 成功/失败全屏结果层 */
+static lv_obj_t * g_admin_img_pwd_chg_result;
+static lv_obj_t * g_admin_lbl_pwd_chg_result;
+static char g_admin_pwd_chg_pending[ADMIN_PWD_LEN]; /* 页1确认后的新密码，供页2比对 */
+static uint8_t g_admin_pwd_chg_page1_step;  /* 0=原密码框 1=新密码框 */
+static bool g_admin_pwd_chg_result_ok;      /* 结果页：true=成功→menu2，false=失败→页1 */
 static admin_factory_phase_t g_admin_factory_phase = ADMIN_FACTORY_PHASE_PROMPT;
 static lv_timer_t * g_admin_factory_timer;
 static admin_system_upgrade_phase_t g_admin_system_upgrade_phase = ADMIN_SYSTEM_UPGRADE_PHASE_PROMPT;
@@ -2388,7 +2405,7 @@ static void cb_admin_lang_zh(lv_event_t * e);  //语言页「中文」
 static void cb_admin_lang_en(lv_event_t * e);  //语言页「英文」
 static void admin_factory_set_phase(admin_factory_phase_t phase);  //恢复默认子页：切换确认/恢复中/完成 UI
 static void admin_factory_reset_ui_enter(void);  //进入恢复默认页：复位为确认前态
-static void admin_factory_back_to_menu1(void);  //离开恢复默认页：回 menu1
+static void admin_factory_back_to_menu2(void);  //离开恢复默认页：回 menu2
 static void admin_factory_run_restore(void);  //执行出厂恢复：程序/待机/机器 ID 等
 static void admin_factory_timer_stop(void);  //停止恢复默认页 2s 完成态定时器
 static void cb_admin_factory_cancel(lv_event_t * e);  //恢复默认「取消」：回菜单
@@ -2438,11 +2455,13 @@ static void cb_admin_wifi_switch_changed(lv_event_t * e);  //WIFI 开关切换�
 static void cb_admin_wifi_timer(lv_timer_t * t);  //2s 定时器：连接中 → 成功/失败态
 static void admin_wifi_apply_switch_layout(void);  //WIFI 设置页：刷新 WIFI 开关布局
 static void admin_wifi_sync_switch_ui(void);  //WIFI 设置页：刷新开关与状态一致
-static void admin_pwd_chg_enter(void);  //密码修改入口：进入原密码校验页
-static void admin_pwd_chg_old_try(void);  //密码修改步骤一：键盘 OK 校验原密码
-static void admin_pwd_chg_show_new(void);  //密码修改步骤二：显示双新密码输入页
-static void admin_pwd_chg_new_on_ready(void);  //密码修改步骤二：键盘 OK 切换框或保存
+static void admin_pwd_chg_enter(void);  //密码修改入口：进入页1（原密码+新密码）
+static void admin_pwd_chg_page1_on_ready(void);  //页1 键盘 OK：切框或校验并进页2/失败页
+static void admin_pwd_chg_page2_on_ready(void);  //页2 键盘 OK：比对二次新密码 → 成功/失败页
+static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id);  //配网成功/失败布局的结果页
+static void admin_pwd_chg_hide_result(void);  //隐藏结果页，恢复输入区
 static void admin_pwd_chg_back_to_menu2(void);  //离开密码修改：回 menu2
+static void cb_admin_pwd_chg_result_click(lv_event_t * e);  //结果页点击：失败回页1 / 成功回 menu2
 static void cb_admin_open_password_change(lv_event_t * e);  //menu2「密码修改」入口
 static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号
 static uint32_t ui_payment_timeout_roller_index_from_sec(uint16_t sec);  //秒数 → roller 下标
@@ -3926,12 +3945,12 @@ static void cb_admin_ta_key_enter(lv_event_t * e)
 		return;
 	}
 
-	if(g_admin_view == PASSWORD_CHANGE_NEW && ta != NULL) {
-		if(ta == g_admin_ta_pwd_chg_new1) {
-			g_admin_pwd_chg_new_step = 0;
+	if(g_admin_view == PASSWORD_CHANGE_OLD && ta != NULL) {
+		if(ta == g_admin_ta_pwd_chg_old) {
+			g_admin_pwd_chg_page1_step = 0;
 		}
-		else if(ta == g_admin_ta_pwd_chg_new2) {
-			g_admin_pwd_chg_new_step = 1;
+		else if(ta == g_admin_ta_pwd_chg_new1) {
+			g_admin_pwd_chg_page1_step = 1;
 		}
 	}
 
@@ -3948,12 +3967,12 @@ static void cb_admin_ta_kb_focus(lv_event_t * e)
 	   g_admin_view != PASSWORD_CHANGE_OLD && g_admin_view != PASSWORD_CHANGE_NEW &&
 	   g_admin_view != VENDOR_SERIAL) return;
 
-	if(g_admin_view == PASSWORD_CHANGE_NEW && code == LV_EVENT_CLICKED && ta != NULL) {
-		if(ta == g_admin_ta_pwd_chg_new1) {
-			g_admin_pwd_chg_new_step = 0;
+	if(g_admin_view == PASSWORD_CHANGE_OLD && code == LV_EVENT_CLICKED && ta != NULL) {
+		if(ta == g_admin_ta_pwd_chg_old) {
+			g_admin_pwd_chg_page1_step = 0;
 		}
-		else if(ta == g_admin_ta_pwd_chg_new2) {
-			g_admin_pwd_chg_new_step = 1;
+		else if(ta == g_admin_ta_pwd_chg_new1) {
+			g_admin_pwd_chg_page1_step = 1;
 		}
 	}
 
@@ -7071,31 +7090,38 @@ static void admin_encoder_rebuild(void)
         }
         break;
     case PASSWORD_CHANGE_OLD:
-        if(g_admin_ta_pwd_chg_old != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_old);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_kb != NULL &&
-           g_admin_kb_ta == g_admin_ta_pwd_chg_old) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        } else {
-            focus_first = (g_admin_ta_pwd_chg_old != NULL) ? g_admin_ta_pwd_chg_old : g_admin_btn_back;
+        if(g_admin_pwd_chg_result != NULL && !lv_obj_has_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN)) {
+            focus_first = g_admin_btn_back;
+            break;
         }
-        break;
-    case PASSWORD_CHANGE_NEW:
+        if(g_admin_ta_pwd_chg_old != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_old);
         if(g_admin_ta_pwd_chg_new1 != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_new1);
-        if(g_admin_ta_pwd_chg_new2 != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_new2);
         if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
         if(admin_kb_is_visible() && g_admin_kb != NULL) {
             lv_obj_t * kb_ta = g_admin_kb_ta;
-            if(kb_ta == g_admin_ta_pwd_chg_new1 || kb_ta == g_admin_ta_pwd_chg_new2) {
+            if(kb_ta == g_admin_ta_pwd_chg_old || kb_ta == g_admin_ta_pwd_chg_new1) {
                 lv_group_set_editing(g_group_admin, true);
                 focus_first = g_admin_kb;
             }
         }
         if(focus_first == g_admin_btn_back) {
-            focus_first = (g_admin_pwd_chg_new_step == 1 && g_admin_ta_pwd_chg_new2 != NULL) ?
-                g_admin_ta_pwd_chg_new2 : g_admin_ta_pwd_chg_new1;
+            focus_first = (g_admin_pwd_chg_page1_step == 1 && g_admin_ta_pwd_chg_new1 != NULL) ?
+                g_admin_ta_pwd_chg_new1 : g_admin_ta_pwd_chg_old;
             if(focus_first == NULL) focus_first = g_admin_btn_back;
+        }
+        break;
+    case PASSWORD_CHANGE_NEW:
+        if(g_admin_pwd_chg_result != NULL && !lv_obj_has_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN)) {
+            focus_first = g_admin_btn_back;
+            break;
+        }
+        if(g_admin_ta_pwd_chg_new2 != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_new2);
+        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
+        if(admin_kb_is_visible() && g_admin_kb != NULL && g_admin_kb_ta == g_admin_ta_pwd_chg_new2) {
+            lv_group_set_editing(g_group_admin, true);
+            focus_first = g_admin_kb;
+        } else {
+            focus_first = (g_admin_ta_pwd_chg_new2 != NULL) ? g_admin_ta_pwd_chg_new2 : g_admin_btn_back;
         }
         break;
     default:
@@ -7124,6 +7150,11 @@ static void admin_panel_show(admin_view_t view)
         view = PASSWORD;
     }
     g_admin_view = view;
+
+    if(view != PASSWORD_CHANGE_OLD && view != PASSWORD_CHANGE_NEW &&
+       g_admin_pwd_chg_result != NULL) {
+        lv_obj_add_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
+    }
 
     if(g_admin_panel_pwd != NULL) lv_obj_add_flag(g_admin_panel_pwd, LV_OBJ_FLAG_HIDDEN);
     if(g_admin_panel_menu1 != NULL) lv_obj_add_flag(g_admin_panel_menu1, LV_OBJ_FLAG_HIDDEN);
@@ -7401,6 +7432,10 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == PASSWORD_CHANGE_OLD && g_admin_panel_pwd_chg_old != NULL) {
         lv_obj_remove_flag(g_admin_panel_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
+        admin_pwd_chg_hide_result();
+        g_admin_pwd_chg_page1_step = 0;
+        if(g_admin_ta_pwd_chg_old != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_old, "");
+        if(g_admin_ta_pwd_chg_new1 != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_new1, "");
         if(g_admin_kb != NULL) {
             lv_obj_remove_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
             g_admin_kb_ta = g_admin_ta_pwd_chg_old;
@@ -7408,16 +7443,11 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == PASSWORD_CHANGE_NEW && g_admin_panel_pwd_chg_new != NULL) {
         lv_obj_remove_flag(g_admin_panel_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
-        g_admin_pwd_chg_new_step = 0;
-        if(g_admin_ta_pwd_chg_new1 != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_new1, "");
+        admin_pwd_chg_hide_result();
         if(g_admin_ta_pwd_chg_new2 != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_new2, "");
-        if(g_admin_lbl_msg_pwd_chg_new != NULL) {
-            lv_label_set_text(g_admin_lbl_msg_pwd_chg_new, "");
-            lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_admin_kb != NULL && g_admin_ta_pwd_chg_new1 != NULL) {
+        if(g_admin_kb != NULL && g_admin_ta_pwd_chg_new2 != NULL) {
             lv_obj_remove_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-            g_admin_kb_ta = g_admin_ta_pwd_chg_new1;
+            g_admin_kb_ta = g_admin_ta_pwd_chg_new2;
         }
     }
 
@@ -7542,9 +7572,9 @@ static void cb_admin_ta_ready(lv_event_t * e)
 	if(g_admin_view == PASSWORD) {
 		admin_password_try();
 	} else if(g_admin_view == PASSWORD_CHANGE_OLD) {
-		admin_pwd_chg_old_try();
+		admin_pwd_chg_page1_on_ready();
 	} else if(g_admin_view == PASSWORD_CHANGE_NEW) {
-		admin_pwd_chg_new_on_ready();
+		admin_pwd_chg_page2_on_ready();
 	} else if(g_admin_view == VENDOR_SERIAL) {
 		admin_vendor_serial_try();
 	} else if(g_admin_view == MACHINE_ID) {
@@ -7589,7 +7619,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == FACTORY_RESET) {
-        admin_factory_back_to_menu1();
+        admin_factory_back_to_menu2();
         return;
     }
     if(g_admin_view == CONTACT_US) {
@@ -8949,6 +8979,7 @@ static void admin_factory_set_phase(admin_factory_phase_t phase)
             else {
                 lv_label_set_text(g_admin_lbl_factory_status, ui_translation(STR_FACTORY_DONE));
             }
+            lv_obj_center(g_admin_lbl_factory_status);
         }
     }
 
@@ -8966,15 +8997,15 @@ static void admin_factory_reset_ui_enter(void)
     admin_factory_set_phase(ADMIN_FACTORY_PHASE_PROMPT);
 }
 
-/* 离开恢复默认页：回管理员 8 宫格菜单 */
+/* 离开恢复默认页：回管理员 menu2 */
 
-static void admin_factory_back_to_menu1(void)
+static void admin_factory_back_to_menu2(void)
 {
     admin_factory_timer_stop();
     if(g_group_admin != NULL) {
         lv_group_set_editing(g_group_admin, false);
     }
-    admin_panel_show(MENU1);
+    admin_panel_show(MENU2);
 }
 
 /* 恢复默认「取消」：返回管理员菜单 */
@@ -8982,7 +9013,7 @@ static void admin_factory_back_to_menu1(void)
 static void cb_admin_factory_cancel(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-    admin_factory_back_to_menu1();
+    admin_factory_back_to_menu2();
 }
 
 /* 2s 定时器：恢复中 → 完成态 */
@@ -9492,13 +9523,9 @@ static void admin_refresh_visible_status_text(void)
        && !lv_obj_has_flag(g_admin_lbl_msg_pwd, LV_OBJ_FLAG_HIDDEN)) {
         lv_label_set_text(g_admin_lbl_msg_pwd, ui_translation(g_admin_pwd_err_id));
     }
-    if(g_admin_lbl_msg_pwd_chg_old != NULL && g_admin_pwd_chg_old_err_id < STR_COUNT
-       && !lv_obj_has_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN)) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_old, ui_translation(g_admin_pwd_chg_old_err_id));
-    }
-    if(g_admin_lbl_msg_pwd_chg_new != NULL && g_admin_pwd_chg_new_msg_id < STR_COUNT
-       && !lv_obj_has_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN)) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_new, ui_translation(g_admin_pwd_chg_new_msg_id));
+    if(g_admin_lbl_pwd_chg_result != NULL && g_admin_pwd_chg_new_msg_id < STR_COUNT
+       && !lv_obj_has_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN)) {
+        lv_label_set_text(g_admin_lbl_pwd_chg_result, ui_translation(g_admin_pwd_chg_new_msg_id));
     }
     if(g_admin_view == FACTORY_RESET) {
         admin_factory_set_phase(g_admin_factory_phase);
@@ -10259,116 +10286,164 @@ static void admin_group_focus_cb(lv_group_t * group)
 
 static void admin_pwd_chg_enter(void)
 {
-    if(g_admin_ta_pwd_chg_old != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_old, "");
-    if(g_admin_lbl_msg_pwd_chg_old != NULL) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_old, "");
-        lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
-    }
+    g_admin_pwd_chg_pending[0] = '\0';
+    g_admin_pwd_chg_page1_step = 0;
     admin_panel_show(PASSWORD_CHANGE_OLD);
 }
 
-/* 密码修改步骤一：键盘 OK 校验原密码，成功进入双新密码页 */
+/* 隐藏结果页，恢复当前页输入区与小键盘 */
 
-static void admin_pwd_chg_old_try(void)
+static void admin_pwd_chg_hide_result(void)
 {
-    if(g_admin_ta_pwd_chg_old == NULL) return;
-    const char * t = lv_textarea_get_text(g_admin_ta_pwd_chg_old);
-    if(t == NULL || lv_strlen(t) != 6) return;
-    if(lv_strcmp(t, g_admin_pwd) != 0) {
-        if(g_admin_lbl_msg_pwd_chg_old != NULL) {
-            g_admin_pwd_chg_old_err_id = STR_PWD_WRONG_REENTER;
-            lv_label_set_text(g_admin_lbl_msg_pwd_chg_old, ui_translation(STR_PWD_WRONG_REENTER));
-            lv_obj_remove_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
-        }
-        lv_textarea_set_text(g_admin_ta_pwd_chg_old, "");
-        return;
+    if(g_admin_pwd_chg_result != NULL) {
+        lv_obj_add_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
     }
-    lv_textarea_set_text(g_admin_ta_pwd_chg_old, "");
-    if(g_admin_lbl_msg_pwd_chg_old != NULL) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_old, "");
-        lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
+    if(g_admin_view == PASSWORD_CHANGE_OLD) {
+        if(g_admin_img_pwd_chg_old_title_box != NULL)
+            lv_obj_remove_flag(g_admin_img_pwd_chg_old_title_box, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_lbl_pwd_chg_old_title != NULL)
+            lv_obj_remove_flag(g_admin_lbl_pwd_chg_old_title, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_pwd_chg_old_content != NULL)
+            lv_obj_remove_flag(g_admin_pwd_chg_old_content, LV_OBJ_FLAG_HIDDEN);
     }
-    admin_pwd_chg_show_new();
+    else if(g_admin_view == PASSWORD_CHANGE_NEW) {
+        if(g_admin_img_pwd_chg_new_title_box != NULL)
+            lv_obj_remove_flag(g_admin_img_pwd_chg_new_title_box, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_lbl_pwd_chg_new_title != NULL)
+            lv_obj_remove_flag(g_admin_lbl_pwd_chg_new_title, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_pwd_chg_new_content != NULL)
+            lv_obj_remove_flag(g_admin_pwd_chg_new_content, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
-/* 密码修改步骤二：切换到双新密码输入页 */
+/* 结果页：布局同 WIFI 配网成功/失败（图标 CENTER 0,-80；文案 CENTER 0,60） */
 
-static void admin_pwd_chg_show_new(void)
+static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id)
 {
+    g_admin_pwd_chg_result_ok = ok;
+    g_admin_pwd_chg_new_msg_id = msg_id;
+
+    if(g_admin_kb != NULL) {
+        g_admin_kb_ta = NULL;
+        lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_group_admin != NULL) {
+        lv_group_set_editing(g_group_admin, false);
+    }
+
+    if(g_admin_view == PASSWORD_CHANGE_OLD) {
+        if(g_admin_img_pwd_chg_old_title_box != NULL)
+            lv_obj_add_flag(g_admin_img_pwd_chg_old_title_box, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_lbl_pwd_chg_old_title != NULL)
+            lv_obj_add_flag(g_admin_lbl_pwd_chg_old_title, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_pwd_chg_old_content != NULL)
+            lv_obj_add_flag(g_admin_pwd_chg_old_content, LV_OBJ_FLAG_HIDDEN);
+    }
+    else if(g_admin_view == PASSWORD_CHANGE_NEW) {
+        if(g_admin_img_pwd_chg_new_title_box != NULL)
+            lv_obj_add_flag(g_admin_img_pwd_chg_new_title_box, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_lbl_pwd_chg_new_title != NULL)
+            lv_obj_add_flag(g_admin_lbl_pwd_chg_new_title, LV_OBJ_FLAG_HIDDEN);
+        if(g_admin_pwd_chg_new_content != NULL)
+            lv_obj_add_flag(g_admin_pwd_chg_new_content, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if(g_admin_pwd_chg_result == NULL) return;
+    if(g_admin_img_pwd_chg_result != NULL) {
+        lv_image_set_src(g_admin_img_pwd_chg_result, ok ? &success : &failure);
+    }
+    if(g_admin_lbl_pwd_chg_result != NULL) {
+        lv_label_set_text(g_admin_lbl_pwd_chg_result, ui_translation(msg_id));
+    }
+    lv_obj_remove_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(g_admin_pwd_chg_result);
+    admin_encoder_rebuild();
+}
+
+/* 结果页点击：失败回页1；成功回 menu2 */
+
+static void cb_admin_pwd_chg_result_click(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if(g_admin_pwd_chg_result_ok) {
+        admin_pwd_chg_back_to_menu2();
+    }
+    else {
+        admin_pwd_chg_enter();
+    }
+}
+
+/* 页1 键盘 OK：原密码框→新密码框；新密码框→校验后进页2或失败页 */
+
+static void admin_pwd_chg_page1_on_ready(void)
+{
+    if(g_admin_ta_pwd_chg_old == NULL || g_admin_ta_pwd_chg_new1 == NULL) return;
+
+    lv_obj_t * ta = g_admin_kb_ta;
+    if(ta != g_admin_ta_pwd_chg_old && ta != g_admin_ta_pwd_chg_new1) {
+        ta = (g_admin_pwd_chg_page1_step == 1) ? g_admin_ta_pwd_chg_new1 : g_admin_ta_pwd_chg_old;
+    }
+
+    if(ta == g_admin_ta_pwd_chg_old) {
+        const char * told = lv_textarea_get_text(g_admin_ta_pwd_chg_old);
+        if(told == NULL || lv_strlen(told) != 6) return;
+        g_admin_pwd_chg_page1_step = 1;
+        if(g_admin_kb != NULL) g_admin_kb_ta = g_admin_ta_pwd_chg_new1;
+        if(g_group_admin != NULL) lv_group_focus_obj(g_admin_ta_pwd_chg_new1);
+        admin_encoder_rebuild();
+        return;
+    }
+
+    const char * told = lv_textarea_get_text(g_admin_ta_pwd_chg_old);
+    const char * tnew = lv_textarea_get_text(g_admin_ta_pwd_chg_new1);
+    if(told == NULL || tnew == NULL || lv_strlen(told) != 6 || lv_strlen(tnew) != 6) return;
+
+    if(lv_strcmp(told, g_admin_pwd) != 0) {
+        g_admin_pwd_chg_old_err_id = STR_PWD_WRONG_REENTER;
+        admin_pwd_chg_show_result(false, STR_PWD_WRONG_REENTER);
+        return;
+    }
+    if(lv_strcmp(tnew, g_admin_pwd) == 0) {
+        /* 新密码须与原密码不同 */
+        return;
+    }
+
+    lv_strncpy(g_admin_pwd_chg_pending, tnew, ADMIN_PWD_LEN - 1);
+    g_admin_pwd_chg_pending[ADMIN_PWD_LEN - 1] = '\0';
     admin_panel_show(PASSWORD_CHANGE_NEW);
 }
 
-/* 密码修改步骤二：第一框 OK 进第二框；第二框 OK 比对并保存 */
+/* 页2 键盘 OK：二次新密码比对 → 成功/失败结果页 */
 
-static void admin_pwd_chg_new_on_ready(void)
+static void admin_pwd_chg_page2_on_ready(void)
 {
-    if(g_admin_ta_pwd_chg_new1 == NULL || g_admin_ta_pwd_chg_new2 == NULL) return;
-
-    if(g_admin_pwd_chg_new_step == 0) {
-        const char * t = lv_textarea_get_text(g_admin_ta_pwd_chg_new1);
-        if(t == NULL || lv_strlen(t) != 6) return;
-        g_admin_pwd_chg_new_step = 1;
-        if(g_admin_kb != NULL) {
-            g_admin_kb_ta = g_admin_ta_pwd_chg_new2;
-        }
-        if(g_group_admin != NULL) {
-            lv_group_focus_obj(g_admin_ta_pwd_chg_new2);
-        }
-        return;
-    }
-
-    const char * t1 = lv_textarea_get_text(g_admin_ta_pwd_chg_new1);
+    if(g_admin_ta_pwd_chg_new2 == NULL) return;
     const char * t2 = lv_textarea_get_text(g_admin_ta_pwd_chg_new2);
-    if(t1 == NULL || t2 == NULL || lv_strlen(t1) != 6 || lv_strlen(t2) != 6) return;
+    if(t2 == NULL || lv_strlen(t2) != 6) return;
 
-    if(lv_strcmp(t1, t2) != 0) {
-        if(g_admin_lbl_msg_pwd_chg_new != NULL) {
-            g_admin_pwd_chg_new_msg_id = STR_PWD_MISMATCH;
-            lv_label_set_text(g_admin_lbl_msg_pwd_chg_new, ui_translation(STR_PWD_MISMATCH));
-            lv_obj_remove_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
-        }
-        lv_textarea_set_text(g_admin_ta_pwd_chg_new1, "");
-        lv_textarea_set_text(g_admin_ta_pwd_chg_new2, "");
-        g_admin_pwd_chg_new_step = 0;
-        if(g_admin_kb != NULL) {
-            g_admin_kb_ta = g_admin_ta_pwd_chg_new1;
-        }
-        if(g_group_admin != NULL && g_admin_ta_pwd_chg_new1 != NULL) {
-            lv_group_focus_obj(g_admin_ta_pwd_chg_new1);
-        }
+    if(lv_strcmp(t2, g_admin_pwd_chg_pending) != 0) {
+        g_admin_pwd_chg_new_msg_id = STR_PWD_MISMATCH;
+        admin_pwd_chg_show_result(false, STR_PWD_MISMATCH);
         return;
     }
 
-    lv_strcpy(g_admin_pwd, t1);
-    if(g_admin_lbl_msg_pwd_chg_new != NULL) {
-        g_admin_pwd_chg_new_msg_id = STR_PWD_CHANGE_OK;
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_new, ui_translation(STR_PWD_CHANGE_OK));
-        lv_obj_remove_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
-    }
-    lv_textarea_set_text(g_admin_ta_pwd_chg_new1, "");
-    lv_textarea_set_text(g_admin_ta_pwd_chg_new2, "");
-    g_admin_pwd_chg_new_step = 0;
-    if(g_admin_kb != NULL && g_admin_ta_pwd_chg_new1 != NULL) {
-        g_admin_kb_ta = g_admin_ta_pwd_chg_new1;
-    }
+    lv_strcpy(g_admin_pwd, g_admin_pwd_chg_pending);
+    g_admin_pwd_chg_new_msg_id = STR_PWD_CHANGE_OK;
+    admin_pwd_chg_show_result(true, STR_PWD_CHANGE_OK);
 }
 
-/* 离开密码修改（步骤一）：回 menu2 */
+/* 离开密码修改：回 menu2 */
 
 static void admin_pwd_chg_back_to_menu2(void)
 {
     if(g_admin_ta_pwd_chg_old != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_old, "");
-    if(g_admin_lbl_msg_pwd_chg_old != NULL) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_old, "");
-        lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
-    }
     if(g_admin_ta_pwd_chg_new1 != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_new1, "");
     if(g_admin_ta_pwd_chg_new2 != NULL) lv_textarea_set_text(g_admin_ta_pwd_chg_new2, "");
-    if(g_admin_lbl_msg_pwd_chg_new != NULL) {
-        lv_label_set_text(g_admin_lbl_msg_pwd_chg_new, "");
-        lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
+    g_admin_pwd_chg_pending[0] = '\0';
+    g_admin_pwd_chg_page1_step = 0;
+    if(g_admin_pwd_chg_result != NULL) {
+        lv_obj_add_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
     }
-    g_admin_pwd_chg_new_step = 0;
     admin_panel_show(MENU2);
 }
 
@@ -11127,6 +11202,84 @@ static void build_admin(void)
     if(g_admin_btn_lang_zh != NULL) lv_obj_move_foreground(g_admin_btn_lang_zh);
     if(g_admin_btn_lang_en != NULL) lv_obj_move_foreground(g_admin_btn_lang_en);
     admin_lang_sync_btn_ui();
+
+    /* 恢复默认子面板（title_box/set_box 同待机时间；确定/取消同 ID） */
+    g_admin_panel_factory = lv_obj_create(root);
+    lv_obj_set_size(g_admin_panel_factory, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_factory, LV_ALIGN_TOP_MID, 0, body_y);
+    lv_obj_set_style_bg_opa(g_admin_panel_factory, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_panel_factory, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_panel_factory, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_panel_factory, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_panel_factory, LV_OBJ_FLAG_HIDDEN);
+
+    g_admin_img_factory_title_box = lv_image_create(g_admin_panel_factory);
+    lv_image_set_src(g_admin_img_factory_title_box, &title_box);
+    lv_obj_align(g_admin_img_factory_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
+    g_admin_lbl_factory_title = lv_label_create(g_admin_panel_factory);
+    ui_lang_bind_label(g_admin_lbl_factory_title, STR_ADMIN_M1_FACTORY_RESET);
+    lv_obj_set_style_text_color(g_admin_lbl_factory_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_factory_title, s_font_sc_30);
+    lv_obj_align(g_admin_lbl_factory_title, LV_ALIGN_TOP_MID, 0, 25);
+
+    g_admin_factory_set_box_wrap = lv_obj_create(g_admin_panel_factory);
+    lv_obj_set_size(g_admin_factory_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_factory_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_factory_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_factory_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_factory_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_factory_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * img_factory_set_box = lv_image_create(g_admin_factory_set_box_wrap);
+    lv_image_set_src(img_factory_set_box, &set_box);
+    lv_obj_center(img_factory_set_box);
+
+    /* 第一页：左侧两行确认文案（左对齐，与右侧按钮垂直居中） */
+    g_admin_lbl_factory_line1 = lv_label_create(g_admin_factory_set_box_wrap);
+    ui_lang_bind_label(g_admin_lbl_factory_line1, STR_FACTORY_CONFIRM_Q);
+    lv_obj_set_style_text_color(g_admin_lbl_factory_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_factory_line1, s_font_sc_30);
+    lv_obj_set_style_text_align(g_admin_lbl_factory_line1, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_align(g_admin_lbl_factory_line1, LV_ALIGN_LEFT_MID, 100, -30);
+
+    g_admin_lbl_factory_line2 = lv_label_create(g_admin_factory_set_box_wrap);
+    ui_lang_bind_label(g_admin_lbl_factory_line2, STR_FACTORY_CONFIRM_HINT);
+    lv_obj_set_style_text_color(g_admin_lbl_factory_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_factory_line2, s_font_sc_30);
+    lv_obj_set_style_text_align(g_admin_lbl_factory_line2, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_align(g_admin_lbl_factory_line2, LV_ALIGN_LEFT_MID, 100, 30);
+
+    /* 第二/三页：状态文案居中（恢复中 / 完成） */
+    g_admin_lbl_factory_status = lv_label_create(g_admin_factory_set_box_wrap);
+    lv_label_set_text(g_admin_lbl_factory_status, ui_translation(STR_FACTORY_RESTORING));
+    lv_obj_set_style_text_color(g_admin_lbl_factory_status, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_factory_status, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_factory_status, 900);
+    lv_label_set_long_mode(g_admin_lbl_factory_status, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(g_admin_lbl_factory_status, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_center(g_admin_lbl_factory_status);
+    lv_obj_add_flag(g_admin_lbl_factory_status, LV_OBJ_FLAG_HIDDEN);
+
+    /* 确定/取消：与 ID 设置 mid_btn 完全一致（110×50，CENTER 400/±35） */
+    const lv_coord_t factory_btn_w = 110;
+    const lv_coord_t factory_btn_h = 50;
+    g_admin_btn_factory_ok = make_orange_fill_btn(g_admin_factory_set_box_wrap,
+        ui_translation(STR_BTN_OK), factory_btn_w, factory_btn_h);
+    lv_obj_align(g_admin_btn_factory_ok, LV_ALIGN_CENTER, 400, -35);
+    ui_set_obj_font(lv_obj_get_child(g_admin_btn_factory_ok, 0), s_font_sc_30);
+    orange_btn_bind_i18n(g_admin_btn_factory_ok, STR_BTN_OK);
+    lv_obj_add_event_cb(g_admin_btn_factory_ok, cb_admin_factory_ok, LV_EVENT_CLICKED, NULL);
+
+    g_admin_btn_factory_cancel = make_orange_outline_btn(g_admin_factory_set_box_wrap,
+        ui_translation(STR_BTN_CANCEL), factory_btn_w, factory_btn_h);
+    lv_obj_align(g_admin_btn_factory_cancel, LV_ALIGN_CENTER, 400, 35);
+    ui_set_obj_font(lv_obj_get_child(g_admin_btn_factory_cancel, 0), s_font_sc_30);
+    orange_btn_bind_i18n(g_admin_btn_factory_cancel, STR_BTN_CANCEL);
+    lv_obj_add_event_cb(g_admin_btn_factory_cancel, cb_admin_factory_cancel, LV_EVENT_CLICKED, NULL);
+
+    if(g_admin_btn_factory_ok != NULL) lv_obj_move_foreground(g_admin_btn_factory_ok);
+    if(g_admin_btn_factory_cancel != NULL) lv_obj_move_foreground(g_admin_btn_factory_cancel);
 
     /* 联系我们子面板（title_box/set_box 同待机时间；文案/二维码坐标保持原值） */
     g_admin_panel_contact = lv_obj_create(root);
@@ -12003,7 +12156,7 @@ static void build_admin(void)
         lv_obj_move_foreground(g_admin_sw_4g);
     }
 
-    /* 密码修改：步骤一原密码（布局仿管理员登录密码页） */
+    /* 密码修改页1：title_box（同待机时间）+ 原密码/新密码两行；无 set_box */
     g_admin_panel_pwd_chg_old = lv_obj_create(root);
     lv_obj_set_size(g_admin_panel_pwd_chg_old, LV_PCT(100), body_h);
     lv_obj_align(g_admin_panel_pwd_chg_old, LV_ALIGN_TOP_MID, 0, body_y);
@@ -12013,33 +12166,121 @@ static void build_admin(void)
     lv_obj_set_style_layout(g_admin_panel_pwd_chg_old, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_t * lbl_pwd_chg_old_title = lv_label_create(g_admin_panel_pwd_chg_old);
-    ui_lang_bind_label(lbl_pwd_chg_old_title, STR_PWD_ENTER_OLD);
-    lv_obj_set_style_text_color(lbl_pwd_chg_old_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(lbl_pwd_chg_old_title, s_font_sc_30);
-    lv_obj_align(lbl_pwd_chg_old_title, LV_ALIGN_TOP_MID, 0, 24+50);
+    g_admin_img_pwd_chg_old_title_box = lv_image_create(g_admin_panel_pwd_chg_old);
+    lv_image_set_src(g_admin_img_pwd_chg_old_title_box, &title_box);
+    lv_obj_align(g_admin_img_pwd_chg_old_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_ta_pwd_chg_old = lv_textarea_create(g_admin_panel_pwd_chg_old);
-    lv_obj_set_size(g_admin_ta_pwd_chg_old, 320, 48);
-    lv_obj_align(g_admin_ta_pwd_chg_old, LV_ALIGN_TOP_MID, 0, 80+50);
+    g_admin_lbl_pwd_chg_old_title = lv_label_create(g_admin_panel_pwd_chg_old);
+    ui_lang_bind_label(g_admin_lbl_pwd_chg_old_title, STR_ADMIN_M2_PASSWORD);
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_old_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_old_title, s_font_sc_30);
+    lv_obj_align(g_admin_lbl_pwd_chg_old_title, LV_ALIGN_TOP_MID, 0, 25);
+
+    g_admin_pwd_chg_old_content = lv_obj_create(g_admin_panel_pwd_chg_old);
+    lv_obj_set_size(g_admin_pwd_chg_old_content, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_opa(g_admin_pwd_chg_old_content, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_pwd_chg_old_content, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_pwd_chg_old_content, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_pwd_chg_old_content, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_pwd_chg_old_content, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* 输入框尺寸参考图1：宽约 480、高约 72 的深灰圆角条 */
+    const lv_coord_t pwd_chg_input_w = 480;
+    const lv_coord_t pwd_chg_input_h = 72;
+    const lv_coord_t pwd_chg_label_w = 240;
+    const lv_coord_t pwd_chg_row_w = pwd_chg_label_w + 24 + pwd_chg_input_w;
+    const lv_coord_t pwd_chg_row1_y = 140;
+    const lv_coord_t pwd_chg_row2_y = 240;
+
+    lv_obj_t * pwd_row_old = lv_obj_create(g_admin_pwd_chg_old_content);
+    lv_obj_set_size(pwd_row_old, pwd_chg_row_w, pwd_chg_input_h);
+    lv_obj_align(pwd_row_old, LV_ALIGN_TOP_MID, 0, pwd_chg_row1_y);
+    lv_obj_set_style_bg_opa(pwd_row_old, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_row_old, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_row_old, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(pwd_row_old, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(pwd_row_old, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pwd_row_old, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(pwd_row_old, 24, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_row_old, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_lbl_pwd_chg_old = lv_label_create(pwd_row_old);
+    ui_lang_bind_label(g_admin_lbl_pwd_chg_old, STR_PWD_ENTER_OLD);
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_old, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_old, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_pwd_chg_old, pwd_chg_label_w);
+    lv_obj_set_style_text_align(g_admin_lbl_pwd_chg_old, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+
+    lv_obj_t * pwd_old_wrap = lv_obj_create(pwd_row_old);
+    lv_obj_set_size(pwd_old_wrap, pwd_chg_input_w, pwd_chg_input_h);
+    lv_obj_set_style_bg_color(pwd_old_wrap, lv_color_hex(0x2C2C2C), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(pwd_old_wrap, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(pwd_old_wrap, 12, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_old_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_old_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_old_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_ta_pwd_chg_old = lv_textarea_create(pwd_old_wrap);
+    lv_obj_set_size(g_admin_ta_pwd_chg_old, pwd_chg_input_w - 40, 48);
+    lv_obj_center(g_admin_ta_pwd_chg_old);
     lv_textarea_set_one_line(g_admin_ta_pwd_chg_old, true);
     lv_textarea_set_password_mode(g_admin_ta_pwd_chg_old, true);
     lv_textarea_set_max_length(g_admin_ta_pwd_chg_old, 6);
     lv_textarea_set_accepted_chars(g_admin_ta_pwd_chg_old, "0123456789");
-    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_old, s_font_sc_30, LV_PART_MAIN);
+    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_old, s_font_sc_35, LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_ta_pwd_chg_old, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_admin_ta_pwd_chg_old, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_ta_pwd_chg_old, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_align(g_admin_ta_pwd_chg_old, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_ready, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
-    g_admin_lbl_msg_pwd_chg_old = lv_label_create(g_admin_panel_pwd_chg_old);
-    lv_obj_set_width(g_admin_lbl_msg_pwd_chg_old, LV_PCT(80));
-    lv_obj_set_style_text_color(g_admin_lbl_msg_pwd_chg_old, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    lv_obj_set_style_text_align(g_admin_lbl_msg_pwd_chg_old, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_msg_pwd_chg_old, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_msg_pwd_chg_old, LV_ALIGN_TOP_MID, 0, 140+65);
-    lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_old, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t * pwd_row_new1 = lv_obj_create(g_admin_pwd_chg_old_content);
+    lv_obj_set_size(pwd_row_new1, pwd_chg_row_w, pwd_chg_input_h);
+    lv_obj_align(pwd_row_new1, LV_ALIGN_TOP_MID, 0, pwd_chg_row2_y);
+    lv_obj_set_style_bg_opa(pwd_row_new1, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_row_new1, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_row_new1, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(pwd_row_new1, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(pwd_row_new1, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pwd_row_new1, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(pwd_row_new1, 24, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_row_new1, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 密码修改：步骤二双新密码框，键盘 OK 切换/提交 */
+    g_admin_lbl_pwd_chg_new1 = lv_label_create(pwd_row_new1);
+    ui_lang_bind_label(g_admin_lbl_pwd_chg_new1, STR_PWD_ENTER_NEW);
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_new1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_new1, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_pwd_chg_new1, pwd_chg_label_w);
+    lv_obj_set_style_text_align(g_admin_lbl_pwd_chg_new1, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+
+    lv_obj_t * pwd_new1_wrap = lv_obj_create(pwd_row_new1);
+    lv_obj_set_size(pwd_new1_wrap, pwd_chg_input_w, pwd_chg_input_h);
+    lv_obj_set_style_bg_color(pwd_new1_wrap, lv_color_hex(0x2C2C2C), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(pwd_new1_wrap, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(pwd_new1_wrap, 12, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_new1_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_new1_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_new1_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_ta_pwd_chg_new1 = lv_textarea_create(pwd_new1_wrap);
+    lv_obj_set_size(g_admin_ta_pwd_chg_new1, pwd_chg_input_w - 40, 48);
+    lv_obj_center(g_admin_ta_pwd_chg_new1);
+    lv_textarea_set_one_line(g_admin_ta_pwd_chg_new1, true);
+    lv_textarea_set_password_mode(g_admin_ta_pwd_chg_new1, true);
+    lv_textarea_set_max_length(g_admin_ta_pwd_chg_new1, 6);
+    lv_textarea_set_accepted_chars(g_admin_ta_pwd_chg_new1, "0123456789");
+    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_new1, s_font_sc_35, LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_ta_pwd_chg_new1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_admin_ta_pwd_chg_new1, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_ta_pwd_chg_new1, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_align(g_admin_ta_pwd_chg_new1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_ready, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
+    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
+
+    /* 密码修改页2：title_box + 再次输入新密码 */
     g_admin_panel_pwd_chg_new = lv_obj_create(root);
     lv_obj_set_size(g_admin_panel_pwd_chg_new, LV_PCT(100), body_h);
     lv_obj_align(g_admin_panel_pwd_chg_new, LV_ALIGN_TOP_MID, 0, body_y);
@@ -12049,43 +12290,89 @@ static void build_admin(void)
     lv_obj_set_style_layout(g_admin_panel_pwd_chg_new, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_t * lbl_pwd_chg_new_title = lv_label_create(g_admin_panel_pwd_chg_new);
-    ui_lang_bind_label(lbl_pwd_chg_new_title, STR_PWD_ENTER_NEW);
-    lv_obj_set_style_text_color(lbl_pwd_chg_new_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(lbl_pwd_chg_new_title, s_font_sc_30);
-    lv_obj_align(lbl_pwd_chg_new_title, LV_ALIGN_TOP_MID, 0, 24+30);
+    g_admin_img_pwd_chg_new_title_box = lv_image_create(g_admin_panel_pwd_chg_new);
+    lv_image_set_src(g_admin_img_pwd_chg_new_title_box, &title_box);
+    lv_obj_align(g_admin_img_pwd_chg_new_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_ta_pwd_chg_new1 = lv_textarea_create(g_admin_panel_pwd_chg_new);
-    lv_obj_set_size(g_admin_ta_pwd_chg_new1, 320, 48);//输入框1
-    lv_obj_align(g_admin_ta_pwd_chg_new1, LV_ALIGN_TOP_MID, 0, 72+30);
-    lv_textarea_set_one_line(g_admin_ta_pwd_chg_new1, true);
-    lv_textarea_set_password_mode(g_admin_ta_pwd_chg_new1, true);
-    lv_textarea_set_max_length(g_admin_ta_pwd_chg_new1, 6);
-    lv_textarea_set_accepted_chars(g_admin_ta_pwd_chg_new1, "0123456789");
-    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_new1, s_font_sc_30, LV_PART_MAIN);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
+    g_admin_lbl_pwd_chg_new_title = lv_label_create(g_admin_panel_pwd_chg_new);
+    ui_lang_bind_label(g_admin_lbl_pwd_chg_new_title, STR_ADMIN_M2_PASSWORD);
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_new_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_new_title, s_font_sc_30);
+    lv_obj_align(g_admin_lbl_pwd_chg_new_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_ta_pwd_chg_new2 = lv_textarea_create(g_admin_panel_pwd_chg_new);
-    lv_obj_set_size(g_admin_ta_pwd_chg_new2, 320, 48);//输入框2
-    lv_obj_align(g_admin_ta_pwd_chg_new2, LV_ALIGN_TOP_MID, 0, 142+30);
+    g_admin_pwd_chg_new_content = lv_obj_create(g_admin_panel_pwd_chg_new);
+    lv_obj_set_size(g_admin_pwd_chg_new_content, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_opa(g_admin_pwd_chg_new_content, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_pwd_chg_new_content, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_pwd_chg_new_content, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_pwd_chg_new_content, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_pwd_chg_new_content, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t * pwd_row_new2 = lv_obj_create(g_admin_pwd_chg_new_content);
+    lv_obj_set_size(pwd_row_new2, pwd_chg_row_w + 60, pwd_chg_input_h);
+    lv_obj_align(pwd_row_new2, LV_ALIGN_CENTER, 0, -20);
+    lv_obj_set_style_bg_opa(pwd_row_new2, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_row_new2, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_row_new2, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(pwd_row_new2, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(pwd_row_new2, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(pwd_row_new2, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(pwd_row_new2, 24, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_row_new2, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_lbl_pwd_chg_new2 = lv_label_create(pwd_row_new2);
+    ui_lang_bind_label(g_admin_lbl_pwd_chg_new2, STR_PWD_ENTER_NEW_AGAIN);
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_new2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_new2, s_font_sc_30);
+    lv_obj_set_width(g_admin_lbl_pwd_chg_new2, pwd_chg_label_w + 60);
+    lv_obj_set_style_text_align(g_admin_lbl_pwd_chg_new2, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+
+    lv_obj_t * pwd_new2_wrap = lv_obj_create(pwd_row_new2);
+    lv_obj_set_size(pwd_new2_wrap, pwd_chg_input_w, pwd_chg_input_h);
+    lv_obj_set_style_bg_color(pwd_new2_wrap, lv_color_hex(0x2C2C2C), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(pwd_new2_wrap, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(pwd_new2_wrap, 12, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwd_new2_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwd_new2_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(pwd_new2_wrap, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_ta_pwd_chg_new2 = lv_textarea_create(pwd_new2_wrap);
+    lv_obj_set_size(g_admin_ta_pwd_chg_new2, pwd_chg_input_w - 40, 48);
+    lv_obj_center(g_admin_ta_pwd_chg_new2);
     lv_textarea_set_one_line(g_admin_ta_pwd_chg_new2, true);
     lv_textarea_set_password_mode(g_admin_ta_pwd_chg_new2, true);
     lv_textarea_set_max_length(g_admin_ta_pwd_chg_new2, 6);
     lv_textarea_set_accepted_chars(g_admin_ta_pwd_chg_new2, "0123456789");
-    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_new2, s_font_sc_30, LV_PART_MAIN);
+    lv_obj_set_style_text_font(g_admin_ta_pwd_chg_new2, s_font_sc_35, LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_ta_pwd_chg_new2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_admin_ta_pwd_chg_new2, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_ta_pwd_chg_new2, 0, LV_PART_MAIN);
+    lv_obj_set_style_text_align(g_admin_ta_pwd_chg_new2, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_ready, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
-    g_admin_lbl_msg_pwd_chg_new = lv_label_create(g_admin_panel_pwd_chg_new);
-    lv_obj_set_width(g_admin_lbl_msg_pwd_chg_new, LV_PCT(80));
-    lv_obj_set_style_text_color(g_admin_lbl_msg_pwd_chg_new, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    lv_obj_set_style_text_align(g_admin_lbl_msg_pwd_chg_new, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_msg_pwd_chg_new, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_msg_pwd_chg_new, LV_ALIGN_TOP_MID, 0, 212+30);
-    lv_obj_add_flag(g_admin_lbl_msg_pwd_chg_new, LV_OBJ_FLAG_HIDDEN);
+    /* 结果页：与 WIFI 配网成功/失败同区域（body_h/body_y，露出顶部状态栏）与元素位置 */
+    g_admin_pwd_chg_result = lv_obj_create(root);
+    lv_obj_set_size(g_admin_pwd_chg_result, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_pwd_chg_result, LV_ALIGN_TOP_MID, 0, body_y);
+    lv_obj_set_style_bg_opa(g_admin_pwd_chg_result, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_pwd_chg_result, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_pwd_chg_result, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_pwd_chg_result, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(g_admin_pwd_chg_result, cb_admin_pwd_chg_result_click, LV_EVENT_CLICKED, NULL);
+
+    g_admin_img_pwd_chg_result = lv_image_create(g_admin_pwd_chg_result);
+    lv_image_set_src(g_admin_img_pwd_chg_result, &failure);
+    lv_obj_align(g_admin_img_pwd_chg_result, LV_ALIGN_CENTER, 0, -80);
+
+    g_admin_lbl_pwd_chg_result = lv_label_create(g_admin_pwd_chg_result);
+    lv_label_set_text(g_admin_lbl_pwd_chg_result, "");
+    lv_obj_set_style_text_color(g_admin_lbl_pwd_chg_result, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_pwd_chg_result, s_font_sc_50);
+    lv_obj_align(g_admin_lbl_pwd_chg_result, LV_ALIGN_CENTER, 0, 60);
 
     /* 机器 ID 子面板 */
     g_admin_panel_machine_id = lv_obj_create(root);
@@ -12151,10 +12438,10 @@ static void build_admin(void)
     /* 右侧按钮 */
     const lv_coord_t mid_btn_w = 110;
     const lv_coord_t mid_btn_h = 50;
-    g_admin_btn_machine_confirm = make_orange_fill_btn(set_box_wrap, ui_translation(STR_BTN_CONFIRM), mid_btn_w, mid_btn_h);
+    g_admin_btn_machine_confirm = make_orange_fill_btn(set_box_wrap, ui_translation(STR_BTN_OK), mid_btn_w, mid_btn_h);
     lv_obj_align(g_admin_btn_machine_confirm, LV_ALIGN_CENTER, 400, -35);
     ui_set_obj_font(lv_obj_get_child(g_admin_btn_machine_confirm, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_machine_confirm, STR_BTN_CONFIRM);
+    orange_btn_bind_i18n(g_admin_btn_machine_confirm, STR_BTN_OK);
     lv_obj_add_event_cb(g_admin_btn_machine_confirm, cb_admin_machine_confirm, LV_EVENT_CLICKED, NULL);
 
     g_admin_btn_machine_cancel = make_orange_outline_btn(set_box_wrap, ui_translation(STR_BTN_CANCEL), mid_btn_w, mid_btn_h);
