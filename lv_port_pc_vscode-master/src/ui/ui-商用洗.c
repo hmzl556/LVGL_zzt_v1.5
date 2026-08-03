@@ -1865,6 +1865,7 @@ static const char * ui_program_name_get(int32_t idx)
 #define COL_TEXT            0xFFFFFF  //文本颜色-白
 #define COL_ORANGE          0xFF8C42  //按钮颜色-橙
 #define COL_DIM             0x888888  //非选中状态颜色-灰
+#define COL_SETTING_HINT    0xC6C4C4  //设置页说明小字灰（待机时间/屏幕亮度等）
 #define COL_CHILD_LOCK_RED  0xD03030  //童锁激活：圆形按钮填充色
 #define COL_CHILD_LOCK_WHITE 0xF5F5F5 //童锁未激活：白按钮填充色
 #define CHILD_LOCK_LONG_PRESS_MS 3000u	//童锁长按 3 秒
@@ -11114,7 +11115,7 @@ static void build_admin(void)
     /* 说明小字 */
     g_admin_lbl_dormancy_time_hint = lv_label_create(g_admin_dormancy_row_time);
     ui_lang_bind_label(g_admin_lbl_dormancy_time_hint, STR_DORM_TIME_HINT);
-    lv_obj_set_style_text_color(g_admin_lbl_dormancy_time_hint, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_time_hint, lv_color_hex(COL_SETTING_HINT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_dormancy_time_hint, s_font_sc_27);
     lv_obj_set_width(g_admin_lbl_dormancy_time_hint, dorm_row_w);
     lv_label_set_long_mode(g_admin_lbl_dormancy_time_hint, LV_LABEL_LONG_DOT);
@@ -11163,7 +11164,7 @@ static void build_admin(void)
     /* 说明小字 */
     g_admin_lbl_dormancy_no_sleep_hint = lv_label_create(g_admin_dormancy_row_no_sleep);
     ui_lang_bind_label(g_admin_lbl_dormancy_no_sleep_hint, STR_DORM_NO_SLEEP_HINT);
-    lv_obj_set_style_text_color(g_admin_lbl_dormancy_no_sleep_hint, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_lbl_dormancy_no_sleep_hint, lv_color_hex(COL_SETTING_HINT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_dormancy_no_sleep_hint, s_font_sc_27);
     lv_obj_set_width(g_admin_lbl_dormancy_no_sleep_hint, dorm_row_w);
     lv_label_set_long_mode(g_admin_lbl_dormancy_no_sleep_hint, LV_LABEL_LONG_DOT);
@@ -11370,7 +11371,7 @@ static void build_admin(void)
     /* 说明小字：一整段，随显示框自动换行 */
     g_admin_lbl_brightness_line1 = lv_label_create(bright_row);
     ui_lang_bind_label(g_admin_lbl_brightness_line1, STR_BRIGHTNESS_LINE1);
-    lv_obj_set_style_text_color(g_admin_lbl_brightness_line1, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    lv_obj_set_style_text_color(g_admin_lbl_brightness_line1, lv_color_hex(COL_SETTING_HINT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_brightness_line1, s_font_sc_27);
     lv_obj_set_width(g_admin_lbl_brightness_line1, bright_row_w - 100);
     lv_label_set_long_mode(g_admin_lbl_brightness_line1, LV_LABEL_LONG_WRAP);
