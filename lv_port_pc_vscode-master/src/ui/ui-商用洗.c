@@ -1887,7 +1887,7 @@ static const ui_str_id_t g_dormancy_label_ids[DORMANCY_ROLLER_CNT] = {
 };
 
 #define ADMIN_PWD_LEN      7   /* 6 位数字 + '\0' */
-#define ADMIN_PWD_DEFAULT  "888888"
+#define ADMIN_PWD_DEFAULT  "888888"  /* 进管理员 / 密码修改原密码默认值 */
 
 static lv_group_t* g_ui_group;
 static lv_group_t* g_group_off;
@@ -7604,14 +7604,14 @@ static void admin_session_reset(void)
     admin_panel_show(PASSWORD);
 }
 
-/* 校验 6 位管理员密码，成功则进入 8 宫格菜单 */
+/* 校验 6 位管理员密码（g_admin_pwd，默认同 ADMIN_PWD_DEFAULT），成功则进入 8 宫格菜单 */
 
 static void admin_password_try(void)
 {
     if(g_admin_ta_pwd == NULL) return;
     const char * t = lv_textarea_get_text(g_admin_ta_pwd);
     if(t == NULL || lv_strlen(t) != 6) return;
-    if(lv_strcmp(t, VENDOR_SERIAL_CODE) != 0) { //VENDOR_SERIAL_CODE为宏定义的管理员密码
+    if(lv_strcmp(t, g_admin_pwd) != 0) {
         if(g_admin_lbl_msg_pwd != NULL) {
             g_admin_pwd_err_id = STR_PWD_WRONG_RETRY;
             lv_label_set_text(g_admin_lbl_msg_pwd, ui_translation(STR_PWD_WRONG_RETRY));
@@ -10785,7 +10785,7 @@ static void cb_admin_open_password_change(lv_event_t * e)
     admin_pwd_chg_enter();
 }
 
-//构建管理员页，顶栏返回/启停/电源 + 状态栏；密码 VENDOR_SERIAL_CODE，进入管理员设置页面
+//构建管理员页，顶栏返回/启停/电源 + 状态栏；密码 g_admin_pwd（默认 ADMIN_PWD_DEFAULT），进入管理员设置页面
 //密码子面板：密码标题/密码输入框/密码错误提示
 //机器ID子面板：机器ID标题/机器ID当前值/机器ID输入框/确认按钮/机器ID错误提示
 //程序设置子面板：
