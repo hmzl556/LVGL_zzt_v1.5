@@ -110,8 +110,8 @@ static int g_admin_auto_detergent_dose = 3;
 static bool g_admin_auto_dispense_ui_loading = false;
 
 static void admin_auto_dispense_sync_btn_ui(void);  //自投功能页：刷新开关与用量按钮文字颜色
-static void admin_payment_sync_checkbox_ui(void);  //支付设置页：刷新支付方式复选框
-static void admin_payment_sync_timeout_roller_ui(void);  //支付设置页：刷新支付超时 roller
+static void admin_payment_sync_method_ui(void);  //支付设置页：刷新微信/支付宝开关
+static void admin_payment_sync_list_ui(void);  //支付设置页：刷新首页三项开关
 static void admin_data_sync_upload_items_ui(void);  //数据设置页：刷新上传项复选框
 static void admin_data_sync_strategy_ui(void);  //数据设置页：刷新上传策略互斥复选框
 static void admin_4g_sync_switch_ui(void);  //4G 设置页：刷新开关与 ui_4g_get 一致
@@ -358,15 +358,17 @@ void ui_fresh_air_care_sync_to_hw(void)
  * 支付设置 — 状态维护（支付宝/微信开关、支付超时秒数）
  * ============================================================================ */
 
-/* 支付超时 roller 选项见 STR_PAYMENT_TIMEOUT_ROLLER */
-
-static const uint16_t g_payment_timeout_sec_tbl[] = {60, 120, 180, 240, 300};
-#define PAYMENT_TIMEOUT_ROLLER_CNT          ((uint32_t)(sizeof(g_payment_timeout_sec_tbl) / sizeof(g_payment_timeout_sec_tbl[0])))
-#define PAYMENT_TIMEOUT_ROLLER_DEFAULT_IDX  2u  /* 180 秒 */
+#define PAYMENT_TIMEOUT_SEC_DEFAULT  180u  /* 默认 3 分钟 */
+#define PAYMENT_TIMEOUT_SEC_MIN      1u    /* 最少 1 秒 */
+#define PAYMENT_TIMEOUT_SEC_MAX      (59u * 60u + 59u)  /* 最大 59:59 */
+#define TP_MMSS_MAX_MIN              59u   /* 时间选择：分钟/秒最大 59 */
+#define TP_ROLLER_OPTS_0_9           "0\n1\n2\n3\n4\n5\n6\n7\n8\n9"
+#define TP_ROLLER_OPTS_0_5           "0\n1\n2\n3\n4\n5"  /* 十分位：0~5 */
 
 static bool g_ui_payment_alipay_enabled = true;
 static bool g_ui_payment_wechat_enabled = true;  /* 默认支付宝与微信均启用 */
-static uint16_t g_ui_payment_timeout_sec = 180;
+static bool g_ui_payment_order_enabled = true;   /* 订单查询开关（首页第三项） */
+static uint16_t g_ui_payment_timeout_sec = PAYMENT_TIMEOUT_SEC_DEFAULT;
 
 /* 读取支付宝支付是否启用 */
 bool ui_payment_alipay_get(void)
@@ -381,7 +383,7 @@ bool ui_payment_alipay_set(bool enabled)
         return false;
     }
     g_ui_payment_alipay_enabled = enabled;
-    admin_payment_sync_checkbox_ui();
+    admin_payment_sync_method_ui();
     return true;
 }
 
@@ -398,36 +400,25 @@ bool ui_payment_wechat_set(bool enabled)
         return false;
     }
     g_ui_payment_wechat_enabled = enabled;
-    admin_payment_sync_checkbox_ui();
+    admin_payment_sync_method_ui();
     return true;
 }
 
-/* 读取支付超时秒数（60/120/180/240/300） */
+/* 读取支付超时秒数（1~3599，对应 00:01~59:59） */
 uint16_t ui_payment_timeout_sec_get(void)
 {
     return g_ui_payment_timeout_sec;
 }
 
-/* 设置支付超时秒数；非法值按 180 秒处理；与当前相同返回 false */
+/* 设置支付超时秒数；钳位到 1~59:59；与当前相同返回 false */
 bool ui_payment_timeout_sec_set(uint16_t sec)
 {
-    uint32_t idx = 0;
-    bool found = false;
-    for(uint32_t i = 0; i < PAYMENT_TIMEOUT_ROLLER_CNT; i++) {
-        if(g_payment_timeout_sec_tbl[i] == sec) {
-            idx = i;
-            found = true;
-            break;
-        }
-    }
-    if(!found) {
-        sec = g_payment_timeout_sec_tbl[PAYMENT_TIMEOUT_ROLLER_DEFAULT_IDX];
-    }
+    if(sec < PAYMENT_TIMEOUT_SEC_MIN) sec = PAYMENT_TIMEOUT_SEC_MIN;
+    if(sec > PAYMENT_TIMEOUT_SEC_MAX) sec = PAYMENT_TIMEOUT_SEC_MAX;
     if(sec == g_ui_payment_timeout_sec) {
         return false;
     }
     g_ui_payment_timeout_sec = sec;
-    admin_payment_sync_timeout_roller_ui();
     return true;
 }
 
@@ -1287,6 +1278,8 @@ typedef enum {
     STR_PAYMENT_WECHAT,
     STR_PAYMENT_ORDER_HINT,
     STR_PAYMENT_TIMEOUT_ROLLER,
+    STR_PAYMENT_TIME_PREFIX,
+    STR_PAYMENT_TIME_SUFFIX,
     STR_DATA_UPLOAD_HDR,
     STR_DATA_STRATEGY_HDR,
     STR_DATA_BASIC,
@@ -1509,6 +1502,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PAYMENT_WECHAT]         = "微信支付",
         [STR_PAYMENT_ORDER_HINT]     = "本机可查询最近100条订单",
         [STR_PAYMENT_TIMEOUT_ROLLER] = "60秒\n120秒\n180秒\n240秒\n300秒",
+        [STR_PAYMENT_TIME_PREFIX]    = "支付将在",
+        [STR_PAYMENT_TIME_SUFFIX]    = "分钟后取消",
         [STR_DATA_UPLOAD_HDR]        = "上传项",
         [STR_DATA_STRATEGY_HDR]    = "上传策略",
         [STR_DATA_BASIC]             = "基础运行数据",
@@ -1713,6 +1708,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PAYMENT_WECHAT]         = "WeChat Pay",
         [STR_PAYMENT_ORDER_HINT]     = "Query up to 100 recent orders on this machine",
         [STR_PAYMENT_TIMEOUT_ROLLER] = "60s\n120s\n180s\n240s\n300s",
+        [STR_PAYMENT_TIME_PREFIX]    = "Payment cancels in",
+        [STR_PAYMENT_TIME_SUFFIX]    = "minutes",
         [STR_DATA_UPLOAD_HDR]        = "Upload Items",
         [STR_DATA_STRATEGY_HDR]    = "Upload Strategy",
         [STR_DATA_BASIC]             = "Basic Runtime Data",
@@ -1980,6 +1977,12 @@ typedef enum {
     ADMIN_DATA_PAGE_STRATEGY,
 } admin_data_page_t;
 
+typedef enum {
+    ADMIN_PAYMENT_PAGE_LIST,     /* 首页：支付方式/超时/订单查询 */
+    ADMIN_PAYMENT_PAGE_METHOD,   /* 支付方式：微信/支付宝 */
+    ADMIN_PAYMENT_PAGE_TIMEOUT,  /* 支付超时时间选择 */
+} admin_payment_page_t;
+
 static lv_obj_t * g_scr_admin;
 static lv_obj_t * g_lbl_clock_admin;
 static lv_obj_t * g_admin_btn_back;
@@ -2089,7 +2092,8 @@ static lv_obj_t * g_admin_dormancy_tp_digit_rollers[4]; /* 4 个数字滚动条�
 static lv_obj_t * g_admin_dormancy_tp_lbl_colon;   /* 冒号 ":" */
 static lv_obj_t * g_admin_dormancy_tp_btn_ok;      /* 确定 */
 static lv_obj_t * g_admin_dormancy_tp_btn_cancel;  /* 取消 */
-static uint32_t g_admin_dormancy_tp_minutes;        /* 编辑中的分钟数 */
+static uint32_t g_admin_dormancy_tp_minutes;        /* 编辑中的分钟数 0~59 */
+static uint32_t g_admin_dormancy_tp_seconds;        /* 编辑中的秒数 0~59 */
 static bool g_admin_dormancy_tp_active = false;     /* 时间选择页是否显示中 */
 /* 屏幕亮度子页控件 */
 static lv_obj_t * g_admin_lbl_brightness_title;
@@ -2181,15 +2185,34 @@ static lv_obj_t * g_admin_lbl_system_upgrade_status;
 static lv_obj_t * g_admin_btn_system_upgrade_ok;
 /* 支付设置子页控件 */
 static lv_obj_t * g_admin_panel_payment;
+static lv_obj_t * g_admin_img_payment_title_box;
 static lv_obj_t * g_admin_lbl_payment_title;
-static lv_obj_t * g_admin_lbl_payment_method_hdr;
-static lv_obj_t * g_admin_lbl_payment_timeout_hdr;
-static lv_obj_t * g_admin_lbl_payment_order_hdr;
-static lv_obj_t * g_admin_cb_payment_alipay;
-static lv_obj_t * g_admin_cb_payment_wechat;
-static lv_obj_t * g_admin_payment_timeout_roller;
-static lv_obj_t * g_admin_lbl_payment_order_hint;
-static lv_obj_t * g_admin_btn_payment_query;
+static lv_obj_t * g_admin_payment_set_box_wrap;
+static lv_obj_t * g_admin_payment_list_view;
+static lv_obj_t * g_admin_payment_method_view;
+static lv_obj_t * g_admin_sw_payment_method;
+static lv_obj_t * g_admin_sw_payment_timeout;
+static lv_obj_t * g_admin_sw_payment_order;
+static lv_obj_t * g_admin_lbl_payment_method;
+static lv_obj_t * g_admin_lbl_payment_timeout;
+static lv_obj_t * g_admin_lbl_payment_order;
+static lv_obj_t * g_admin_sw_payment_wechat;
+static lv_obj_t * g_admin_sw_payment_alipay;
+static lv_obj_t * g_admin_lbl_payment_wechat;
+static lv_obj_t * g_admin_lbl_payment_alipay;
+static lv_obj_t * g_admin_payment_tp_wrap;
+static lv_obj_t * g_admin_payment_tp_lbl_prefix;
+static lv_obj_t * g_admin_payment_tp_lbl_suffix;
+static lv_obj_t * g_admin_payment_tp_digit_imgs[4];
+static lv_obj_t * g_admin_payment_tp_digit_rollers[4];
+static lv_obj_t * g_admin_payment_tp_lbl_colon;
+static lv_obj_t * g_admin_payment_tp_btn_ok;
+static lv_obj_t * g_admin_payment_tp_btn_cancel;
+static uint32_t g_admin_payment_tp_minutes;   /* 0~59 */
+static uint32_t g_admin_payment_tp_seconds;   /* 0~59 */
+static bool g_admin_payment_tp_active = false;
+static admin_payment_page_t g_admin_payment_page = ADMIN_PAYMENT_PAGE_LIST;
+static bool g_admin_payment_ui_loading = false;
 /* 数据设置子页控件 */
 static lv_obj_t * g_admin_panel_data;
 static lv_obj_t * g_admin_lbl_data_title;
@@ -2464,13 +2487,17 @@ static void admin_pwd_chg_hide_result(void);  //隐藏结果页，恢复输入�
 static void admin_pwd_chg_back_to_menu2(void);  //离开密码修改：回 menu2
 static void cb_admin_pwd_chg_result_click(lv_event_t * e);  //结果页点击：失败回页1 / 成功回 menu2
 static void cb_admin_open_password_change(lv_event_t * e);  //menu2「密码修改」入口
-static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号
-static uint32_t ui_payment_timeout_roller_index_from_sec(uint16_t sec);  //秒数 → roller 下标
-static void admin_payment_timeout_roller_exit_edit(lv_obj_t * roller);  //支付超时 roller 退出编码器编辑态
-static void cb_admin_payment_alipay_changed(lv_event_t * e);  //支付设置：支付宝复选框变更
-static void cb_admin_payment_wechat_changed(lv_event_t * e);  //支付设置：微信复选框变更
-static void cb_admin_payment_timeout_roller_encoder(lv_event_t * e);  //支付超时 roller 编码器短按切换编辑/导航
-static void admin_payment_back_to_menu2(void);  //离开支付设置页：回 menu2
+static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号（数据设置复用）
+static void admin_payment_set_page(admin_payment_page_t page);  //支付设置：首页/方式/超时页切换
+static void admin_payment_show_time_picker(void);  //支付超时时间选择子页
+static void admin_payment_hide_time_picker(void);  //隐藏支付超时时间选择，回首页
+static void cb_admin_payment_list_sw_changed(lv_event_t * e);  //支付设置首页三项开关
+static void cb_admin_payment_alipay_changed(lv_event_t * e);  //支付方式：支付宝开关
+static void cb_admin_payment_wechat_changed(lv_event_t * e);  //支付方式：微信开关
+static void cb_admin_payment_tp_confirm(lv_event_t * e);
+static void cb_admin_payment_tp_cancel(lv_event_t * e);
+static void cb_admin_payment_tp_digit_roller_changed(lv_event_t * e);
+static void admin_payment_back_to_menu2(void);  //离开支付设置页：回 menu2（或子页回首页）
 static void cb_admin_open_payment_settings(lv_event_t * e);  //menu2「支付设置」入口
 static void admin_dormancy_sync_switches(void);
 static void admin_dormancy_back_to_menu1(void);
@@ -2478,7 +2505,6 @@ static void cb_admin_dormancy_sw_changed(lv_event_t * e);
 static void admin_data_back_to_menu2(void);
 static void admin_data_set_page(admin_data_page_t page);
 static void cb_admin_open_data_settings(lv_event_t * e);
-static void admin_payment_add_divider(lv_obj_t * parent, lv_coord_t x);
 static void brightness_slider_style_init(void);
 static void admin_4g_apply_switch_layout(void);
 static void admin_data_style_checkbox(lv_obj_t * cb);
@@ -2657,6 +2683,8 @@ LV_IMAGE_DECLARE(time_set_box);
 LV_IMAGE_DECLARE(softener_logo);
 LV_IMAGE_DECLARE(detergent_logo);
 LV_IMAGE_DECLARE(auto_put_btn_box);
+LV_IMAGE_DECLARE(wechat_logo);
+LV_IMAGE_DECLARE(alipay_logo);
 LV_IMAGE_DECLARE(success);
 LV_IMAGE_DECLARE(failure);
 
@@ -7018,23 +7046,39 @@ static void admin_encoder_rebuild(void)
         }
         break;
     case PAYMENT_SETTINGS:
-        if(g_admin_cb_payment_alipay != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_cb_payment_alipay);
+        if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_TIMEOUT && g_admin_payment_tp_active) {
+            for(int i = 0; i < 4; i++) {
+                if(g_admin_payment_tp_digit_rollers[i] != NULL)
+                    ui_encoder_group_add(g_group_admin, g_admin_payment_tp_digit_rollers[i]);
+            }
+            if(g_admin_payment_tp_btn_ok != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_payment_tp_btn_ok);
+            if(g_admin_payment_tp_btn_cancel != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_payment_tp_btn_cancel);
+            focus_first = (g_admin_payment_tp_digit_rollers[0] != NULL) ?
+                g_admin_payment_tp_digit_rollers[0] : g_admin_btn_back;
         }
-        if(g_admin_cb_payment_wechat != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_cb_payment_wechat);
+        else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_METHOD) {
+            if(g_admin_sw_payment_wechat != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_wechat);
+            if(g_admin_sw_payment_alipay != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_alipay);
+            focus_first = (g_admin_sw_payment_wechat != NULL) ?
+                g_admin_sw_payment_wechat : g_admin_btn_back;
         }
-        if(g_admin_payment_timeout_roller != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_payment_timeout_roller);
-        }
-        if(g_admin_btn_payment_query != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_payment_query);
+        else {
+            if(g_admin_sw_payment_method != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_method);
+            if(g_admin_sw_payment_timeout != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_timeout);
+            if(g_admin_sw_payment_order != NULL)
+                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_order);
+            focus_first = (g_admin_sw_payment_method != NULL) ?
+                g_admin_sw_payment_method : g_admin_btn_back;
         }
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
-        focus_first = (g_admin_cb_payment_alipay != NULL) ?
-            g_admin_cb_payment_alipay : g_admin_btn_back;
         break;
     case DATA_SETTINGS: {
         unsigned di;
@@ -7383,8 +7427,16 @@ static void admin_panel_show(admin_view_t view)
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
-        admin_payment_sync_checkbox_ui();
-        admin_payment_sync_timeout_roller_ui();
+        admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
+        admin_payment_sync_list_ui();
+        admin_payment_sync_method_ui();
+        /* 进入支付设置时入口开关复位为关，打开即可进子页 */
+        g_admin_payment_ui_loading = true;
+        if(g_admin_sw_payment_method != NULL)
+            lv_obj_remove_state(g_admin_sw_payment_method, LV_STATE_CHECKED);
+        if(g_admin_sw_payment_timeout != NULL)
+            lv_obj_remove_state(g_admin_sw_payment_timeout, LV_STATE_CHECKED);
+        g_admin_payment_ui_loading = false;
     }
     else if(view == DATA_SETTINGS && g_admin_panel_data != NULL) {
         lv_obj_remove_flag(g_admin_panel_data, LV_OBJ_FLAG_HIDDEN);
@@ -7644,7 +7696,18 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == PAYMENT_SETTINGS) {
-        admin_payment_back_to_menu2();
+        if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_TIMEOUT && g_admin_payment_tp_active) {
+            admin_payment_hide_time_picker();
+        }
+        else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_METHOD) {
+            admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
+            admin_payment_sync_list_ui();
+            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
+            admin_encoder_rebuild();
+        }
+        else {
+            admin_payment_back_to_menu2();
+        }
         return;
     }
     if(g_admin_view == DATA_SETTINGS) {
@@ -7884,19 +7947,21 @@ static void cb_admin_dormancy_sw_changed(lv_event_t * e)
 
 /* ===== 时间选择子页（time_set_box 数字 + 确定/取消） ===== */
 
-/* 将 g_admin_dormancy_tp_minutes 刷新到 4 个数字滚动条 */
+/* 将分钟/秒刷新到 4 个数字滚动条（MM:SS，均 ≤59） */
 static void admin_dormancy_tp_sync_digits(void)
 {
     uint32_t m = g_admin_dormancy_tp_minutes;
-    if(m > 99) m = 99;
+    uint32_t s = g_admin_dormancy_tp_seconds;
+    if(m > TP_MMSS_MAX_MIN) m = TP_MMSS_MAX_MIN;
+    if(s > TP_MMSS_MAX_MIN) s = TP_MMSS_MAX_MIN;
     if(g_admin_dormancy_tp_digit_rollers[0] != NULL)
         lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[0], m / 10, LV_ANIM_OFF);
     if(g_admin_dormancy_tp_digit_rollers[1] != NULL)
         lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[1], m % 10, LV_ANIM_OFF);
     if(g_admin_dormancy_tp_digit_rollers[2] != NULL)
-        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[2], 0, LV_ANIM_OFF);
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[2], s / 10, LV_ANIM_OFF);
     if(g_admin_dormancy_tp_digit_rollers[3] != NULL)
-        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[3], 0, LV_ANIM_OFF);
+        lv_roller_set_selected(g_admin_dormancy_tp_digit_rollers[3], s % 10, LV_ANIM_OFF);
 }
 
 /* 显示时间选择子页 */
@@ -7906,9 +7971,11 @@ static void admin_dormancy_show_time_picker(void)
 
     uint32_t ms = g_ui_dormancy_timeout_ms;
     if(ms == UI_DORMANCY_DISABLED_MS) ms = UI_DORMANCY_TIMEOUT_DEFAULT_MS;
-    g_admin_dormancy_tp_minutes = ms / 60000u;
-    if(g_admin_dormancy_tp_minutes < 1) g_admin_dormancy_tp_minutes = 1;
-    if(g_admin_dormancy_tp_minutes > 99) g_admin_dormancy_tp_minutes = 99;
+    uint32_t total_sec = ms / 1000u;
+    if(total_sec < 1) total_sec = 1;
+    if(total_sec > PAYMENT_TIMEOUT_SEC_MAX) total_sec = PAYMENT_TIMEOUT_SEC_MAX;
+    g_admin_dormancy_tp_minutes = total_sec / 60u;
+    g_admin_dormancy_tp_seconds = total_sec % 60u;
 
     admin_dormancy_tp_sync_digits();
 
@@ -7947,13 +8014,15 @@ static void admin_dormancy_hide_time_picker(void)
     admin_encoder_rebuild();
 }
 
-/* 确定：应用选中时间 */
+/* 确定：应用选中时间（MM:SS） */
 static void cb_admin_dormancy_tp_confirm(lv_event_t * e)
 {
     (void)e;
     if(!g_admin_dormancy_tp_active) return;
-    uint32_t ms = g_admin_dormancy_tp_minutes * 60000u;
-    g_ui_dormancy_timeout_ms = ms;
+    uint32_t total_sec = g_admin_dormancy_tp_minutes * 60u + g_admin_dormancy_tp_seconds;
+    if(total_sec < 1) total_sec = 1;
+    if(total_sec > PAYMENT_TIMEOUT_SEC_MAX) total_sec = PAYMENT_TIMEOUT_SEC_MAX;
+    g_ui_dormancy_timeout_ms = total_sec * 1000u;
     ui_idle_apply_dormancy_period();
     admin_dormancy_hide_time_picker();
 }
@@ -7966,18 +8035,25 @@ static void cb_admin_dormancy_tp_cancel(lv_event_t * e)
     admin_dormancy_hide_time_picker();
 }
 
-/* 任意数字滚动条变化 → 重新计算分钟数 */
+/* 任意数字滚动条变化 → 重新计算 MM:SS（最大各 59） */
 static void cb_admin_dormancy_tp_digit_roller_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     if(!g_admin_dormancy_tp_active) return;
     uint32_t m = 0;
+    uint32_t s = 0;
     if(g_admin_dormancy_tp_digit_rollers[0] != NULL)
         m += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[0]) * 10;
     if(g_admin_dormancy_tp_digit_rollers[1] != NULL)
         m += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[1]);
-    if(m < 1) m = 1;
+    if(g_admin_dormancy_tp_digit_rollers[2] != NULL)
+        s += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[2]) * 10;
+    if(g_admin_dormancy_tp_digit_rollers[3] != NULL)
+        s += lv_roller_get_selected(g_admin_dormancy_tp_digit_rollers[3]);
+    if(m > TP_MMSS_MAX_MIN) m = TP_MMSS_MAX_MIN;
+    if(s > TP_MMSS_MAX_MIN) s = TP_MMSS_MAX_MIN;
     g_admin_dormancy_tp_minutes = m;
+    g_admin_dormancy_tp_seconds = s;
 }
 
 /* 管理员菜单「待机时间」入口：进入待机时间设置子页 */
@@ -9478,18 +9554,10 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
     admin_encoder_rebuild();
 }
 
-/* 待机/支付 roller 选项随语言切换（保持当前选中项） */
+/* 语言切换时刷新依赖选项文案的 roller（支付超时已改为数字瓦片，此处预留） */
 
 static void ui_lang_refresh_rollers(void)
 {
-    if(g_admin_payment_timeout_roller != NULL) {
-        uint32_t sel = lv_roller_get_selected(g_admin_payment_timeout_roller);
-        lv_roller_set_options(g_admin_payment_timeout_roller, ui_translation(STR_PAYMENT_TIMEOUT_ROLLER),
-                              LV_ROLLER_MODE_NORMAL);
-        if(sel < PAYMENT_TIMEOUT_ROLLER_CNT) {
-            lv_roller_set_selected(g_admin_payment_timeout_roller, sel, LV_ANIM_OFF);
-        }
-    }
 }
 
 /* 程序设置页：字段名与程序 Tab 文案 */
@@ -9555,7 +9623,8 @@ static void ui_lang_apply_all(void)
     ui_lang_refresh_rollers();
     admin_machine_id_label_update();
     program_admin_refresh_i18n();
-    admin_payment_sync_checkbox_ui();
+    admin_payment_sync_list_ui();
+    admin_payment_sync_method_ui();
     admin_data_sync_upload_items_ui();
     admin_data_sync_strategy_ui();
     admin_refresh_visible_status_text();
@@ -9883,73 +9952,205 @@ static void admin_payment_style_checkbox(lv_obj_t * cb)
     lv_obj_set_style_pad_all(cb, 2, LV_PART_INDICATOR | LV_STATE_CHECKED);
 }
 
-/* 支付设置页：竖向分隔线 */
-static void admin_payment_add_divider(lv_obj_t * parent, lv_coord_t x)
+/* 支付设置：首页 / 支付方式 / 超时选择页切换 */
+static void admin_payment_set_page(admin_payment_page_t page)
 {
-    lv_obj_t * div = lv_obj_create(parent);
-    lv_obj_set_size(div, 1, 280);
-    lv_obj_set_pos(div, x, 70);
-    lv_obj_set_style_bg_color(div, lv_color_hex(COL_DIM), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(div, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(div, 0, LV_PART_MAIN);
-    lv_obj_remove_flag(div, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-}
+    g_admin_payment_page = page;
+    bool list = (page == ADMIN_PAYMENT_PAGE_LIST);
+    bool method = (page == ADMIN_PAYMENT_PAGE_METHOD);
+    bool timeout = (page == ADMIN_PAYMENT_PAGE_TIMEOUT);
 
-/* 已保存的支付超时秒数 → roller 选项下标 */
-static uint32_t ui_payment_timeout_roller_index_from_sec(uint16_t sec)
-{
-    for(uint32_t i = 0; i < PAYMENT_TIMEOUT_ROLLER_CNT; i++) {
-        if(g_payment_timeout_sec_tbl[i] == sec) return i;
+    if(g_admin_img_payment_title_box != NULL) {
+        if(list || method) lv_obj_remove_flag(g_admin_img_payment_title_box, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_img_payment_title_box, LV_OBJ_FLAG_HIDDEN);
     }
-    return PAYMENT_TIMEOUT_ROLLER_DEFAULT_IDX;
+    if(g_admin_lbl_payment_title != NULL) {
+        if(list || method) lv_obj_remove_flag(g_admin_lbl_payment_title, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_lbl_payment_title, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_payment_set_box_wrap != NULL) {
+        if(list || method) lv_obj_remove_flag(g_admin_payment_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_payment_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_payment_list_view != NULL) {
+        if(list) lv_obj_remove_flag(g_admin_payment_list_view, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_payment_list_view, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_payment_method_view != NULL) {
+        if(method) lv_obj_remove_flag(g_admin_payment_method_view, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_payment_method_view, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(g_admin_payment_tp_wrap != NULL) {
+        if(timeout) lv_obj_remove_flag(g_admin_payment_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(g_admin_payment_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(!timeout) g_admin_payment_tp_active = false;
 }
 
-/* 支付设置页：按 g_ui_payment_* 刷新支付方式复选框与文案 */
+static void admin_payment_sync_list_ui(void)
+{
+    g_admin_payment_ui_loading = true;
+    if(g_admin_lbl_payment_method != NULL)
+        lv_label_set_text(g_admin_lbl_payment_method, ui_translation(STR_PAYMENT_METHOD));
+    if(g_admin_lbl_payment_timeout != NULL)
+        lv_label_set_text(g_admin_lbl_payment_timeout, ui_translation(STR_PAYMENT_TIMEOUT));
+    if(g_admin_lbl_payment_order != NULL)
+        lv_label_set_text(g_admin_lbl_payment_order, ui_translation(STR_PAYMENT_ORDER));
+
+    /* 支付方式/超时为入口开关：保持用户当前态；订单查询同步保存值 */
+    if(g_admin_sw_payment_order != NULL) {
+        if(g_ui_payment_order_enabled)
+            lv_obj_add_state(g_admin_sw_payment_order, LV_STATE_CHECKED);
+        else
+            lv_obj_remove_state(g_admin_sw_payment_order, LV_STATE_CHECKED);
+    }
+    g_admin_payment_ui_loading = false;
+}
+
+static void admin_payment_sync_method_ui(void)
+{
+    g_admin_payment_ui_loading = true;
+    if(g_admin_lbl_payment_wechat != NULL)
+        lv_label_set_text(g_admin_lbl_payment_wechat, ui_translation(STR_PAYMENT_WECHAT));
+    if(g_admin_lbl_payment_alipay != NULL)
+        lv_label_set_text(g_admin_lbl_payment_alipay, ui_translation(STR_PAYMENT_ALIPAY));
+    if(g_admin_sw_payment_wechat != NULL) {
+        if(g_ui_payment_wechat_enabled)
+            lv_obj_add_state(g_admin_sw_payment_wechat, LV_STATE_CHECKED);
+        else
+            lv_obj_remove_state(g_admin_sw_payment_wechat, LV_STATE_CHECKED);
+    }
+    if(g_admin_sw_payment_alipay != NULL) {
+        if(g_ui_payment_alipay_enabled)
+            lv_obj_add_state(g_admin_sw_payment_alipay, LV_STATE_CHECKED);
+        else
+            lv_obj_remove_state(g_admin_sw_payment_alipay, LV_STATE_CHECKED);
+    }
+    g_admin_payment_ui_loading = false;
+}
+
+static void admin_payment_tp_sync_digits(void)
+{
+    uint32_t m = g_admin_payment_tp_minutes;
+    uint32_t s = g_admin_payment_tp_seconds;
+    if(m > TP_MMSS_MAX_MIN) m = TP_MMSS_MAX_MIN;
+    if(s > TP_MMSS_MAX_MIN) s = TP_MMSS_MAX_MIN;
+    if(g_admin_payment_tp_digit_rollers[0] != NULL)
+        lv_roller_set_selected(g_admin_payment_tp_digit_rollers[0], m / 10, LV_ANIM_OFF);
+    if(g_admin_payment_tp_digit_rollers[1] != NULL)
+        lv_roller_set_selected(g_admin_payment_tp_digit_rollers[1], m % 10, LV_ANIM_OFF);
+    if(g_admin_payment_tp_digit_rollers[2] != NULL)
+        lv_roller_set_selected(g_admin_payment_tp_digit_rollers[2], s / 10, LV_ANIM_OFF);
+    if(g_admin_payment_tp_digit_rollers[3] != NULL)
+        lv_roller_set_selected(g_admin_payment_tp_digit_rollers[3], s % 10, LV_ANIM_OFF);
+}
+
+static void admin_payment_show_time_picker(void)
+{
+    if(g_admin_payment_tp_wrap == NULL) return;
+
+    uint32_t sec = g_ui_payment_timeout_sec;
+    if(sec < PAYMENT_TIMEOUT_SEC_MIN) sec = PAYMENT_TIMEOUT_SEC_DEFAULT;
+    if(sec > PAYMENT_TIMEOUT_SEC_MAX) sec = PAYMENT_TIMEOUT_SEC_MAX;
+    g_admin_payment_tp_minutes = sec / 60u;
+    g_admin_payment_tp_seconds = sec % 60u;
+
+    admin_payment_tp_sync_digits();
+    admin_payment_set_page(ADMIN_PAYMENT_PAGE_TIMEOUT);
+    g_admin_payment_tp_active = true;
+
+    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
+    admin_encoder_rebuild();
+}
+
+static void admin_payment_hide_time_picker(void)
+{
+    if(g_admin_payment_tp_wrap == NULL) return;
+    admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
+    admin_payment_sync_list_ui();
+    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
+    admin_encoder_rebuild();
+}
+
+static void cb_admin_payment_tp_confirm(lv_event_t * e)
+{
+    (void)e;
+    if(!g_admin_payment_tp_active) return;
+    uint32_t total_sec = g_admin_payment_tp_minutes * 60u + g_admin_payment_tp_seconds;
+    ui_payment_timeout_sec_set((uint16_t)total_sec);
+    admin_payment_hide_time_picker();
+}
+
+static void cb_admin_payment_tp_cancel(lv_event_t * e)
+{
+    (void)e;
+    if(!g_admin_payment_tp_active) return;
+    admin_payment_hide_time_picker();
+}
+
+static void cb_admin_payment_tp_digit_roller_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if(!g_admin_payment_tp_active) return;
+    uint32_t m = 0;
+    uint32_t s = 0;
+    if(g_admin_payment_tp_digit_rollers[0] != NULL)
+        m += lv_roller_get_selected(g_admin_payment_tp_digit_rollers[0]) * 10;
+    if(g_admin_payment_tp_digit_rollers[1] != NULL)
+        m += lv_roller_get_selected(g_admin_payment_tp_digit_rollers[1]);
+    if(g_admin_payment_tp_digit_rollers[2] != NULL)
+        s += lv_roller_get_selected(g_admin_payment_tp_digit_rollers[2]) * 10;
+    if(g_admin_payment_tp_digit_rollers[3] != NULL)
+        s += lv_roller_get_selected(g_admin_payment_tp_digit_rollers[3]);
+    if(m > TP_MMSS_MAX_MIN) m = TP_MMSS_MAX_MIN;
+    if(s > TP_MMSS_MAX_MIN) s = TP_MMSS_MAX_MIN;
+    g_admin_payment_tp_minutes = m;
+    g_admin_payment_tp_seconds = s;
+}
+
+static void cb_admin_payment_list_sw_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if(g_admin_view != PAYMENT_SETTINGS) return;
+    if(g_admin_payment_ui_loading) return;
+    if(g_admin_payment_page != ADMIN_PAYMENT_PAGE_LIST) return;
+
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    if(sw == NULL) return;
+    bool on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+    if(sw == g_admin_sw_payment_method) {
+        if(on) {
+            admin_payment_set_page(ADMIN_PAYMENT_PAGE_METHOD);
+            admin_payment_sync_method_ui();
+            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
+            admin_encoder_rebuild();
+        }
+    }
+    else if(sw == g_admin_sw_payment_timeout) {
+        if(on) {
+            admin_payment_show_time_picker();
+        }
+    }
+    else if(sw == g_admin_sw_payment_order) {
+        g_ui_payment_order_enabled = on;
+    }
+}
+
 static void cb_admin_payment_alipay_changed(lv_event_t * e)
 {
-    lv_obj_t * cb = lv_event_get_target(e);
-    ui_payment_alipay_set(lv_obj_has_state(cb, LV_STATE_CHECKED));
+    if(g_admin_payment_ui_loading) return;
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    ui_payment_alipay_set(lv_obj_has_state(sw, LV_STATE_CHECKED));
     pay_sync_pay_ui();
 }
 
 static void cb_admin_payment_wechat_changed(lv_event_t * e)
 {
-    lv_obj_t * cb = lv_event_get_target(e);
-    ui_payment_wechat_set(lv_obj_has_state(cb, LV_STATE_CHECKED));
+    if(g_admin_payment_ui_loading) return;
+    lv_obj_t * sw = lv_event_get_target_obj(e);
+    ui_payment_wechat_set(lv_obj_has_state(sw, LV_STATE_CHECKED));
     pay_sync_pay_ui();
-}
-
-static void admin_payment_sync_checkbox_ui(void)
-{
-    if(g_admin_cb_payment_alipay != NULL) {
-        lv_checkbox_set_text(g_admin_cb_payment_alipay, ui_translation(STR_PAYMENT_ALIPAY));
-        if(g_ui_payment_alipay_enabled) {
-            lv_obj_add_state(g_admin_cb_payment_alipay, LV_STATE_CHECKED);
-        }
-        else {
-            lv_obj_remove_state(g_admin_cb_payment_alipay, LV_STATE_CHECKED);
-        }
-    }
-    if(g_admin_cb_payment_wechat != NULL) {
-        lv_checkbox_set_text(g_admin_cb_payment_wechat, ui_translation(STR_PAYMENT_WECHAT));
-        if(g_ui_payment_wechat_enabled) {
-            lv_obj_add_state(g_admin_cb_payment_wechat, LV_STATE_CHECKED);
-        }
-        else {
-            lv_obj_remove_state(g_admin_cb_payment_wechat, LV_STATE_CHECKED);
-        }
-    }
-}
-
-/* 支付设置页：按 g_ui_payment_timeout_sec 刷新支付超时 roller */
-
-static void admin_payment_sync_timeout_roller_ui(void)
-{
-    if(g_admin_payment_timeout_roller == NULL) return;
-    uint32_t idx = ui_payment_timeout_roller_index_from_sec(g_ui_payment_timeout_sec);
-    lv_roller_set_options(g_admin_payment_timeout_roller, ui_translation(STR_PAYMENT_TIMEOUT_ROLLER),
-                          LV_ROLLER_MODE_NORMAL);
-    lv_roller_set_selected(g_admin_payment_timeout_roller, idx, LV_ANIM_OFF);
 }
 
 static const ui_str_id_t g_data_upload_item_str_ids[7] = {
@@ -10139,59 +10340,6 @@ static void cb_admin_data_upload_switch_changed(lv_event_t * e)
     if(on) {
         admin_data_open_strategy();
     }
-}
-
-/*
- * 支付超时 roller 退出编码器编辑态。
- * 短按第二次编码器 / 失焦时调用；先同步 LVGL 内部 ori 再 editing=false，避免选项被回滚。
- */
-
-static void admin_payment_timeout_roller_exit_edit(lv_obj_t * roller)
-{
-    if(g_group_admin == NULL || roller == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != roller) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    uint32_t sel = lv_roller_get_selected(roller);
-    if(sel < PAYMENT_TIMEOUT_ROLLER_CNT) {
-        lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
-    }
-    lv_group_set_editing(g_group_admin, false);
-}
-
-/*
- * 支付超时 roller：外设编码器短按发 LV_EVENT_CLICKED，在编辑/导航间切换。
- * 短按进入编辑（旋转改值），再按退回选择（旋转切焦点）；失焦时自动退出编辑。
- */
-
-static void cb_admin_payment_timeout_roller_encoder(lv_event_t * e)
-{
-    lv_obj_t * roller = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
-    if(g_admin_view != PAYMENT_SETTINGS) return;
-    if(roller == NULL || lv_obj_has_flag(roller, LV_OBJ_FLAG_HIDDEN)) return;
-
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_payment_timeout_roller_exit_edit(roller);
-        }
-        return;
-    }
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != roller) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_payment_timeout_roller_exit_edit(roller);
-    }
-    else {
-        uint32_t sel = lv_roller_get_selected(roller);
-        if(sel < PAYMENT_TIMEOUT_ROLLER_CNT) {
-            lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
-        }
-        lv_group_set_editing(g_group_admin, true);
-    }
-    lv_event_stop_processing(e);
 }
 
 /* 离开支付设置页：回管理员 menu2 */
@@ -10946,7 +11094,9 @@ static void build_admin(void)
             lv_obj_set_style_text_font(g_admin_dormancy_tp_digit_rollers[i], s_font_sc_70, LV_PART_SELECTED);
             lv_obj_set_style_text_align(g_admin_dormancy_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
             lv_obj_set_style_text_align(g_admin_dormancy_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_SELECTED);
-            lv_roller_set_options(g_admin_dormancy_tp_digit_rollers[i], "0\n1\n2\n3\n4\n5\n6\n7\n8\n9",
+            /* 十分位 0~5、个位 0~9 → 分钟/秒最大 59 */
+            lv_roller_set_options(g_admin_dormancy_tp_digit_rollers[i],
+                (i == 0 || i == 2) ? TP_ROLLER_OPTS_0_5 : TP_ROLLER_OPTS_0_9,
                 LV_ROLLER_MODE_NORMAL);
             lv_obj_set_size(g_admin_dormancy_tp_digit_rollers[i], tile_w, tile_h);
             lv_obj_set_pos(g_admin_dormancy_tp_digit_rollers[i], tiles_x0 + tx, row_y);
@@ -11766,97 +11916,297 @@ static void build_admin(void)
         lv_obj_move_foreground(g_admin_btn_system_upgrade_ok);
     }
 
-    /* 支付设置子面板（1600×400，三栏：支付方式 / 支付超时 / 订单查询） */
+    /* 支付设置子面板（同待机时间：title_box + set_box；首页3项 / 方式2项 / 超时数字页） */
     g_admin_panel_payment = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_payment, 1600, 400);
-    lv_obj_align(g_admin_panel_payment, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_payment, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_payment, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_payment, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_payment, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_payment, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_payment, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_payment, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_payment_title_box = lv_image_create(g_admin_panel_payment);
+    lv_image_set_src(g_admin_img_payment_title_box, &title_box);
+    lv_obj_align(g_admin_img_payment_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_payment_title = lv_label_create(g_admin_panel_payment);
     ui_lang_bind_label(g_admin_lbl_payment_title, STR_ADMIN_M2_PAYMENT);
     lv_obj_set_style_text_color(g_admin_lbl_payment_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_payment_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_payment_title, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_align(g_admin_lbl_payment_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    admin_payment_add_divider(g_admin_panel_payment, 520);
-    admin_payment_add_divider(g_admin_panel_payment, 1080);
+    g_admin_payment_set_box_wrap = lv_obj_create(g_admin_panel_payment);
+    lv_obj_set_size(g_admin_payment_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_payment_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_payment_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_payment_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_payment_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_payment_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
 
-    g_admin_lbl_payment_method_hdr = lv_label_create(g_admin_panel_payment);
-    ui_lang_bind_label(g_admin_lbl_payment_method_hdr, STR_PAYMENT_METHOD);
-    lv_obj_set_style_text_color(g_admin_lbl_payment_method_hdr, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_payment_method_hdr, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_payment_method_hdr, LV_ALIGN_TOP_MID, -500, 70);
+    lv_obj_t * img_payment_set_box = lv_image_create(g_admin_payment_set_box_wrap);
+    lv_image_set_src(img_payment_set_box, &set_box);
+    lv_obj_center(img_payment_set_box);
 
-    g_admin_lbl_payment_timeout_hdr = lv_label_create(g_admin_panel_payment);
-    ui_lang_bind_label(g_admin_lbl_payment_timeout_hdr, STR_PAYMENT_TIMEOUT);
-    lv_obj_set_style_text_color(g_admin_lbl_payment_timeout_hdr, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_payment_timeout_hdr, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_payment_timeout_hdr, LV_ALIGN_TOP_MID, 0, 70);
+    /* 首页：与数据设置相同的行高60 + 1px横线 + pad_row=0；3项+3线，整体居中于 set_box */
+    const lv_coord_t pay_row_w = 800;
+    const lv_coord_t pay_list_h = 60 * 3 + 1 * 3; /* 183 */
 
-    g_admin_lbl_payment_order_hdr = lv_label_create(g_admin_panel_payment);
-    ui_lang_bind_label(g_admin_lbl_payment_order_hdr, STR_PAYMENT_ORDER);
-    lv_obj_set_style_text_color(g_admin_lbl_payment_order_hdr, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_payment_order_hdr, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_payment_order_hdr, LV_ALIGN_TOP_MID, 520, 70);
+    g_admin_payment_list_view = lv_obj_create(g_admin_payment_set_box_wrap);
+    lv_obj_set_size(g_admin_payment_list_view, pay_row_w, pay_list_h);
+    lv_obj_align(g_admin_payment_list_view, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_opa(g_admin_payment_list_view, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_payment_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_payment_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(g_admin_payment_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(g_admin_payment_list_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_payment_list_view, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(g_admin_payment_list_view, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(g_admin_payment_list_view, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(g_admin_payment_list_view, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(g_admin_payment_list_view, LV_SCROLLBAR_MODE_OFF);
 
-    g_admin_cb_payment_alipay = lv_checkbox_create(g_admin_panel_payment);
-    lv_checkbox_set_text(g_admin_cb_payment_alipay, ui_translation(STR_PAYMENT_ALIPAY));
-    admin_payment_style_checkbox(g_admin_cb_payment_alipay);
-    lv_obj_set_width(g_admin_cb_payment_alipay, 400);
-    lv_obj_set_pos(g_admin_cb_payment_alipay, 100, 130);
-    lv_obj_add_event_cb(g_admin_cb_payment_alipay, cb_admin_payment_alipay_changed, LV_EVENT_VALUE_CHANGED, NULL);
+    {
+        static const ui_str_id_t pay_list_ids[3] = {
+            STR_PAYMENT_METHOD, STR_PAYMENT_TIMEOUT, STR_PAYMENT_ORDER
+        };
+        lv_obj_t ** pay_lbls[3] = {
+            &g_admin_lbl_payment_method, &g_admin_lbl_payment_timeout, &g_admin_lbl_payment_order
+        };
+        lv_obj_t ** pay_sws[3] = {
+            &g_admin_sw_payment_method, &g_admin_sw_payment_timeout, &g_admin_sw_payment_order
+        };
+        for(int i = 0; i < 3; i++) {
+            lv_obj_t * row = lv_obj_create(g_admin_payment_list_view);
+            lv_obj_set_size(row, pay_row_w, 60);
+            lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_border_width(row, 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(row, 0, LV_PART_MAIN);
+            lv_obj_set_style_layout(row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+            lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+            lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
-    g_admin_cb_payment_wechat = lv_checkbox_create(g_admin_panel_payment);
-    lv_checkbox_set_text(g_admin_cb_payment_wechat, ui_translation(STR_PAYMENT_WECHAT));
-    admin_payment_style_checkbox(g_admin_cb_payment_wechat);
-    lv_obj_set_width(g_admin_cb_payment_wechat, 400);
-    lv_obj_set_pos(g_admin_cb_payment_wechat, 100, 200);
-    lv_obj_add_event_cb(g_admin_cb_payment_wechat, cb_admin_payment_wechat_changed, LV_EVENT_VALUE_CHANGED, NULL);
+            *pay_lbls[i] = lv_label_create(row);
+            ui_lang_bind_label(*pay_lbls[i], pay_list_ids[i]);
+            lv_obj_set_style_text_color(*pay_lbls[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+            ui_set_obj_font(*pay_lbls[i], s_font_sc_30);
 
-    lv_obj_t * payment_timeout_box = lv_obj_create(g_admin_panel_payment);
-    lv_obj_set_size(payment_timeout_box, 420, 100);
-    lv_obj_align(payment_timeout_box, LV_ALIGN_TOP_MID, 0, 130);
-    lv_obj_set_style_radius(payment_timeout_box, 8, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(payment_timeout_box, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(payment_timeout_box, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(payment_timeout_box, 0, LV_PART_MAIN);
-    lv_obj_add_flag(payment_timeout_box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    lv_obj_remove_flag(payment_timeout_box, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+            *pay_sws[i] = lv_switch_create(row);
+            admin_data_style_switch(*pay_sws[i]);
+            lv_obj_add_event_cb(*pay_sws[i], cb_admin_payment_list_sw_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    g_admin_payment_timeout_roller = lv_roller_create(payment_timeout_box);
-    lv_obj_set_size(g_admin_payment_timeout_roller, 380, 100);
-    lv_roller_set_options(g_admin_payment_timeout_roller, ui_translation(STR_PAYMENT_TIMEOUT_ROLLER), LV_ROLLER_MODE_NORMAL);
-    lv_roller_set_visible_row_count(g_admin_payment_timeout_roller, 1);
-    lv_obj_set_style_text_font(g_admin_payment_timeout_roller, s_font_sc_30, LV_PART_MAIN);
-    lv_obj_set_style_text_font(g_admin_payment_timeout_roller, s_font_sc_30, LV_PART_SELECTED);
-    lv_obj_set_style_bg_opa(g_admin_payment_timeout_roller, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(g_admin_payment_timeout_roller, LV_OPA_TRANSP, LV_PART_SELECTED);
-    lv_obj_set_style_text_color(g_admin_payment_timeout_roller, lv_color_hex(0x000000), LV_PART_MAIN);
-    lv_obj_set_style_text_color(g_admin_payment_timeout_roller, lv_color_hex(0x000000), LV_PART_SELECTED);
-    lv_obj_set_style_border_width(g_admin_payment_timeout_roller, 0, LV_PART_MAIN);
-    lv_obj_center(g_admin_payment_timeout_roller);
-    lv_obj_add_event_cb(g_admin_payment_timeout_roller, cb_admin_payment_timeout_roller_encoder, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(g_admin_payment_timeout_roller, cb_admin_payment_timeout_roller_encoder, LV_EVENT_DEFOCUSED, NULL);
+            /* 每项下方一条横线（共 3 条） */
+            lv_obj_t * sep = lv_obj_create(g_admin_payment_list_view);
+            lv_obj_set_size(sep, pay_row_w, 1);
+            lv_obj_set_style_bg_color(sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
+            lv_obj_clear_flag(sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        }
+    }
 
-    g_admin_lbl_payment_order_hint = lv_label_create(g_admin_panel_payment);
-    ui_lang_bind_label(g_admin_lbl_payment_order_hint, STR_PAYMENT_ORDER_HINT);
-    lv_obj_set_style_text_color(g_admin_lbl_payment_order_hint, lv_color_hex(COL_DIM), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_payment_order_hint, s_font_sc_30);
-    lv_obj_set_width(g_admin_lbl_payment_order_hint, 360);
-    lv_label_set_long_mode(g_admin_lbl_payment_order_hint, LV_LABEL_LONG_WRAP);
-    lv_obj_align(g_admin_lbl_payment_order_hint, LV_ALIGN_TOP_MID, 520, 130);
+    /* 支付方式页：微信/支付宝 + logo；文字与横线间隔大于首页（参考自投行距） */
+    g_admin_payment_method_view = lv_obj_create(g_admin_payment_set_box_wrap);
+    lv_obj_set_size(g_admin_payment_method_view, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(g_admin_payment_method_view, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_opa(g_admin_payment_method_view, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_payment_method_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_payment_method_view, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_payment_method_view, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_payment_method_view, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_payment_method_view, LV_OBJ_FLAG_HIDDEN);
 
-    g_admin_btn_payment_query = make_orange_fill_btn(g_admin_panel_payment, ui_translation(STR_BTN_QUERY), 160, 44);
-    lv_obj_align(g_admin_btn_payment_query, LV_ALIGN_TOP_MID, 520, 200);
-    ui_set_obj_font(lv_obj_get_child(g_admin_btn_payment_query, 0), s_font_sc_30);
-    orange_btn_bind_i18n(g_admin_btn_payment_query, STR_BTN_QUERY);
+    {
+        const lv_coord_t pay_m_row_w = 800;
+        const lv_coord_t pay_m_title_h = 48;
+        const lv_coord_t pay_m_row1_y = 120;  /* 整体居中于 set_box */
+        const lv_coord_t pay_m_sep_y  = 200;  /* 比首页文字-横线间隔更大 */
+        const lv_coord_t pay_m_row2_y = 240;
+        const lv_coord_t pay_m_logo_w = 29;   /* wechat_logo / alipay_logo 原图 */
+        const lv_coord_t pay_m_logo_h = 30;
+        const lv_coord_t pay_m_icon_text_gap = 10;
 
-    admin_payment_sync_checkbox_ui();
-    admin_payment_sync_timeout_roller_ui();
+        lv_obj_t * pay_wechat_row = lv_obj_create(g_admin_payment_method_view);
+        lv_obj_set_size(pay_wechat_row, pay_m_row_w, pay_m_title_h);
+        lv_obj_align(pay_wechat_row, LV_ALIGN_TOP_MID, 0, pay_m_row1_y);
+        lv_obj_set_style_bg_opa(pay_wechat_row, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(pay_wechat_row, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(pay_wechat_row, 0, LV_PART_MAIN);
+        lv_obj_set_style_layout(pay_wechat_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+        lv_obj_set_flex_flow(pay_wechat_row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(pay_wechat_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_add_flag(pay_wechat_row, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+        lv_obj_clear_flag(pay_wechat_row, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t * img_wechat = lv_image_create(pay_wechat_row);
+        lv_image_set_src(img_wechat, &wechat_logo);
+        lv_obj_set_size(img_wechat, pay_m_logo_w, pay_m_logo_h);
+        lv_obj_add_flag(img_wechat, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_align(img_wechat, LV_ALIGN_LEFT_MID, 0, 0);
+
+        g_admin_lbl_payment_wechat = lv_label_create(pay_wechat_row);
+        ui_lang_bind_label(g_admin_lbl_payment_wechat, STR_PAYMENT_WECHAT);
+        lv_obj_set_style_text_color(g_admin_lbl_payment_wechat, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_lbl_payment_wechat, s_font_sc_30);
+        lv_obj_set_style_margin_left(g_admin_lbl_payment_wechat,
+            pay_m_logo_w + pay_m_icon_text_gap, LV_PART_MAIN);
+
+        g_admin_sw_payment_wechat = lv_switch_create(pay_wechat_row);
+        admin_data_style_switch(g_admin_sw_payment_wechat);
+        lv_obj_add_event_cb(g_admin_sw_payment_wechat, cb_admin_payment_wechat_changed,
+            LV_EVENT_VALUE_CHANGED, NULL);
+
+        lv_obj_t * pay_method_sep = lv_obj_create(g_admin_payment_method_view);
+        lv_obj_set_size(pay_method_sep, pay_m_row_w, 1);
+        lv_obj_align(pay_method_sep, LV_ALIGN_TOP_MID, 0, pay_m_sep_y);
+        lv_obj_set_style_bg_color(pay_method_sep, lv_color_hex(COL_DIM), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(pay_method_sep, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(pay_method_sep, 0, LV_PART_MAIN);
+        lv_obj_clear_flag(pay_method_sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+        lv_obj_t * pay_alipay_row = lv_obj_create(g_admin_payment_method_view);
+        lv_obj_set_size(pay_alipay_row, pay_m_row_w, pay_m_title_h);
+        lv_obj_align(pay_alipay_row, LV_ALIGN_TOP_MID, 0, pay_m_row2_y);
+        lv_obj_set_style_bg_opa(pay_alipay_row, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(pay_alipay_row, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(pay_alipay_row, 0, LV_PART_MAIN);
+        lv_obj_set_style_layout(pay_alipay_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+        lv_obj_set_flex_flow(pay_alipay_row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(pay_alipay_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_add_flag(pay_alipay_row, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+        lv_obj_clear_flag(pay_alipay_row, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t * img_alipay = lv_image_create(pay_alipay_row);
+        lv_image_set_src(img_alipay, &alipay_logo);
+        lv_obj_set_size(img_alipay, pay_m_logo_w, pay_m_logo_h);
+        lv_obj_add_flag(img_alipay, LV_OBJ_FLAG_IGNORE_LAYOUT);
+        lv_obj_align(img_alipay, LV_ALIGN_LEFT_MID, 0, 0);
+
+        g_admin_lbl_payment_alipay = lv_label_create(pay_alipay_row);
+        ui_lang_bind_label(g_admin_lbl_payment_alipay, STR_PAYMENT_ALIPAY);
+        lv_obj_set_style_text_color(g_admin_lbl_payment_alipay, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_lbl_payment_alipay, s_font_sc_30);
+        lv_obj_set_style_margin_left(g_admin_lbl_payment_alipay,
+            pay_m_logo_w + pay_m_icon_text_gap, LV_PART_MAIN);
+
+        g_admin_sw_payment_alipay = lv_switch_create(pay_alipay_row);
+        admin_data_style_switch(g_admin_sw_payment_alipay);
+        lv_obj_add_event_cb(g_admin_sw_payment_alipay, cb_admin_payment_alipay_changed,
+            LV_EVENT_VALUE_CHANGED, NULL);
+    }
+
+    /* 支付超时时间选择（布局同待机时间选择；文案「支付将在」「分钟后取消」） */
+    g_admin_payment_tp_wrap = lv_obj_create(g_admin_panel_payment);
+    lv_obj_set_size(g_admin_payment_tp_wrap, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_payment_tp_wrap, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_opa(g_admin_payment_tp_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_payment_tp_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_payment_tp_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(g_admin_payment_tp_wrap, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_add_flag(g_admin_payment_tp_wrap, LV_OBJ_FLAG_HIDDEN);
+
+    {
+        const lv_coord_t tile_w   = 78;
+        const lv_coord_t tile_h   = 101;
+        const lv_coord_t gap      = 8;
+        const lv_coord_t colon_w  = 24;
+        const lv_coord_t group_w  = tile_w * 4 + gap * 3 + colon_w;
+        const lv_coord_t row_y    = 180;
+
+        g_admin_payment_tp_lbl_prefix = lv_label_create(g_admin_payment_tp_wrap);
+        ui_lang_bind_label(g_admin_payment_tp_lbl_prefix, STR_PAYMENT_TIME_PREFIX);
+        lv_obj_set_style_text_color(g_admin_payment_tp_lbl_prefix, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_payment_tp_lbl_prefix, s_font_sc_50);
+
+        g_admin_payment_tp_lbl_suffix = lv_label_create(g_admin_payment_tp_wrap);
+        ui_lang_bind_label(g_admin_payment_tp_lbl_suffix, STR_PAYMENT_TIME_SUFFIX);
+        lv_obj_set_style_text_color(g_admin_payment_tp_lbl_suffix, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_payment_tp_lbl_suffix, s_font_sc_50);
+
+        lv_obj_update_layout(g_admin_payment_tp_lbl_prefix);
+        lv_obj_update_layout(g_admin_payment_tp_lbl_suffix);
+        const lv_coord_t prefix_w = lv_obj_get_width(g_admin_payment_tp_lbl_prefix);
+        const lv_coord_t suffix_w = lv_obj_get_width(g_admin_payment_tp_lbl_suffix);
+        const lv_coord_t row_total_w = prefix_w + gap + group_w + gap + suffix_w;
+        const lv_coord_t row_start_x = (UI_FIXED_W - row_total_w) / 2 - 80;
+
+        lv_obj_set_pos(g_admin_payment_tp_lbl_prefix, row_start_x - 15,
+            row_y + (tile_h - lv_obj_get_height(g_admin_payment_tp_lbl_prefix)) / 2);
+        lv_obj_set_pos(g_admin_payment_tp_lbl_suffix,
+            row_start_x + prefix_w + gap + group_w + gap + 15,
+            row_y + (tile_h - lv_obj_get_height(g_admin_payment_tp_lbl_suffix)) / 2);
+
+        const lv_coord_t tiles_x0 = row_start_x + prefix_w + gap;
+        for(int i = 0; i < 4; i++) {
+            lv_coord_t tx;
+            if(i == 0) tx = 0;
+            else if(i == 1) tx = tile_w + gap;
+            else if(i == 2) tx = (tile_w + gap) * 2 + colon_w;
+            else tx = (tile_w + gap) * 3 + colon_w;
+
+            g_admin_payment_tp_digit_imgs[i] = lv_image_create(g_admin_payment_tp_wrap);
+            lv_image_set_src(g_admin_payment_tp_digit_imgs[i], &time_set_box);
+            lv_obj_set_size(g_admin_payment_tp_digit_imgs[i], tile_w, tile_h);
+            lv_obj_set_pos(g_admin_payment_tp_digit_imgs[i], tiles_x0 + tx, row_y);
+
+            g_admin_payment_tp_digit_rollers[i] = lv_roller_create(g_admin_payment_tp_wrap);
+            lv_roller_set_visible_row_count(g_admin_payment_tp_digit_rollers[i], 1);
+            lv_obj_set_style_bg_opa(g_admin_payment_tp_digit_rollers[i], LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(g_admin_payment_tp_digit_rollers[i], LV_OPA_TRANSP, LV_PART_SELECTED);
+            lv_obj_set_style_text_color(g_admin_payment_tp_digit_rollers[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+            lv_obj_set_style_text_color(g_admin_payment_tp_digit_rollers[i], lv_color_hex(COL_TEXT), LV_PART_SELECTED);
+            lv_obj_set_style_border_width(g_admin_payment_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(g_admin_payment_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_text_line_space(g_admin_payment_tp_digit_rollers[i], 30, LV_PART_MAIN);
+            lv_obj_set_style_text_line_space(g_admin_payment_tp_digit_rollers[i], 30, LV_PART_SELECTED);
+            lv_obj_set_style_radius(g_admin_payment_tp_digit_rollers[i], 0, LV_PART_MAIN);
+            lv_obj_set_style_text_font(g_admin_payment_tp_digit_rollers[i], s_font_sc_70, LV_PART_MAIN);
+            lv_obj_set_style_text_font(g_admin_payment_tp_digit_rollers[i], s_font_sc_70, LV_PART_SELECTED);
+            lv_obj_set_style_text_align(g_admin_payment_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+            lv_obj_set_style_text_align(g_admin_payment_tp_digit_rollers[i], LV_TEXT_ALIGN_CENTER, LV_PART_SELECTED);
+            /* 十分位 0~5、个位 0~9 → 分钟/秒最大 59 */
+            lv_roller_set_options(g_admin_payment_tp_digit_rollers[i],
+                (i == 0 || i == 2) ? TP_ROLLER_OPTS_0_5 : TP_ROLLER_OPTS_0_9,
+                LV_ROLLER_MODE_NORMAL);
+            lv_obj_set_size(g_admin_payment_tp_digit_rollers[i], tile_w, tile_h);
+            lv_obj_set_pos(g_admin_payment_tp_digit_rollers[i], tiles_x0 + tx, row_y);
+            lv_obj_add_event_cb(g_admin_payment_tp_digit_rollers[i],
+                cb_admin_payment_tp_digit_roller_changed, LV_EVENT_VALUE_CHANGED, NULL);
+        }
+
+        g_admin_payment_tp_lbl_colon = lv_label_create(g_admin_payment_tp_wrap);
+        lv_label_set_text(g_admin_payment_tp_lbl_colon, ":");
+        lv_obj_set_style_text_color(g_admin_payment_tp_lbl_colon, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+        ui_set_obj_font(g_admin_payment_tp_lbl_colon, s_font_sc_70);
+        lv_obj_update_layout(g_admin_payment_tp_lbl_colon);
+        lv_obj_set_pos(g_admin_payment_tp_lbl_colon,
+            tiles_x0 + (tile_w + gap) * 2 + (colon_w - lv_obj_get_width(g_admin_payment_tp_lbl_colon)) / 2 + (-2),
+            row_y + (tile_h - lv_obj_get_height(g_admin_payment_tp_lbl_colon)) / 2 + (-10));
+    }
+
+    {
+        const lv_coord_t btn_w = 110;
+        const lv_coord_t btn_h = 50;
+        const lv_coord_t btn_y = -40;
+        g_admin_payment_tp_btn_ok = make_orange_fill_btn(g_admin_payment_tp_wrap,
+            ui_translation(STR_BTN_CONFIRM), btn_w, btn_h);
+        lv_obj_align(g_admin_payment_tp_btn_ok, LV_ALIGN_RIGHT_MID, -300, -50 + btn_y);
+        ui_set_obj_font(lv_obj_get_child(g_admin_payment_tp_btn_ok, 0), s_font_sc_30);
+        orange_btn_bind_i18n(g_admin_payment_tp_btn_ok, STR_BTN_CONFIRM);
+        lv_obj_add_event_cb(g_admin_payment_tp_btn_ok, cb_admin_payment_tp_confirm, LV_EVENT_CLICKED, NULL);
+
+        g_admin_payment_tp_btn_cancel = make_orange_outline_btn(g_admin_payment_tp_wrap,
+            ui_translation(STR_BTN_CANCEL), btn_w, btn_h);
+        lv_obj_align(g_admin_payment_tp_btn_cancel, LV_ALIGN_RIGHT_MID, -300, 50 + btn_y);
+        ui_set_obj_font(lv_obj_get_child(g_admin_payment_tp_btn_cancel, 0), s_font_sc_30);
+        orange_btn_bind_i18n(g_admin_payment_tp_btn_cancel, STR_BTN_CANCEL);
+        lv_obj_add_event_cb(g_admin_payment_tp_btn_cancel, cb_admin_payment_tp_cancel, LV_EVENT_CLICKED, NULL);
+    }
+
+    admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
+    admin_payment_sync_list_ui();
+    admin_payment_sync_method_ui();
 
     /* 数据设置子面板（标题页：title_box + set_box + 7 行滚动开关） */
     g_admin_panel_data = lv_obj_create(root);
