@@ -798,9 +798,9 @@ uint8_t ui_screen_brightness_get(void)
     return g_ui_screen_brightness;
 }
 
-#define UI_SCREEN_BRIGHTNESS_STEP  10  /* 亮度滑条步进值 */
+#define UI_SCREEN_BRIGHTNESS_STEP  1  /* 亮度滑条步进值（100 档：0~100） */
 
-/* 亮度百分比对齐到步进（0、10、…、100） */
+/* 亮度百分比对齐到步进（0、1、…、100） */
 static uint8_t ui_screen_brightness_snap(uint8_t percent)
 {
     uint8_t snapped = (uint8_t)(((percent + (UI_SCREEN_BRIGHTNESS_STEP / 2u)) / UI_SCREEN_BRIGHTNESS_STEP) *
@@ -1460,8 +1460,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_FIELD_TEMP]        = "水温",
         [STR_PROG_FIELD_WATER]       = "水位",
         [STR_PROG_WATER_SMART]       = "智能设定",
-        [STR_BRIGHTNESS_LINE1]       = "运行过程中屏幕处于常亮状态",
-        [STR_BRIGHTNESS_LINE2]       = "如若关闭，则在运行过程中无操作自动熄灭屏幕",
+        [STR_BRIGHTNESS_LINE1]       = "运行过程中屏幕处于常亮状态，如若关闭此功能，则在运行过程中无操作自动熄灭屏幕",
+        [STR_BRIGHTNESS_LINE2]       = "",
         [STR_SOUND_TOUCH]            = "触控声音：",
         [STR_SOUND_VOICE]            = "声音播报：",
         [STR_DORMANCY_TITLE]         = "待机时间",
@@ -1673,8 +1673,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_FIELD_TEMP]        = "Temperature",
         [STR_PROG_FIELD_WATER]       = "Water Level",
         [STR_PROG_WATER_SMART]       = "Smart",
-        [STR_BRIGHTNESS_LINE1]       = "Screen stays on during operation",
-        [STR_BRIGHTNESS_LINE2]       = "If off, screen turns off after inactivity during operation",
+        [STR_BRIGHTNESS_LINE1]       = "Screen stays on during operation. If disabled, the screen turns off after inactivity while running",
+        [STR_BRIGHTNESS_LINE2]       = "",
         [STR_SOUND_TOUCH]            = "Touch Sound:",
         [STR_SOUND_VOICE]            = "Voice Broadcast:",
         [STR_DORMANCY_TITLE]         = "Standby",
@@ -2120,14 +2120,17 @@ static lv_obj_t * g_admin_dormancy_tp_btn_cancel;  /* 取消 */
 static uint32_t g_admin_dormancy_tp_minutes;        /* 编辑中的分钟数 0~59 */
 static uint32_t g_admin_dormancy_tp_seconds;        /* 编辑中的秒数 0~59 */
 static bool g_admin_dormancy_tp_active = false;     /* 时间选择页是否显示中 */
-/* 屏幕亮度子页控件 */
+/* 屏幕亮度子页控件（布局同待机时间：title_box + set_box；滑条仅触摸，无编码器） */
+static lv_obj_t * g_admin_img_brightness_title_box;
+static lv_obj_t * g_admin_brightness_set_box_wrap;
 static lv_obj_t * g_admin_lbl_brightness_title;
-static lv_obj_t * g_admin_lbl_brightness_line1;
-static lv_obj_t * g_admin_lbl_brightness_line2;
+static lv_obj_t * g_admin_lbl_brightness_main;      /* set_box 内主文字「屏幕亮度」 */
+static lv_obj_t * g_admin_lbl_brightness_line1;     /* 说明小字（自动换行） */
+static lv_obj_t * g_admin_lbl_brightness_line2;     /* 保留：旧两行文案已合并到 line1 */
 static lv_obj_t * g_admin_sw_run_always_on;
-static lv_obj_t * g_admin_brightness_bar;           /* 亮度渐变动条（仅显示，下层） */
-static lv_obj_t * g_admin_slider_brightness;        /* 亮度交互滑条（透明，中层） */
-static lv_obj_t * g_admin_brightness_slider_focus;  /* 编码器白色焦点框（上层，不拦截点击） */
+static lv_obj_t * g_admin_brightness_fill;          /* 进度裁剪窗：宽度随数值变，露出固定渐变 */
+static lv_obj_t * g_admin_brightness_fill_grad;     /* 整轨宽黑→蓝渐变（颜色不随滑钮压缩） */
+static lv_obj_t * g_admin_slider_brightness;        /* 亮度交互滑条（透明轨，仅旋钮+触摸） */
 /* 声音控制子页控件 */
 static lv_obj_t * g_admin_panel_sound;
 static lv_obj_t * g_admin_lbl_sound_title;
@@ -2351,9 +2354,23 @@ static bool s_admin_menu_style_inited;
 static lv_style_t s_brightness_slider_frame_style;  /* 亮度滑条外框：左黑右蓝水平渐变描边 */
 static lv_style_t s_brightness_slider_inner_style;  /* 亮度滑条内层：纯黑底 */
 static bool s_brightness_slider_style_inited;
+static lv_grad_dsc_t s_bright_page_fill_grad;       /* 亮度页整轨四段固定渐变（样式存指针，须常驻） */
 #define ADMIN_MENU_BORDER_W 2
-#define BRIGHTNESS_SLIDER_BLUE  0x2a7fff  /* 渐变右端蓝色 */
-#define BRIGHTNESS_SLIDER_BLACK 0x000000  /* 渐变左端黑色 */
+#define BRIGHTNESS_SLIDER_BLUE  0x2a7fff  /* 渐变右端蓝色（声音页等复用） */
+#define BRIGHTNESS_SLIDER_BLACK 0x000000  /* 渐变左端黑色（声音页等复用） */
+#define BRIGHT_PAGE_TRACK_BG    0x3A3A3A  /* 亮度页滑条未填充轨 */
+#define BRIGHT_PAGE_FILL_0      0x000000  /* 亮度页进度 0% 黑色 */
+#define BRIGHT_PAGE_FILL_43     0x2F63F9  /* 亮度页进度 43% 深蓝 */
+#define BRIGHT_PAGE_FILL_77     0x4FBEFF  /* 亮度页进度 77% 浅蓝 */
+#define BRIGHT_PAGE_FILL_100    0x4FBEFF  /* 亮度页进度 100% 浅蓝 */
+#define BRIGHT_PAGE_TRACK_H     35        /* 亮度页轨道高度（旋钮直径与此相同） */
+#define BRIGHT_PAGE_KNOB_PAD    0         /* 旋钮相对轨高的外扩；0 = 与轨同粗 */
+/* 宿主额外留白（旋钮已由滑条 pad 收进控件内，这里只需少量防锯齿） */
+#define BRIGHT_PAGE_SIDE_PAD    10
+/* 旋钮三道握纹（改这里即可调长度/粗度/间距） */
+#define BRIGHT_GRIP_LINE_W      20        /* 横线长度 */
+#define BRIGHT_GRIP_LINE_H      2         /* 横线粗度 */
+#define BRIGHT_GRIP_LINE_GAP    3         /* 横线间距（线与线之间空隙） */
 static lv_font_t s_font_admin_kb;              /* SC_30 副本 + Montserrat 回退（图标键）键盘使用图标 */
 static const lv_font_t * s_font_admin_kb_ptr;
 static bool s_admin_kb_encoder_inited;
@@ -2394,15 +2411,11 @@ static void admin_brightness_back_to_menu1(void);  //离开屏幕亮度页：回
 static void admin_brightness_sync_ui(void);  //屏幕亮度页：刷新开关与滑条
 static void admin_brightness_apply_switch_layout(void);  //屏幕亮度页：按宏重新设开关宽高/样式/位置
 static void admin_panel_style_switch(lv_obj_t * sw);  //管理员子页开关 OFF 白 / ON 橙样式
-static int32_t admin_brightness_snap_slider(int32_t v);  //亮度滑条：对齐到 10 的倍数
+static int32_t admin_brightness_snap_slider(int32_t v);  //亮度滑条：对齐到步进（当前 1）
 static void cb_admin_brightness_switch_changed(lv_event_t * e);  //常亮开关 VALUE_CHANGED
-static void admin_brightness_slider_sync_bar(int32_t v);  //同步下层 lv_bar 动条显示
-static void admin_brightness_slider_sync_focus_frame(void);  //同步上层焦点框与滑条焦点态
-static void cb_admin_brightness_slider_focus_frame(lv_event_t * e);  //滑条获焦/失焦时刷新焦点框
+static void admin_brightness_fill_sync(void);  //按滑条数值刷新黑→蓝进度宽度
 static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 VALUE_CHANGED
-static void cb_admin_brightness_slider_encoder(lv_event_t * e);  //亮度滑条编码器短按切换编辑/导航
-static void cb_admin_brightness_slider_key(lv_event_t * e);  //亮度滑条编码器编辑态：左右旋转按步进 10 调值
-static void admin_brightness_slider_exit_edit(lv_obj_t * slider);  //亮度滑条退出编码器编辑态
+static void cb_admin_brightness_slider_size_changed(lv_event_t * e);  //布局尺寸变化时重算蓝条宽度
 static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
 static void cb_admin_open_sound(lv_event_t * e);  //菜单「声音控制」入口
 static void admin_vendor_serial_back_to_menu1(void);
@@ -2720,6 +2733,7 @@ LV_IMAGE_DECLARE(pay_set);
 LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
+LV_IMAGE_DECLARE(bright_logo);
 LV_IMAGE_DECLARE(time_set_box);
 LV_IMAGE_DECLARE(softener_logo);
 LV_IMAGE_DECLARE(detergent_logo);
@@ -3713,7 +3727,7 @@ static void style_brightness_slider_encoder_focus_inner(lv_obj_t * obj)
 static void ui_encoder_group_add_brightness_slider(lv_group_t * group, lv_obj_t * obj)
 {
 	if(group == NULL || obj == NULL) return;
-	/* 焦点白框画在 g_admin_brightness_slider_focus 上，滑条本体不加描边 */
+	/* 声音页复用：滑条本体不加描边（焦点框另画） */
 	lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE);
 	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUS_KEY);
 	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
@@ -6949,12 +6963,9 @@ static void admin_encoder_rebuild(void)
         }
         break;
     case SCREEN_BRIGHTNESS:
-        /* 焦点顺序：返回 → 启停 → 电源 → 常亮开关 → 亮度滑条 */
+        /* 焦点顺序：返回 → 启停 → 电源 → 常亮开关（滑条仅触摸，不进编码器） */
         if(g_admin_sw_run_always_on != NULL) {
             ui_encoder_group_add(g_group_admin, g_admin_sw_run_always_on);
-        }
-        if(g_admin_slider_brightness != NULL) {
-            ui_encoder_group_add_brightness_slider(g_group_admin, g_admin_slider_brightness);
         }
         focus_first = (g_admin_sw_run_always_on != NULL) ?
             g_admin_sw_run_always_on : g_admin_btn_back;
@@ -7227,9 +7238,6 @@ static void admin_encoder_rebuild(void)
         }
         if(focus_first == g_admin_kb && g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
             admin_kb_encoder_select_first(g_admin_kb);
-        }
-        if(g_admin_view == SCREEN_BRIGHTNESS) {
-            admin_brightness_slider_sync_focus_frame();
         }
     }
 }
@@ -8237,7 +8245,102 @@ static void admin_panel_apply_switch_layout(lv_obj_t * sw, lv_obj_t * title_lbl)
 
 static void admin_brightness_apply_switch_layout(void)
 {
-    admin_panel_apply_switch_layout(g_admin_sw_run_always_on, g_admin_lbl_brightness_title);
+    admin_data_style_switch(g_admin_sw_run_always_on);
+}
+
+/*
+ * 裁剪窗宽度跟随亮度：左端顶格，右端与旋钮右缘对齐。
+ * 内层渐变始终按整轨宽度铺色（0%黑→43%深蓝→77%/100%浅蓝），不随进度压缩。
+ */
+static void admin_brightness_fill_sync(void)
+{
+    if(g_admin_brightness_fill == NULL || g_admin_slider_brightness == NULL) return;
+
+    lv_obj_update_layout(g_admin_slider_brightness);
+    const int32_t track_w = lv_obj_get_width(g_admin_slider_brightness);
+    if(track_w <= 0) {
+        lv_obj_set_width(g_admin_brightness_fill, 0);
+        return;
+    }
+
+    if(g_admin_brightness_fill_grad != NULL) {
+        lv_obj_set_width(g_admin_brightness_fill_grad, track_w);
+        lv_obj_align(g_admin_brightness_fill_grad, LV_ALIGN_LEFT_MID, 0, 0);
+    }
+
+    const int32_t min_v = lv_slider_get_min_value(g_admin_slider_brightness);
+    const int32_t max_v = lv_slider_get_max_value(g_admin_slider_brightness);
+    const int32_t v = lv_slider_get_value(g_admin_slider_brightness);
+    if(v <= min_v) {
+        lv_obj_set_width(g_admin_brightness_fill, 0);
+        return;
+    }
+
+    const int32_t half = BRIGHT_PAGE_TRACK_H / 2;
+    const int32_t x_min = half;
+    const int32_t x_max = track_w - half;
+    int32_t range = max_v - min_v;
+    if(range <= 0) range = 1;
+
+    const int32_t knob_cx = x_min + (int32_t)(((int64_t)(x_max - x_min) * (v - min_v)) / range);
+    int32_t fill_w = knob_cx + half;
+    if(fill_w > track_w) fill_w = track_w;
+    if(fill_w < 0) fill_w = 0;
+    lv_obj_set_width(g_admin_brightness_fill, fill_w);
+}
+
+/*
+ * 亮度滑条：在旋钮 FILL 上叠加三道握纹（与旋钮同次绘制，位置一致）。
+ */
+static void cb_admin_brightness_slider_draw_grip(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_DRAW_TASK_ADDED) return;
+
+    static bool s_bright_draw_reenter;
+    if(s_bright_draw_reenter) return;
+
+    lv_draw_task_t * task = lv_event_get_draw_task(e);
+    if(task == NULL || lv_draw_task_get_type(task) != LV_DRAW_TASK_TYPE_FILL) return;
+
+    lv_draw_dsc_base_t * base = (lv_draw_dsc_base_t *)lv_draw_task_get_draw_dsc(task);
+    if(base == NULL || base->part != LV_PART_KNOB || base->layer == NULL) return;
+
+    lv_area_t area;
+    lv_draw_task_get_area(task, &area);
+    const int32_t cx = (area.x1 + area.x2) / 2;
+    const int32_t cy = (area.y1 + area.y2) / 2;
+    const int32_t line_w = BRIGHT_GRIP_LINE_W;
+    const int32_t line_h = BRIGHT_GRIP_LINE_H;
+    const int32_t line_gap = BRIGHT_GRIP_LINE_GAP;
+    const int32_t total_h = line_h * 3 + line_gap * 2;
+    const int32_t y0 = cy - total_h / 2;
+
+    lv_draw_rect_dsc_t line_dsc;
+    lv_draw_rect_dsc_init(&line_dsc);
+    line_dsc.bg_color = lv_color_hex(COL_DIM);
+    line_dsc.bg_opa = LV_OPA_COVER;
+    line_dsc.radius = 1;
+    line_dsc.border_width = 0;
+
+    s_bright_draw_reenter = true;
+    for(int i = 0; i < 3; i++) {
+        lv_area_t line_area;
+        line_area.x1 = cx - line_w / 2;
+        line_area.x2 = line_area.x1 + line_w - 1;
+        line_area.y1 = y0 + i * (line_h + line_gap);
+        line_area.y2 = line_area.y1 + line_h - 1;
+        lv_draw_rect(base->layer, &line_dsc, &line_area);
+    }
+    s_bright_draw_reenter = false;
+}
+
+/* 亮度滑条：扩大扩展绘制区，保证两端旋钮半圆完整刷新 */
+static void cb_admin_brightness_slider_ext_draw_size(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_REFR_EXT_DRAW_SIZE) return;
+    int32_t * s = (int32_t *)lv_event_get_param(e);
+    if(s == NULL) return;
+    *s = LV_MAX(*s, BRIGHT_PAGE_SIDE_PAD + 2);
 }
 
 /* 4G 设置页：刷新 4G 开关布局 */
@@ -8288,41 +8391,6 @@ static void admin_brightness_sync_switch_ui(void)
     }
 }
 
-/* 同步下层渐变动条（与滑条数值一致） */
-
-static void admin_brightness_slider_sync_bar(int32_t v)
-{
-    if(g_admin_brightness_bar == NULL) return;
-    v = admin_brightness_snap_slider(v);
-    lv_bar_set_value(g_admin_brightness_bar, v, LV_ANIM_OFF);
-}
-
-/* 将编码器焦点态映射到上层焦点框 */
-
-static void admin_brightness_slider_sync_focus_frame(void)
-{
-    if(g_admin_brightness_slider_focus == NULL || g_admin_slider_brightness == NULL) return;
-    const bool enc_focus = lv_obj_has_state(g_admin_slider_brightness, LV_STATE_FOCUSED) ||
-                           lv_obj_has_state(g_admin_slider_brightness, LV_STATE_FOCUS_KEY);
-    if(enc_focus) {
-        lv_obj_add_state(g_admin_brightness_slider_focus, LV_STATE_FOCUSED);
-        lv_obj_add_state(g_admin_brightness_slider_focus, LV_STATE_FOCUS_KEY);
-    }
-    else {
-        lv_obj_remove_state(g_admin_brightness_slider_focus, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
-    }
-}
-
-static void cb_admin_brightness_slider_focus_frame(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code != LV_EVENT_FOCUSED && code != LV_EVENT_DEFOCUSED) return;
-    if(code == LV_EVENT_FOCUSED && g_admin_slider_brightness != NULL) {
-        lv_obj_add_state(g_admin_slider_brightness, LV_STATE_FOCUS_KEY);
-    }
-    admin_brightness_slider_sync_focus_frame();
-}
-
 /* 屏幕亮度页：按 ui_screen_brightness_get 刷新滑动条（不触发硬件回调） */
 
 static void admin_brightness_sync_slider_ui(void)
@@ -8331,8 +8399,14 @@ static void admin_brightness_sync_slider_ui(void)
     g_admin_brightness_ui_loading = true;
     int32_t v = (int32_t)ui_screen_brightness_get();
     lv_slider_set_value(g_admin_slider_brightness, v, LV_ANIM_OFF);
-    admin_brightness_slider_sync_bar(v);
     g_admin_brightness_ui_loading = false;
+    admin_brightness_fill_sync();
+}
+
+static void cb_admin_brightness_slider_size_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_SIZE_CHANGED) return;
+    admin_brightness_fill_sync();
 }
 
 /* 屏幕亮度页：刷新开关与滑条 */
@@ -8370,95 +8444,7 @@ static void cb_admin_brightness_slider_changed(lv_event_t * e)
         g_admin_brightness_ui_loading = false;
     }
     ui_screen_brightness_set((uint8_t)snapped);
-    admin_brightness_slider_sync_bar(snapped);
-}
-
-/*
- * 亮度滑条退出编码器编辑态。
- * 短按第二次 / 失焦时调用；先对齐步进再 editing=false，避免退出后数值未 snap。
- */
-
-static void admin_brightness_slider_exit_edit(lv_obj_t * slider)
-{
-    if(g_group_admin == NULL || slider == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    int32_t snapped = admin_brightness_snap_slider(lv_slider_get_value(slider));
-    if(snapped != lv_slider_get_value(slider)) {
-        g_admin_brightness_ui_loading = true;
-        lv_slider_set_value(slider, snapped, LV_ANIM_OFF);
-        g_admin_brightness_ui_loading = false;
-    }
-    lv_group_set_editing(g_group_admin, false);
-}
-
-/*
- * 亮度滑条编码器编辑态：拦截 LV_KEY_LEFT/RIGHT，每次旋转按 UI_SCREEN_BRIGHTNESS_STEP 调值。
- * 须在 LV_EVENT_PREPROCESS 注册，避免 LVGL 默认每次只 ±1。
- */
-
-static void cb_admin_brightness_slider_key(lv_event_t * e)
-{
-    if(lv_event_get_code(e) != LV_EVENT_KEY) return;
-    if(g_admin_view != SCREEN_BRIGHTNESS) return;
-    if(g_group_admin == NULL || !lv_group_get_editing(g_group_admin)) return;
-
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    if(slider == NULL || slider != g_admin_slider_brightness) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-
-    uint32_t c = lv_event_get_key(e);
-    int32_t v = lv_slider_get_value(slider);
-    if(c == LV_KEY_RIGHT || c == LV_KEY_UP) {
-        v += UI_SCREEN_BRIGHTNESS_STEP;
-    }
-    else if(c == LV_KEY_LEFT || c == LV_KEY_DOWN) {
-        v -= UI_SCREEN_BRIGHTNESS_STEP;
-    }
-    else {
-        return;
-    }
-
-    v = admin_brightness_snap_slider(v);
-    g_admin_brightness_ui_loading = true;
-    lv_slider_set_value(slider, v, LV_ANIM_OFF);
-    g_admin_brightness_ui_loading = false;
-    ui_screen_brightness_set((uint8_t)v);
-    admin_brightness_slider_sync_bar(v);
-    lv_event_stop_processing(e);
-}
-
-/*
- * 亮度滑条：外设编码器短按发 LV_EVENT_CLICKED，在编辑/导航间切换。
- * 导航态：旋转在返回/启停/电源/常亮开关/滑条间移动焦点；短按进入编辑。
- * 编辑态：旋转调亮度；再短按退回导航；失焦自动退出编辑。
- */
-
-static void cb_admin_brightness_slider_encoder(lv_event_t * e)
-{
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
-    if(g_admin_view != SCREEN_BRIGHTNESS) return;
-    if(slider == NULL || lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)) return;
-
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_brightness_slider_exit_edit(slider);
-        }
-        return;
-    }
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != slider) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_brightness_slider_exit_edit(slider);
-    }
-    else {
-        lv_group_set_editing(g_group_admin, true);
-    }
-    lv_event_stop_processing(e);
+    admin_brightness_fill_sync();
 }
 
 /* 离开屏幕亮度子页：回管理员 8 宫格菜单 */
@@ -11308,101 +11294,198 @@ static void build_admin(void)
         lv_obj_add_event_cb(g_admin_dormancy_tp_btn_cancel, cb_admin_dormancy_tp_cancel, LV_EVENT_CLICKED, NULL);
     }
 
-    /* 屏幕亮度子面板（1600×400，布局同恢复默认；标题左、开关与标题同行右侧） */
+    /* 屏幕亮度子面板（同待机时间：title_box + set_box；主文字+开关+说明+滑条） */
     g_admin_panel_brightness = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_brightness, 1600, 400);
-    lv_obj_align(g_admin_panel_brightness, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_brightness, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_brightness, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_brightness, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_brightness, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_brightness, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_brightness, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_brightness, LV_OBJ_FLAG_HIDDEN);
-    /* 预留：标题左侧装饰图 g_admin_img_brightness_deco、标题下分隔图（后期用图片添加） */
+
+    g_admin_img_brightness_title_box = lv_image_create(g_admin_panel_brightness);
+    lv_image_set_src(g_admin_img_brightness_title_box, &title_box);
+    lv_obj_align(g_admin_img_brightness_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
     g_admin_lbl_brightness_title = lv_label_create(g_admin_panel_brightness);
     ui_lang_bind_label(g_admin_lbl_brightness_title, STR_ADMIN_M1_BRIGHTNESS);
     lv_obj_set_style_text_color(g_admin_lbl_brightness_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_brightness_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_brightness_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_brightness_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_sw_run_always_on = lv_switch_create(g_admin_panel_brightness);
-    admin_brightness_apply_switch_layout();
+    g_admin_brightness_set_box_wrap = lv_obj_create(g_admin_panel_brightness);
+    lv_obj_set_size(g_admin_brightness_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_brightness_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_brightness_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_brightness_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_brightness_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_brightness_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_brightness_set_box_wrap, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * img_brightness_set_box = lv_image_create(g_admin_brightness_set_box_wrap);
+    lv_image_set_src(img_brightness_set_box, &set_box);
+    lv_obj_center(img_brightness_set_box);
+
+    /* ===== 与待机时间页相同的行位置/间距 ===== */
+    const lv_coord_t bright_row_w   = 960;
+    const lv_coord_t bright_row1_y  = 85;   /* 同待机时间「时间设置」行距 set_box 顶 */
+    const lv_coord_t bright_row_pad = 50;   /* 同待机时间：主文字与小字间距 */
+    const lv_coord_t bright_icon_gap = 16;  /* 太阳图标与滑条间距 */
+    const lv_coord_t bright_area_h = BRIGHT_PAGE_TRACK_H + 8;
+
+    lv_obj_t * bright_row = lv_obj_create(g_admin_brightness_set_box_wrap);
+    lv_obj_set_size(bright_row, bright_row_w, LV_SIZE_CONTENT);
+    lv_obj_align(bright_row, LV_ALIGN_TOP_MID, 0, bright_row1_y);
+    lv_obj_set_style_bg_opa(bright_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bright_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(bright_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(bright_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(bright_row, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(bright_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(bright_row, bright_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(bright_row, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(bright_row, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    /* 主文字 + 开关 同一行（文字左、开关右、垂直居中） */
+    lv_obj_t * bright_title_line = lv_obj_create(bright_row);
+    lv_obj_set_size(bright_title_line, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(bright_title_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bright_title_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(bright_title_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(bright_title_line, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(bright_title_line, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(bright_title_line, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(bright_title_line, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_lbl_brightness_main = lv_label_create(bright_title_line);
+    ui_lang_bind_label(g_admin_lbl_brightness_main, STR_ADMIN_M1_BRIGHTNESS);
+    lv_obj_set_style_text_color(g_admin_lbl_brightness_main, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_brightness_main, s_font_sc_30);
+
+    g_admin_sw_run_always_on = lv_switch_create(bright_title_line);
+    admin_data_style_switch(g_admin_sw_run_always_on);
     lv_obj_add_event_cb(g_admin_sw_run_always_on, cb_admin_brightness_switch_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    g_admin_lbl_brightness_line1 = lv_label_create(g_admin_panel_brightness);
+    /* 说明小字：一整段，随显示框自动换行 */
+    g_admin_lbl_brightness_line1 = lv_label_create(bright_row);
     ui_lang_bind_label(g_admin_lbl_brightness_line1, STR_BRIGHTNESS_LINE1);
-    lv_obj_set_style_text_color(g_admin_lbl_brightness_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_brightness_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_brightness_line1, 400, 150);
+    lv_obj_set_style_text_color(g_admin_lbl_brightness_line1, lv_color_hex(COL_DIM), LV_PART_MAIN);
+    ui_set_obj_font(g_admin_lbl_brightness_line1, s_font_sc_27);
+    lv_obj_set_width(g_admin_lbl_brightness_line1, bright_row_w - 100);
+    lv_label_set_long_mode(g_admin_lbl_brightness_line1, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(g_admin_lbl_brightness_line1, 20, LV_PART_MAIN);
+    g_admin_lbl_brightness_line2 = NULL;
 
-    g_admin_lbl_brightness_line2 = lv_label_create(g_admin_panel_brightness);
-    ui_lang_bind_label(g_admin_lbl_brightness_line2, STR_BRIGHTNESS_LINE2);
-    lv_obj_set_style_text_color(g_admin_lbl_brightness_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    ui_set_obj_font(g_admin_lbl_brightness_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_brightness_line2, 400, 205);
+    /* 太阳图标 + 滑条 */
+    lv_obj_t * bright_slider_row = lv_obj_create(bright_row);
+    lv_obj_set_size(bright_slider_row, bright_row_w, bright_area_h);
+    lv_obj_set_style_bg_opa(bright_slider_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bright_slider_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(bright_slider_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(bright_slider_row, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(bright_slider_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(bright_slider_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(bright_slider_row, bright_icon_gap, LV_PART_MAIN);
+    lv_obj_clear_flag(bright_slider_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(bright_slider_row, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    admin_menu_style_init();
-    brightness_slider_style_init();
-    lv_obj_t * brightness_slider_frame = lv_obj_create(g_admin_panel_brightness);
-    lv_obj_set_size(brightness_slider_frame, 815, 60);
-    lv_obj_align(brightness_slider_frame, LV_ALIGN_BOTTOM_RIGHT, -400, -40);
-    lv_obj_add_style(brightness_slider_frame, &s_brightness_slider_frame_style, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(brightness_slider_frame, 0, LV_PART_MAIN);
-    lv_obj_remove_flag(brightness_slider_frame, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t * img_bright_logo = lv_image_create(bright_slider_row);
+    lv_image_set_src(img_bright_logo, &bright_logo);
+    lv_obj_remove_flag(img_bright_logo, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_t * brightness_slider_inner = lv_obj_create(brightness_slider_frame);
-    lv_obj_remove_style_all(brightness_slider_inner);
-    lv_obj_add_style(brightness_slider_inner, &s_brightness_slider_inner_style, LV_PART_MAIN);
-    lv_obj_set_size(brightness_slider_inner, LV_PCT(100), LV_PCT(100));
-    lv_obj_clear_flag(brightness_slider_inner, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t * brightness_slider_area = lv_obj_create(bright_slider_row);
+    lv_obj_set_flex_grow(brightness_slider_area, 1);
+    lv_obj_set_height(brightness_slider_area, bright_area_h);
+    lv_obj_set_style_bg_opa(brightness_slider_area, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(brightness_slider_area, 0, LV_PART_MAIN);
+    /* 宿主左右留白：改 BRIGHT_PAGE_SIDE_PAD 即可加大两端防裁切空间 */
+    lv_obj_set_style_pad_hor(brightness_slider_area, BRIGHT_PAGE_SIDE_PAD, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(brightness_slider_area, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(brightness_slider_area, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_clear_flag(brightness_slider_area, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(brightness_slider_area, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    /* 下层：渐变动条（lv_bar 仅负责显示） */
-    g_admin_brightness_bar = lv_bar_create(brightness_slider_inner);
-    lv_obj_set_size(g_admin_brightness_bar, LV_PCT(100), LV_PCT(100));
-    lv_bar_set_range(g_admin_brightness_bar, 0, 100);
-    lv_obj_set_style_bg_opa(g_admin_brightness_bar, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(g_admin_brightness_bar, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(g_admin_brightness_bar, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(g_admin_brightness_bar, 2, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(g_admin_brightness_bar, lv_color_hex(BRIGHTNESS_SLIDER_BLACK), LV_PART_INDICATOR);
-    lv_obj_set_style_bg_grad_color(g_admin_brightness_bar, lv_color_hex(BRIGHTNESS_SLIDER_BLUE), LV_PART_INDICATOR);
-    lv_obj_set_style_bg_grad_dir(g_admin_brightness_bar, LV_GRAD_DIR_HOR, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(g_admin_brightness_bar, LV_OPA_COVER, LV_PART_INDICATOR);
-    lv_obj_set_style_radius(g_admin_brightness_bar, 2, LV_PART_INDICATOR);
-    lv_obj_remove_flag(g_admin_brightness_bar, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    /* 底层：深灰胶囊轨（与滑条同宽同高） */
+    lv_obj_t * brightness_track = lv_obj_create(brightness_slider_area);
+    lv_obj_set_size(brightness_track, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(brightness_track, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_bg_color(brightness_track, lv_color_hex(BRIGHT_PAGE_TRACK_BG), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(brightness_track, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(brightness_track, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(brightness_track, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(brightness_track, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(brightness_track, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
-    /* 中层：透明滑条，承接触摸/编码器 */
-    g_admin_slider_brightness = lv_slider_create(brightness_slider_inner);
-    lv_obj_set_size(g_admin_slider_brightness, LV_PCT(100), LV_PCT(100));
+    /* 中层裁剪窗：宽度随数值变；内层整轨固定黑→蓝渐变（右端蓝不随滑钮变色） */
+    g_admin_brightness_fill = lv_obj_create(brightness_slider_area);
+    lv_obj_set_size(g_admin_brightness_fill, 0, BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(g_admin_brightness_fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_bg_opa(g_admin_brightness_fill, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_radius(g_admin_brightness_fill, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_clip_corner(g_admin_brightness_fill, true, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_brightness_fill, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_brightness_fill, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_brightness_fill, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    g_admin_brightness_fill_grad = lv_obj_create(g_admin_brightness_fill);
+    lv_obj_set_size(g_admin_brightness_fill_grad, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(g_admin_brightness_fill_grad, LV_ALIGN_LEFT_MID, 0, 0);
+    {
+        const lv_color_t stops_c[] = {
+            lv_color_hex(BRIGHT_PAGE_FILL_0),
+            lv_color_hex(BRIGHT_PAGE_FILL_43),
+            lv_color_hex(BRIGHT_PAGE_FILL_77),
+            lv_color_hex(BRIGHT_PAGE_FILL_100),
+        };
+        const uint8_t stops_frac[] = {
+            0,                              /* 0% */
+            (uint8_t)(255 * 43 / 100),      /* 43% */
+            (uint8_t)(255 * 77 / 100),      /* 77% */
+            255,                            /* 100% */
+        };
+        lv_grad_init_stops(&s_bright_page_fill_grad, stops_c, NULL, stops_frac, 4);
+        lv_grad_horizontal_init(&s_bright_page_fill_grad);
+        lv_obj_set_style_bg_grad(g_admin_brightness_fill_grad, &s_bright_page_fill_grad, LV_PART_MAIN);
+    }
+    lv_obj_set_style_bg_opa(g_admin_brightness_fill_grad, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(g_admin_brightness_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_brightness_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_brightness_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(g_admin_brightness_fill_grad, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    /* 顶层：透明轨滑条（仅旋钮可见 + 触摸） */
+    g_admin_slider_brightness = lv_slider_create(brightness_slider_area);
+    lv_obj_set_size(g_admin_slider_brightness, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(g_admin_slider_brightness, LV_ALIGN_LEFT_MID, 0, 0);
     lv_slider_set_range(g_admin_slider_brightness, 0, 100);
+    /*
+     * 左右 pad=半个旋钮：旋钮圆心在内容区两端移动，
+     * 底层灰轨仍铺满整控件 → 最左/最右时轨边与旋钮外沿对齐。
+     */
+    lv_obj_set_style_pad_hor(g_admin_slider_brightness, BRIGHT_PAGE_TRACK_H / 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(g_admin_slider_brightness, 0, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(g_admin_slider_brightness, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_radius(g_admin_slider_brightness, LV_RADIUS_CIRCLE, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_slider_brightness, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(g_admin_slider_brightness, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(g_admin_slider_brightness, 2, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(g_admin_slider_brightness, LV_OPA_TRANSP, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(g_admin_slider_brightness, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_set_style_border_opa(g_admin_slider_brightness, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_set_style_shadow_opa(g_admin_slider_brightness, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_set_style_width(g_admin_slider_brightness, 0, LV_PART_KNOB);
-    lv_obj_set_style_height(g_admin_slider_brightness, 0, LV_PART_KNOB);
-    lv_obj_set_style_pad_all(g_admin_slider_brightness, 0, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(g_admin_slider_brightness, 0, LV_PART_INDICATOR);
+    /* 旋钮：直径=轨高；握纹见 BRIGHT_GRIP_LINE_* */
+    lv_obj_set_style_bg_color(g_admin_slider_brightness, lv_color_hex(0xFFFFFF), LV_PART_KNOB);
+    lv_obj_set_style_bg_opa(g_admin_slider_brightness, LV_OPA_COVER, LV_PART_KNOB);
+    lv_obj_set_style_border_width(g_admin_slider_brightness, 0, LV_PART_KNOB);
+    lv_obj_set_style_radius(g_admin_slider_brightness, LV_RADIUS_CIRCLE, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(g_admin_slider_brightness, BRIGHT_PAGE_KNOB_PAD, LV_PART_KNOB);
+    lv_obj_set_style_shadow_width(g_admin_slider_brightness, 0, LV_PART_KNOB);
 
-    /* 上层：白色焦点框（不拦截点击，叠在动条之上） */
-    g_admin_brightness_slider_focus = lv_obj_create(brightness_slider_inner);
-    lv_obj_remove_style_all(g_admin_brightness_slider_focus);
-    lv_obj_set_size(g_admin_brightness_slider_focus, LV_PCT(100), LV_PCT(100));
-    style_brightness_slider_encoder_focus_inner(g_admin_brightness_slider_focus);
-    lv_obj_remove_flag(g_admin_brightness_slider_focus, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(g_admin_brightness_slider_focus, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_move_foreground(g_admin_brightness_slider_focus);
-
-    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_focus_frame, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_focus_frame, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_add_flag(g_admin_slider_brightness, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS | LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_draw_grip,
+                        LV_EVENT_DRAW_TASK_ADDED, NULL);
     lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_changed, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_key,
-                        LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
-    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_encoder, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_encoder, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_size_changed, LV_EVENT_SIZE_CHANGED, NULL);
+    lv_obj_add_event_cb(g_admin_slider_brightness, cb_admin_brightness_slider_ext_draw_size,
+                        LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
+    lv_obj_refresh_ext_draw_size(g_admin_slider_brightness);
 
     admin_brightness_sync_ui();
 
