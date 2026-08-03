@@ -104,17 +104,17 @@ success                     √
 failure                     √
 
 程序设置5个程序
-dawu_set
-dntuoshui_set
-biaozhunxi_set
-tongzijie_set
-kuaixi_set
+dawu_set                    √
+dntuoshui_set               √
+biaozhunxi_set              √
+tongzijie_set               √
+kuaixi_set                  √
 
 程序设置内部图片
-progrm_background
-up_key
+progrm_background           √
+up_key                      √
 up_set_dark
-down_key
+down_key                    √
 down_set_dark
 
 待机时间的时间选择框
@@ -126,11 +126,11 @@ detergent_logo              √
 auto_put_btn_box            √
 
 屏幕亮度
-bright_logo
+bright_logo                 √
 
 声音控制
-touch_sound_logo
-sound_logo
+touch_sound_logo            √
+sound_logo                  √
 
 联系我们
 QR_code_xiaoya              √
@@ -143,7 +143,7 @@ washing_machine             √
 故障页
 缺铃
 缺框
-bar_01
+bar_01                      √
 
 缺液提示
 lack_of_detergent
