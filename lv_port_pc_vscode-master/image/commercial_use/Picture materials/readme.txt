@@ -132,9 +132,9 @@ sound_logo
 QR_code_xiaoya              √
 
 支付设置
-wechat_logo
-alipay_logo
-washing_machine
+wechat_logo                 √
+alipay_logo                 √
+washing_machine             √
 
 故障页
 缺铃
