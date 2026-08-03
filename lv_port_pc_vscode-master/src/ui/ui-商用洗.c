@@ -980,7 +980,7 @@ void ui_voice_broadcast_sync_to_hw(void)
  *   extern bool ui_sound_volume_set(uint8_t percent);
  *   extern void ui_sound_volume_sync_to_hw(void);
  *
- * percent：0~100，步进 10；上电默认 100，恢复出厂默认 100。
+ * percent：0~100，步进 1（0、1、…、100，同亮度页）；上电默认 100，恢复出厂默认 100。
  * 【用户拖滑条】UI → ui_sound_volume_set → 刷新滑条 → cb(percent)。
  * ============================================================================ */
 
@@ -1013,9 +1013,9 @@ uint8_t ui_sound_volume_get(void)
     return g_ui_sound_volume;
 }
 
-#define UI_SOUND_VOLUME_STEP  10  /* 音量滑条步进值 */
+#define UI_SOUND_VOLUME_STEP  1  /* 音量滑条步进值（100 档：0~100，同亮度页） */
 
-/* 音量百分比对齐到步进（0、10、…、100） */
+/* 音量百分比对齐到步进（0、1、…、100） */
 static uint8_t ui_sound_volume_snap(uint8_t percent)
 {
     uint8_t snapped = (uint8_t)(((percent + (UI_SOUND_VOLUME_STEP / 2u)) / UI_SOUND_VOLUME_STEP) *
@@ -1056,7 +1056,7 @@ void ui_sound_volume_sync_to_hw(void)
  *   extern bool ui_touch_sound_volume_set(uint8_t percent);
  *   extern void ui_touch_sound_volume_sync_to_hw(void);
  *
- * percent：0~100，步进 10；上电默认 100，恢复出厂默认 100。
+ * percent：0~100，步进 1（0、1、…、100，同亮度页）；上电默认 100，恢复出厂默认 100。
  * 与 ui_touch_sound_*（bool 开关）区分：本组为触控音强度/音量百分比。
  * ============================================================================ */
 
@@ -1089,9 +1089,9 @@ uint8_t ui_touch_sound_volume_get(void)
     return g_ui_touch_sound_volume;
 }
 
-#define UI_TOUCH_SOUND_VOLUME_STEP  10  /* 触控声音滑条步进值 */
+#define UI_TOUCH_SOUND_VOLUME_STEP  1  /* 触控声音滑条步进值（100 档：0~100，同亮度页） */
 
-/* 触控声音百分比对齐到步进（0、10、…、100） */
+/* 触控声音百分比对齐到步进（0、1、…、100） */
 static uint8_t ui_touch_sound_volume_snap(uint8_t percent)
 {
     uint8_t snapped = (uint8_t)(((percent + (UI_TOUCH_SOUND_VOLUME_STEP / 2u)) / UI_TOUCH_SOUND_VOLUME_STEP) *
@@ -1465,8 +1465,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_WATER_SMART]       = "智能设定",
         [STR_BRIGHTNESS_LINE1]       = "运行过程中屏幕处于常亮状态，如若关闭此功能，则在运行过程中无操作自动熄灭屏幕",
         [STR_BRIGHTNESS_LINE2]       = "",
-        [STR_SOUND_TOUCH]            = "触控声音：",
-        [STR_SOUND_VOICE]            = "声音播报：",
+        [STR_SOUND_TOUCH]            = "触控声音",
+        [STR_SOUND_VOICE]            = "声音播报",
         [STR_DORMANCY_TITLE]         = "待机时间",
         [STR_DORMANCY_CUR_FMT]       = "当前：%s",
         [STR_DORMANCY_ROLLER]        = "1分钟\n2分钟\n5分钟\n10分钟\n15分钟\n30分钟\n1小时\n2小时\n不熄屏",
@@ -1681,8 +1681,8 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_WATER_SMART]       = "Smart",
         [STR_BRIGHTNESS_LINE1]       = "Screen stays on during operation. If disabled, the screen turns off after inactivity while running",
         [STR_BRIGHTNESS_LINE2]       = "",
-        [STR_SOUND_TOUCH]            = "Touch Sound:",
-        [STR_SOUND_VOICE]            = "Voice Broadcast:",
+        [STR_SOUND_TOUCH]            = "Touch Sound",
+        [STR_SOUND_VOICE]            = "Voice Broadcast",
         [STR_DORMANCY_TITLE]         = "Standby",
         [STR_DORMANCY_CUR_FMT]       = "Current: %s",
         [STR_DORMANCY_ROLLER]        = "1 min\n2 min\n5 min\n10 min\n15 min\n30 min\n1 hour\n2 hour\nAlways On",
@@ -2142,21 +2142,21 @@ static lv_obj_t * g_admin_sw_run_always_on;
 static lv_obj_t * g_admin_brightness_fill;          /* 进度裁剪窗：宽度随数值变，露出固定渐变 */
 static lv_obj_t * g_admin_brightness_fill_grad;     /* 整轨宽黑→蓝渐变（颜色不随滑钮压缩） */
 static lv_obj_t * g_admin_slider_brightness;        /* 亮度交互滑条（透明轨，仅旋钮+触摸） */
-/* 声音控制子页控件 */
+/* 声音控制子页控件（布局同待机时间 title_box+set_box；滑条同亮度页） */
 static lv_obj_t * g_admin_panel_sound;
+static lv_obj_t * g_admin_img_sound_title_box;
 static lv_obj_t * g_admin_lbl_sound_title;
-static lv_obj_t * g_admin_lbl_sound_line1;
-static lv_obj_t * g_admin_lbl_sound_line2;
+static lv_obj_t * g_admin_sound_set_box_wrap;
+static lv_obj_t * g_admin_lbl_sound_line1;          /* 触控声音 */
+static lv_obj_t * g_admin_lbl_sound_line2;          /* 声音播报 */
 static lv_obj_t * g_admin_sw_touch_sound;
 static lv_obj_t * g_admin_sw_voice_broadcast;
-static lv_obj_t * g_admin_lbl_sound_vol_icon;
-static lv_obj_t * g_admin_sound_volume_bar;
+static lv_obj_t * g_admin_sound_volume_fill;        /* 播报音量进度裁剪窗 */
+static lv_obj_t * g_admin_sound_volume_fill_grad;
 static lv_obj_t * g_admin_slider_sound_volume;
-static lv_obj_t * g_admin_sound_volume_slider_focus;
-static lv_obj_t * g_admin_lbl_touch_sound_icon;
-static lv_obj_t * g_admin_touch_sound_volume_bar;
+static lv_obj_t * g_admin_touch_sound_volume_fill;  /* 触控音量进度裁剪窗 */
+static lv_obj_t * g_admin_touch_sound_volume_fill_grad;
 static lv_obj_t * g_admin_slider_touch_sound_volume;
-static lv_obj_t * g_admin_touch_sound_volume_slider_focus;
 /* 语言设置子页控件（布局同待机时间 title_box+set_box；右侧按钮同 ID；文案同 WIFI 样式） */
 static lv_obj_t * g_admin_panel_lang;
 static lv_obj_t * g_admin_img_lang_title_box;
@@ -2428,13 +2428,17 @@ static void cb_admin_machine_cancel(lv_event_t * e);   //机器 ID 取消：清�
 static void cb_admin_mid_success_timer(lv_timer_t * t); //机器 ID 成功提示 2 秒后自动返回
 static void cb_admin_open_program_settings(lv_event_t * e);  //菜单「程序设置」入口
 static void cb_admin_open_brightness(lv_event_t * e);  //菜单「屏幕亮度」入口
-static void admin_brightness_back_to_menu1(void);  //离开屏幕亮度页：回 menu1
+static void admin_brightness_back_to_menu2(void);  //离开屏幕亮度页：回 menu2
 static void admin_brightness_sync_ui(void);  //屏幕亮度页：刷新开关与滑条
 static void admin_brightness_apply_switch_layout(void);  //屏幕亮度页：按宏重新设开关宽高/样式/位置
 static void admin_panel_style_switch(lv_obj_t * sw);  //管理员子页开关 OFF 白 / ON 橙样式
 static int32_t admin_brightness_snap_slider(int32_t v);  //亮度滑条：对齐到步进（当前 1）
 static void cb_admin_brightness_switch_changed(lv_event_t * e);  //常亮开关 VALUE_CHANGED
 static void admin_brightness_fill_sync(void);  //按滑条数值刷新黑→蓝进度宽度
+static void cb_admin_brightness_slider_draw_grip(lv_event_t * e);  //亮度样式旋钮握纹
+static void cb_admin_brightness_slider_ext_draw_size(lv_event_t * e);  //亮度样式滑条扩展绘制区
+static void admin_bright_style_slider_build(lv_obj_t * area, lv_obj_t ** out_fill, lv_obj_t ** out_fill_grad,
+                                           lv_obj_t ** out_slider, lv_event_cb_t value_changed_cb);
 static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 VALUE_CHANGED
 static void cb_admin_brightness_slider_size_changed(lv_event_t * e);  //布局尺寸变化时重算蓝条宽度
 static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
@@ -2470,13 +2474,14 @@ static void cb_selfcheck_runpause(lv_event_t * e);
 static void selfcheck_timer_stop_all(void);
 static void ui_admin_resume_unlocked(void);
 static void admin_sound_sync_ui(void);  //声音控制页：刷新开关与滑条
-static void admin_sound_apply_switch_layout(lv_obj_t * sw, lv_obj_t * anchor_lbl);  //声音页：开关样式与对齐
+static void admin_sound_back_to_menu2(void);  //离开声音控制页：回 menu2
 static int32_t admin_sound_snap_volume_slider(int32_t v);  //音量滑条：对齐步进
 static int32_t admin_sound_snap_touch_sound_volume_slider(int32_t v);  //触控声音滑条：对齐步进
 static void cb_admin_sound_touch_switch_changed(lv_event_t * e);  //触控声音开关 VALUE_CHANGED
 static void cb_admin_sound_voice_broadcast_switch_changed(lv_event_t * e);  //声音播报开关 VALUE_CHANGED
 static void admin_sound_volume_slider_sync_bar(int32_t v);  //同步音量下层 bar
 static void admin_sound_touch_sound_volume_slider_sync_bar(int32_t v);  //同步触控声音下层 bar
+static void cb_admin_sound_slider_size_changed(lv_event_t * e);  //声音滑条尺寸变化时重算填充
 static void admin_sound_volume_slider_sync_focus_frame(void);  //同步音量滑条编码器白色焦点框
 static void admin_sound_touch_sound_volume_slider_sync_focus_frame(void);  //同步触控声音滑条焦点框
 static void cb_admin_sound_volume_slider_focus_frame(lv_event_t * e);  //音量滑条获焦/失焦时刷新焦点框
@@ -2495,7 +2500,7 @@ static void cb_admin_open_dormancy_standby(lv_event_t * e);  //菜单「待机�
 static void cb_admin_dormancy_sw_changed(lv_event_t * e);  //待机时间开关：时间设置/不息屏互斥
 static void admin_lang_btn_set_selected(lv_obj_t * btn, bool selected);  //语言页按钮：填充/描边
 static void admin_lang_sync_btn_ui(void);  //语言页按钮与 g_ui_lang 对齐
-static void admin_lang_back_to_menu1(void);  //离开语言设置页：回 menu1
+static void admin_lang_back_to_menu2(void);  //离开语言设置页：回 menu2
 static void cb_admin_open_language_settings(lv_event_t * e);  //菜单「语言设置」入口
 static void cb_admin_lang_zh(lv_event_t * e);  //语言页「中文」
 static void cb_admin_lang_en(lv_event_t * e);  //语言页「英文」
@@ -2508,7 +2513,7 @@ static void cb_admin_factory_cancel(lv_event_t * e);  //恢复默认「取消」
 static void cb_admin_factory_ok(lv_event_t * e);  //恢复默认「确定」：写回出厂数据
 static void cb_admin_factory_timer(lv_timer_t * t);  //2s 定时器：恢复中 → 完成态
 static void cb_admin_open_factory_reset(lv_event_t * e);  //菜单「恢复默认」入口
-static void admin_contact_back_to_menu1(void);  //离开联系我们页：回 menu1
+static void admin_contact_back_to_menu2(void);  //离开联系我们页：回 menu2
 static void cb_admin_open_contact_us(lv_event_t * e);  //菜单「联系我们」入口
 static void admin_auto_dispense_back_to_menu1(void);  //离开自投功能页：回 menu1
 static void cb_admin_open_auto_dispense(lv_event_t * e);  //菜单「自投功能」入口
@@ -2533,15 +2538,15 @@ static void cb_admin_system_upgrade_timer(lv_timer_t * t);  //2s 定时器：升
 static void cb_admin_open_system_upgrade(lv_event_t * e);  //菜单「系统升级」入口
 static void admin_4g_set_phase(admin_4g_phase_t phase);  //4G 设置子页：切换说明/配网中/成功 UI
 static void admin_4g_ui_enter(void);  //进入 4G 设置页：复位为说明态并同步开关
-static void admin_4g_back_to_menu2(void);  //离开 4G 设置页：回 menu2
+static void admin_4g_back_to_network(void);  //离开 4G 设置页：回网络设置
 static void admin_4g_timer_stop(void);  //停止 4G 配网 2s 完成态定时器
 static void admin_4g_start_provisioning(void);  //4G 开关 OFF→ON：进入配网中并启动 2s 定时器
 static void cb_admin_4g_switch_changed(lv_event_t * e);  //4G 开关切换：更新状态或触发配网流程
 static void cb_admin_4g_timer(lv_timer_t * t);  //2s 定时器：配网中 → 成功态
-static void cb_admin_open_network_settings(lv_event_t * e);  //menu2「网络设置」入口
+static void cb_admin_open_network_settings(lv_event_t * e);  //menu1「网络设置」入口
 static void cb_admin_open_wifi_settings(lv_event_t * e);  //网络设置「WIFI设置」入口
 static void cb_admin_open_4g_settings(lv_event_t * e);  //网络设置「4G设置」入口
-static void admin_network_back_to_menu2(void);  //离开网络设置页：回 menu2
+static void admin_network_back_to_menu1(void);  //离开网络设置页：回 menu1
 static void admin_wifi_back_to_network(void);  //离开 WIFI 设置页：回网络设置
 static void admin_wifi_set_phase(admin_wifi_phase_t phase);  //WIFI 设置子页：切换说明/连接中/成功/失败 UI
 static void admin_wifi_ui_enter(void);  //进入 WIFI 设置页：复位为说明态并同步开关
@@ -2581,7 +2586,7 @@ static void cb_admin_open_payment_settings(lv_event_t * e);  //menu2「支付设
 static void admin_dormancy_sync_switches(void);
 static void admin_dormancy_back_to_menu1(void);
 static void cb_admin_dormancy_sw_changed(lv_event_t * e);
-static void admin_data_back_to_menu2(void);
+static void admin_data_back_to_menu1(void);  //离开数据设置页：回 menu1
 static void admin_data_set_page(admin_data_page_t page);
 static void cb_admin_open_data_settings(lv_event_t * e);
 static void brightness_slider_style_init(void);
@@ -2759,6 +2764,8 @@ LV_IMAGE_DECLARE(password_set);
 LV_IMAGE_DECLARE(title_box);
 LV_IMAGE_DECLARE(set_box);
 LV_IMAGE_DECLARE(bright_logo);
+LV_IMAGE_DECLARE(touch_sound_logo);
+LV_IMAGE_DECLARE(sound_logo);
 LV_IMAGE_DECLARE(time_set_box);
 LV_IMAGE_DECLARE(softener_logo);
 LV_IMAGE_DECLARE(detergent_logo);
@@ -7021,17 +7028,12 @@ static void admin_encoder_rebuild(void)
             g_admin_btn_vendor_self_check : g_admin_btn_back;
         break;
     case SOUND_CONTROL:
+        /* 焦点：返回 → 启停 → 电源 → 两开关（滑条仅触摸，不进编码器） */
         if(g_admin_sw_touch_sound != NULL) {
             ui_encoder_group_add(g_group_admin, g_admin_sw_touch_sound);
         }
         if(g_admin_sw_voice_broadcast != NULL) {
             ui_encoder_group_add(g_group_admin, g_admin_sw_voice_broadcast);
-        }
-        if(g_admin_slider_sound_volume != NULL) {
-            ui_encoder_group_add_brightness_slider(g_group_admin, g_admin_slider_sound_volume);
-        }
-        if(g_admin_slider_touch_sound_volume != NULL) {
-            ui_encoder_group_add_brightness_slider(g_group_admin, g_admin_slider_touch_sound_volume);
         }
         focus_first = (g_admin_sw_touch_sound != NULL) ?
             g_admin_sw_touch_sound : g_admin_btn_back;
@@ -7731,7 +7733,11 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == SCREEN_BRIGHTNESS) {
-        admin_brightness_back_to_menu1();
+        admin_brightness_back_to_menu2();
+        return;
+    }
+    if(g_admin_view == SOUND_CONTROL) {
+        admin_sound_back_to_menu2();
         return;
     }
     if(g_admin_view == VENDOR_SERIAL) {
@@ -7751,7 +7757,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == LANGUAGE_SETTINGS) {
-        admin_lang_back_to_menu1();
+        admin_lang_back_to_menu2();
         return;
     }
     if(g_admin_view == FACTORY_RESET) {
@@ -7759,7 +7765,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == CONTACT_US) {
-        admin_contact_back_to_menu1();
+        admin_contact_back_to_menu2();
         return;
     }
     if(g_admin_view == AUTO_DISPENSE) {
@@ -7805,11 +7811,11 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == DATA_SETTINGS) {
-        admin_data_back_to_menu2();
+        admin_data_back_to_menu1();
         return;
     }
     if(g_admin_view == NETWORK_SETTINGS) {
-        admin_network_back_to_menu2();
+        admin_network_back_to_menu1();
         return;
     }
     if(g_admin_view == WIFI_SETTINGS) {
@@ -7817,7 +7823,7 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == SETTINGS_4G) {
-        admin_4g_back_to_menu2();
+        admin_4g_back_to_network();
         return;
     }
     if(g_admin_view == PASSWORD_CHANGE_NEW || g_admin_view == PASSWORD_CHANGE_OLD) {
@@ -8280,30 +8286,30 @@ static void admin_brightness_apply_switch_layout(void)
 }
 
 /*
- * 裁剪窗宽度跟随亮度：左端顶格，右端与旋钮右缘对齐。
- * 内层渐变始终按整轨宽度铺色（0%黑→43%深蓝→77%/100%浅蓝），不随进度压缩。
+ * 亮度样式滑条：裁剪窗宽度跟随数值；内层渐变按整轨固定铺色。
+ * fill / fill_grad / slider 成套使用（亮度页、声音页共用）。
  */
-static void admin_brightness_fill_sync(void)
+static void admin_bright_style_fill_sync(lv_obj_t * fill, lv_obj_t * fill_grad, lv_obj_t * slider)
 {
-    if(g_admin_brightness_fill == NULL || g_admin_slider_brightness == NULL) return;
+    if(fill == NULL || slider == NULL) return;
 
-    lv_obj_update_layout(g_admin_slider_brightness);
-    const int32_t track_w = lv_obj_get_width(g_admin_slider_brightness);
+    lv_obj_update_layout(slider);
+    const int32_t track_w = lv_obj_get_width(slider);
     if(track_w <= 0) {
-        lv_obj_set_width(g_admin_brightness_fill, 0);
+        lv_obj_set_width(fill, 0);
         return;
     }
 
-    if(g_admin_brightness_fill_grad != NULL) {
-        lv_obj_set_width(g_admin_brightness_fill_grad, track_w);
-        lv_obj_align(g_admin_brightness_fill_grad, LV_ALIGN_LEFT_MID, 0, 0);
+    if(fill_grad != NULL) {
+        lv_obj_set_width(fill_grad, track_w);
+        lv_obj_align(fill_grad, LV_ALIGN_LEFT_MID, 0, 0);
     }
 
-    const int32_t min_v = lv_slider_get_min_value(g_admin_slider_brightness);
-    const int32_t max_v = lv_slider_get_max_value(g_admin_slider_brightness);
-    const int32_t v = lv_slider_get_value(g_admin_slider_brightness);
+    const int32_t min_v = lv_slider_get_min_value(slider);
+    const int32_t max_v = lv_slider_get_max_value(slider);
+    const int32_t v = lv_slider_get_value(slider);
     if(v <= min_v) {
-        lv_obj_set_width(g_admin_brightness_fill, 0);
+        lv_obj_set_width(fill, 0);
         return;
     }
 
@@ -8317,7 +8323,99 @@ static void admin_brightness_fill_sync(void)
     int32_t fill_w = knob_cx + half;
     if(fill_w > track_w) fill_w = track_w;
     if(fill_w < 0) fill_w = 0;
-    lv_obj_set_width(g_admin_brightness_fill, fill_w);
+    lv_obj_set_width(fill, fill_w);
+}
+
+static void admin_brightness_fill_sync(void)
+{
+    admin_bright_style_fill_sync(g_admin_brightness_fill, g_admin_brightness_fill_grad,
+                                 g_admin_slider_brightness);
+}
+
+/* 在已布局好的 area 内创建亮度样式滑条（灰轨 + 渐变裁剪 + 透明轨旋钮） */
+static void admin_bright_style_slider_build(lv_obj_t * area,
+                                           lv_obj_t ** out_fill,
+                                           lv_obj_t ** out_fill_grad,
+                                           lv_obj_t ** out_slider,
+                                           lv_event_cb_t value_changed_cb)
+{
+    if(area == NULL || out_fill == NULL || out_fill_grad == NULL || out_slider == NULL) return;
+
+    lv_obj_t * track = lv_obj_create(area);
+    lv_obj_set_size(track, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(track, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_bg_color(track, lv_color_hex(BRIGHT_PAGE_TRACK_BG), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(track, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(track, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(track, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(track, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(track, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    *out_fill = lv_obj_create(area);
+    lv_obj_set_size(*out_fill, 0, BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(*out_fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_bg_opa(*out_fill, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_radius(*out_fill, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_clip_corner(*out_fill, true, LV_PART_MAIN);
+    lv_obj_set_style_border_width(*out_fill, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(*out_fill, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(*out_fill, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    *out_fill_grad = lv_obj_create(*out_fill);
+    lv_obj_set_size(*out_fill_grad, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(*out_fill_grad, LV_ALIGN_LEFT_MID, 0, 0);
+    {
+        static bool s_grad_ready;
+        if(!s_grad_ready) {
+            const lv_color_t stops_c[] = {
+                lv_color_hex(BRIGHT_PAGE_FILL_0),
+                lv_color_hex(BRIGHT_PAGE_FILL_43),
+                lv_color_hex(BRIGHT_PAGE_FILL_77),
+                lv_color_hex(BRIGHT_PAGE_FILL_100),
+            };
+            const uint8_t stops_frac[] = {
+                0,
+                (uint8_t)(255 * 43 / 100),
+                (uint8_t)(255 * 77 / 100),
+                255,
+            };
+            lv_grad_init_stops(&s_bright_page_fill_grad, stops_c, NULL, stops_frac, 4);
+            lv_grad_horizontal_init(&s_bright_page_fill_grad);
+            s_grad_ready = true;
+        }
+        lv_obj_set_style_bg_grad(*out_fill_grad, &s_bright_page_fill_grad, LV_PART_MAIN);
+    }
+    lv_obj_set_style_bg_opa(*out_fill_grad, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(*out_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(*out_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(*out_fill_grad, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(*out_fill_grad, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+
+    *out_slider = lv_slider_create(area);
+    lv_obj_set_size(*out_slider, LV_PCT(100), BRIGHT_PAGE_TRACK_H);
+    lv_obj_align(*out_slider, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_slider_set_range(*out_slider, 0, 100);
+    lv_obj_set_style_pad_hor(*out_slider, BRIGHT_PAGE_TRACK_H / 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(*out_slider, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(*out_slider, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_radius(*out_slider, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(*out_slider, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(*out_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
+    lv_obj_set_style_pad_all(*out_slider, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(*out_slider, lv_color_hex(0xFFFFFF), LV_PART_KNOB);
+    lv_obj_set_style_bg_opa(*out_slider, LV_OPA_COVER, LV_PART_KNOB);
+    lv_obj_set_style_border_width(*out_slider, 0, LV_PART_KNOB);
+    lv_obj_set_style_radius(*out_slider, LV_RADIUS_CIRCLE, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(*out_slider, BRIGHT_PAGE_KNOB_PAD, LV_PART_KNOB);
+    lv_obj_set_style_shadow_width(*out_slider, 0, LV_PART_KNOB);
+
+    lv_obj_add_flag(*out_slider, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS | LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_add_event_cb(*out_slider, cb_admin_brightness_slider_draw_grip, LV_EVENT_DRAW_TASK_ADDED, NULL);
+    lv_obj_add_event_cb(*out_slider, cb_admin_brightness_slider_ext_draw_size, LV_EVENT_REFR_EXT_DRAW_SIZE, NULL);
+    if(value_changed_cb != NULL) {
+        lv_obj_add_event_cb(*out_slider, value_changed_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    }
+    lv_obj_refresh_ext_draw_size(*out_slider);
 }
 
 /*
@@ -8478,14 +8576,14 @@ static void cb_admin_brightness_slider_changed(lv_event_t * e)
     admin_brightness_fill_sync();
 }
 
-/* 离开屏幕亮度子页：回管理员 8 宫格菜单 */
+/* 离开屏幕亮度子页：回管理员 menu2 */
 
-static void admin_brightness_back_to_menu1(void)
+static void admin_brightness_back_to_menu2(void)
 {
     if(g_group_admin != NULL) {
         lv_group_set_editing(g_group_admin, false);
     }
-    admin_panel_show(MENU1);
+    admin_panel_show(MENU2);
 }
 
 /* 管理员菜单「屏幕亮度」入口 */
@@ -8494,37 +8592,6 @@ static void cb_admin_open_brightness(lv_event_t * e)
 {
     (void)e;
     admin_panel_show(SCREEN_BRIGHTNESS);
-}
-
-/* 声音页：开关样式 + X 与常亮开关一致，Y 垂直居中于 anchor_lbl */
-
-static void admin_sound_apply_switch_layout(lv_obj_t * sw, lv_obj_t * anchor_lbl)
-{
-    if(sw == NULL) return;
-
-    admin_panel_style_switch(sw);
-    lv_obj_set_size(sw, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
-    lv_obj_refr_size(sw);
-
-    const lv_coord_t radius_cap = lv_obj_get_height(sw) / 2;
-    lv_obj_set_style_radius(sw, radius_cap, LV_PART_MAIN);
-    lv_obj_update_layout(sw);
-    lv_coord_t radius_ind = lv_obj_get_content_height(sw) / 2;
-    if(radius_ind < 0) {
-        radius_ind = 0;
-    }
-    lv_obj_set_style_radius(sw, radius_ind, LV_PART_INDICATOR);
-    admin_sw_apply_knob_pad(sw, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
-
-    lv_obj_align(sw, LV_ALIGN_TOP_RIGHT, -400, 0);
-    if(anchor_lbl != NULL) {
-        lv_obj_update_layout(anchor_lbl);
-        lv_coord_t ty = lv_obj_get_y(anchor_lbl);
-        lv_coord_t th = lv_obj_get_height(anchor_lbl);
-        lv_coord_t sh = lv_obj_get_height(sw);
-        lv_obj_set_y(sw, ty + (th - sh) / 2);
-    }
-    lv_obj_invalidate(sw);
 }
 
 /* 声音控制页：按 ui_touch_sound_get 刷新触控声音开关 */
@@ -8541,7 +8608,6 @@ static void admin_sound_sync_touch_switch_ui(void)
 }
 
 /* 声音控制页：按 ui_voice_broadcast_get 刷新声音播报开关 */
-
 static void admin_sound_sync_voice_broadcast_switch_ui(void)
 {
     if(g_admin_sw_voice_broadcast == NULL) return;
@@ -8554,7 +8620,6 @@ static void admin_sound_sync_voice_broadcast_switch_ui(void)
 }
 
 /* 音量滑条数值对齐到步进 */
-
 static int32_t admin_sound_snap_volume_slider(int32_t v)
 {
     if(v < 0) v = 0;
@@ -8563,7 +8628,6 @@ static int32_t admin_sound_snap_volume_slider(int32_t v)
 }
 
 /* 触控声音滑条数值对齐到步进 */
-
 static int32_t admin_sound_snap_touch_sound_volume_slider(int32_t v)
 {
     if(v < 0) v = 0;
@@ -8571,58 +8635,45 @@ static int32_t admin_sound_snap_touch_sound_volume_slider(int32_t v)
     return (int32_t)ui_touch_sound_volume_snap((uint8_t)v);
 }
 
-/* 同步音量下层渐变动条（与滑条数值一致） */
-
+/* 同步播报音量进度填充（亮度样式） */
 static void admin_sound_volume_slider_sync_bar(int32_t v)
 {
-    if(g_admin_sound_volume_bar == NULL) return;
-    v = admin_sound_snap_volume_slider(v);
-    lv_bar_set_value(g_admin_sound_volume_bar, v, LV_ANIM_OFF);
+    (void)v;
+    admin_bright_style_fill_sync(g_admin_sound_volume_fill, g_admin_sound_volume_fill_grad,
+                                 g_admin_slider_sound_volume);
 }
 
-/* 同步触控声音下层渐变动条（与滑条数值一致） */
-
+/* 同步触控声音进度填充（亮度样式） */
 static void admin_sound_touch_sound_volume_slider_sync_bar(int32_t v)
 {
-    if(g_admin_touch_sound_volume_bar == NULL) return;
-    v = admin_sound_snap_touch_sound_volume_slider(v);
-    lv_bar_set_value(g_admin_touch_sound_volume_bar, v, LV_ANIM_OFF);
+    (void)v;
+    admin_bright_style_fill_sync(g_admin_touch_sound_volume_fill, g_admin_touch_sound_volume_fill_grad,
+                                 g_admin_slider_touch_sound_volume);
 }
 
-/* 将编码器焦点态映射到音量滑条上层焦点框 */
+/* 布局尺寸变化时重算声音滑条填充宽度 */
+static void cb_admin_sound_slider_size_changed(lv_event_t * e)
+{
+    if(lv_event_get_code(e) != LV_EVENT_SIZE_CHANGED) return;
+    lv_obj_t * slider = lv_event_get_target_obj(e);
+    if(slider == g_admin_slider_sound_volume) {
+        admin_sound_volume_slider_sync_bar(0);
+    }
+    else if(slider == g_admin_slider_touch_sound_volume) {
+        admin_sound_touch_sound_volume_slider_sync_bar(0);
+    }
+}
 
+/* 旧焦点框接口保留为空（滑条仅触摸，无编码器焦点框） */
 static void admin_sound_volume_slider_sync_focus_frame(void)
 {
-    if(g_admin_sound_volume_slider_focus == NULL || g_admin_slider_sound_volume == NULL) return;
-    const bool enc_focus = lv_obj_has_state(g_admin_slider_sound_volume, LV_STATE_FOCUSED) ||
-                           lv_obj_has_state(g_admin_slider_sound_volume, LV_STATE_FOCUS_KEY);
-    if(enc_focus) {
-        lv_obj_add_state(g_admin_sound_volume_slider_focus, LV_STATE_FOCUSED);
-        lv_obj_add_state(g_admin_sound_volume_slider_focus, LV_STATE_FOCUS_KEY);
-    }
-    else {
-        lv_obj_remove_state(g_admin_sound_volume_slider_focus, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
-    }
 }
-
-/* 将编码器焦点态映射到触控声音滑条上层焦点框 */
 
 static void admin_sound_touch_sound_volume_slider_sync_focus_frame(void)
 {
-    if(g_admin_touch_sound_volume_slider_focus == NULL || g_admin_slider_touch_sound_volume == NULL) return;
-    const bool enc_focus = lv_obj_has_state(g_admin_slider_touch_sound_volume, LV_STATE_FOCUSED) ||
-                           lv_obj_has_state(g_admin_slider_touch_sound_volume, LV_STATE_FOCUS_KEY);
-    if(enc_focus) {
-        lv_obj_add_state(g_admin_touch_sound_volume_slider_focus, LV_STATE_FOCUSED);
-        lv_obj_add_state(g_admin_touch_sound_volume_slider_focus, LV_STATE_FOCUS_KEY);
-    }
-    else {
-        lv_obj_remove_state(g_admin_touch_sound_volume_slider_focus, LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY);
-    }
 }
 
 /* 音量滑条获焦/失焦：刷新上层白色焦点框 */
-
 static void cb_admin_sound_volume_slider_focus_frame(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -8634,7 +8685,6 @@ static void cb_admin_sound_volume_slider_focus_frame(lv_event_t * e)
 }
 
 /* 触控声音滑条获焦/失焦：刷新上层白色焦点框 */
-
 static void cb_admin_sound_touch_sound_volume_slider_focus_frame(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
@@ -8646,35 +8696,30 @@ static void cb_admin_sound_touch_sound_volume_slider_focus_frame(lv_event_t * e)
 }
 
 /* 声音控制页：按 ui_sound_volume_get 刷新音量滑条（不触发硬件回调） */
-
 static void admin_sound_sync_volume_slider_ui(void)
 {
     if(g_admin_slider_sound_volume == NULL) return;
     g_admin_sound_volume_ui_loading = true;
     int32_t v = (int32_t)ui_sound_volume_get();
     lv_slider_set_value(g_admin_slider_sound_volume, v, LV_ANIM_OFF);
-    admin_sound_volume_slider_sync_bar(v);
     g_admin_sound_volume_ui_loading = false;
+    admin_sound_volume_slider_sync_bar(v);
 }
 
 /* 声音控制页：按 ui_touch_sound_volume_get 刷新触控声音滑条（不触发硬件回调） */
-
 static void admin_sound_sync_touch_sound_volume_slider_ui(void)
 {
     if(g_admin_slider_touch_sound_volume == NULL) return;
     g_admin_touch_sound_volume_ui_loading = true;
     int32_t v = (int32_t)ui_touch_sound_volume_get();
     lv_slider_set_value(g_admin_slider_touch_sound_volume, v, LV_ANIM_OFF);
-    admin_sound_touch_sound_volume_slider_sync_bar(v);
     g_admin_touch_sound_volume_ui_loading = false;
+    admin_sound_touch_sound_volume_slider_sync_bar(v);
 }
 
 /* 声音控制页：刷新两个开关与两条滑条 */
-
 static void admin_sound_sync_ui(void)
 {
-    admin_sound_apply_switch_layout(g_admin_sw_touch_sound, g_admin_lbl_sound_line1);
-    admin_sound_apply_switch_layout(g_admin_sw_voice_broadcast, g_admin_lbl_sound_line2);
     admin_sound_sync_touch_switch_ui();
     admin_sound_sync_voice_broadcast_switch_ui();
     admin_sound_sync_volume_slider_ui();
@@ -8682,7 +8727,6 @@ static void admin_sound_sync_ui(void)
 }
 
 /* 触控声音开关切换：更新状态并通知硬件（本期不播放音效） */
-
 static void cb_admin_sound_touch_switch_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
@@ -8693,7 +8737,6 @@ static void cb_admin_sound_touch_switch_changed(lv_event_t * e)
 }
 
 /* 声音播报开关切换：更新状态并通知硬件（本期不播放语音） */
-
 static void cb_admin_sound_voice_broadcast_switch_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
@@ -8703,8 +8746,7 @@ static void cb_admin_sound_voice_broadcast_switch_changed(lv_event_t * e)
     ui_voice_broadcast_set(on);
 }
 
-/* 音量滑条拖动：按步进 10 对齐并通知硬件 */
-
+/* 音量滑条拖动：按步进 1 对齐并通知硬件 */
 static void cb_admin_sound_volume_slider_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
@@ -8721,8 +8763,7 @@ static void cb_admin_sound_volume_slider_changed(lv_event_t * e)
     admin_sound_volume_slider_sync_bar(snapped);
 }
 
-/* 触控声音滑条拖动：按步进 10 对齐并通知硬件 */
-
+/* 触控声音滑条拖动：按步进 1 对齐并通知硬件 */
 static void cb_admin_sound_touch_sound_volume_slider_changed(lv_event_t * e)
 {
     if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
@@ -8950,6 +8991,16 @@ static void cb_admin_open_sound(lv_event_t * e)
     admin_panel_show(SOUND_CONTROL);
 }
 
+/* 离开声音控制页：回管理员 menu2 */
+
+static void admin_sound_back_to_menu2(void)
+{
+    if(g_group_admin != NULL) {
+        lv_group_set_editing(g_group_admin, false);
+    }
+    admin_panel_show(MENU2);
+}
+
 static void cb_admin_open_selfcheck(lv_event_t * e)
 {
     (void)e;
@@ -9007,11 +9058,11 @@ static void admin_lang_sync_btn_ui(void)
     admin_lang_btn_set_selected(g_admin_btn_lang_en, !zh);
 }
 
-/* 离开语言设置页：回管理员菜单 */
+/* 离开语言设置页：回管理员 menu2 */
 
-static void admin_lang_back_to_menu1(void)
+static void admin_lang_back_to_menu2(void)
 {
-    admin_panel_show(MENU1);
+    admin_panel_show(MENU2);
 }
 
 /* 管理员菜单「语言设置」入口 */
@@ -9199,11 +9250,11 @@ static void cb_admin_open_factory_reset(lv_event_t * e)
     admin_panel_show(FACTORY_RESET);
 }
 
-/* 离开联系我们页：回管理员 8 宫格菜单 */
+/* 离开联系我们页：回管理员 menu2 */
 
-static void admin_contact_back_to_menu1(void)
+static void admin_contact_back_to_menu2(void)
 {
-    admin_panel_show(MENU1);
+    admin_panel_show(MENU2);
 }
 
 /* 管理员菜单「联系我们」入口 */
@@ -9726,14 +9777,14 @@ static void admin_4g_ui_enter(void)
     admin_4g_set_phase(ADMIN_4G_PHASE_PROMPT);
 }
 
-/* 离开 4G 设置页：回 menu2 */
-static void admin_4g_back_to_menu2(void)
+/* 离开 4G 设置页：回网络设置 */
+static void admin_4g_back_to_network(void)
 {
     admin_4g_timer_stop();
     if(g_group_admin != NULL) {
         lv_group_set_editing(g_group_admin, false);
     }
-    admin_panel_show(MENU2);
+    admin_panel_show(NETWORK_SETTINGS);
 }
 
 /* 硬件接口：配网结果全局变量，1=成功 0=失败（PC 默认模拟失败）。
@@ -9793,7 +9844,7 @@ static void cb_admin_4g_switch_changed(lv_event_t * e)
     }
 }
 
-/* menu2「网络设置」入口 */
+/* menu1「网络设置」入口 */
 static void cb_admin_open_network_settings(lv_event_t * e)
 {
     (void)e;
@@ -9814,13 +9865,13 @@ static void cb_admin_open_4g_settings(lv_event_t * e)
     admin_panel_show(SETTINGS_4G);
 }
 
-/* 离开网络设置页：回 menu2 */
-static void admin_network_back_to_menu2(void)
+/* 离开网络设置页：回 menu1 */
+static void admin_network_back_to_menu1(void)
 {
     if(g_group_admin != NULL) {
         lv_group_set_editing(g_group_admin, false);
     }
-    admin_panel_show(MENU2);
+    admin_panel_show(MENU1);
 }
 
 /* 离开 WIFI 设置页：回网络设置 */
@@ -10621,9 +10672,9 @@ static void cb_admin_open_payment_settings(lv_event_t * e)
     admin_panel_show(PAYMENT_SETTINGS);
 }
 
-/* 离开数据设置页：回管理员 menu2 */
+/* 离开数据设置页：回管理员 menu1 */
 
-static void admin_data_back_to_menu2(void)
+static void admin_data_back_to_menu1(void)
 {
     if(g_admin_data_page == ADMIN_DATA_PAGE_STRATEGY) {
         admin_data_set_page(ADMIN_DATA_PAGE_LIST);
@@ -10634,10 +10685,10 @@ static void admin_data_back_to_menu2(void)
         admin_encoder_rebuild();
         return;
     }
-    admin_panel_show(MENU2);
+    admin_panel_show(MENU1);
 }
 
-/* 管理员 menu2「数据设置」入口 */
+/* 管理员 menu1「数据设置」入口 */
 
 static void cb_admin_open_data_settings(lv_event_t * e)
 {
@@ -11432,16 +11483,19 @@ static void build_admin(void)
     lv_image_set_src(img_brightness_set_box, &set_box);
     lv_obj_center(img_brightness_set_box);
 
-    /* ===== 与待机时间页相同的行位置/间距 ===== */
+    /* ===== 与待机时间页相同的行位置/间距；滑条右端对齐标题行（方案二） ===== */
     const lv_coord_t bright_row_w   = 960;
     const lv_coord_t bright_row1_y  = 85;   /* 同待机时间「时间设置」行距 set_box 顶 */
     const lv_coord_t bright_row_pad = 50;   /* 同待机时间：主文字与小字间距 */
     const lv_coord_t bright_icon_gap = 16;  /* 太阳图标与滑条间距 */
     const lv_coord_t bright_area_h = BRIGHT_PAGE_TRACK_H + 8;
+    /* 行容器右侧多 SIDE_PAD：轨道右端对齐标题/开关右缘，旋钮防裁切区落在外侧 */
+    const lv_coord_t bright_row_outer_w = bright_row_w + BRIGHT_PAGE_SIDE_PAD;
+    const lv_coord_t bright_row_x_ofs = BRIGHT_PAGE_SIDE_PAD / 2;
 
     lv_obj_t * bright_row = lv_obj_create(g_admin_brightness_set_box_wrap);
-    lv_obj_set_size(bright_row, bright_row_w, LV_SIZE_CONTENT);
-    lv_obj_align(bright_row, LV_ALIGN_TOP_MID, 0, bright_row1_y);
+    lv_obj_set_size(bright_row, bright_row_outer_w, LV_SIZE_CONTENT);
+    lv_obj_align(bright_row, LV_ALIGN_TOP_MID, bright_row_x_ofs, bright_row1_y);
     lv_obj_set_style_bg_opa(bright_row, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(bright_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(bright_row, 0, LV_PART_MAIN);
@@ -11454,7 +11508,7 @@ static void build_admin(void)
 
     /* 主文字 + 开关 同一行（文字左、开关右、垂直居中） */
     lv_obj_t * bright_title_line = lv_obj_create(bright_row);
-    lv_obj_set_size(bright_title_line, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_size(bright_title_line, bright_row_w, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(bright_title_line, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(bright_title_line, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(bright_title_line, 0, LV_PART_MAIN);
@@ -11482,9 +11536,9 @@ static void build_admin(void)
     lv_obj_set_style_text_line_space(g_admin_lbl_brightness_line1, 20, LV_PART_MAIN);
     g_admin_lbl_brightness_line2 = NULL;
 
-    /* 太阳图标 + 滑条 */
+    /* 太阳图标 + 滑条（行宽含右侧 SIDE_PAD，轨道右端对齐开关右缘） */
     lv_obj_t * bright_slider_row = lv_obj_create(bright_row);
-    lv_obj_set_size(bright_slider_row, bright_row_w, bright_area_h);
+    lv_obj_set_size(bright_slider_row, bright_row_outer_w, bright_area_h);
     lv_obj_set_style_bg_opa(bright_slider_row, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(bright_slider_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(bright_slider_row, 0, LV_PART_MAIN);
@@ -11504,7 +11558,7 @@ static void build_admin(void)
     lv_obj_set_height(brightness_slider_area, bright_area_h);
     lv_obj_set_style_bg_opa(brightness_slider_area, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(brightness_slider_area, 0, LV_PART_MAIN);
-    /* 宿主左右留白：改 BRIGHT_PAGE_SIDE_PAD 即可加大两端防裁切空间 */
+    /* 左/右均留 SIDE_PAD；外宽多出右侧 SIDE_PAD → 轨道右端对齐标题行右缘 */
     lv_obj_set_style_pad_hor(brightness_slider_area, BRIGHT_PAGE_SIDE_PAD, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(brightness_slider_area, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(brightness_slider_area, LV_LAYOUT_NONE, LV_PART_MAIN);
@@ -11594,98 +11648,197 @@ static void build_admin(void)
 
     admin_brightness_sync_ui();
 
-    /* 声音控制子面板（1600×400，两行开关 + 两条渐变滑条，滑条左上方符号图标） */
+    /* 声音控制子面板（同待机时间：title_box + set_box；两项开关 + 亮度样式滑条，仅触摸） */
     g_admin_panel_sound = lv_obj_create(root);
-    lv_obj_set_size(g_admin_panel_sound, 1600, 400);
-    lv_obj_align(g_admin_panel_sound, LV_ALIGN_TOP_MID, 0, 100);
+    lv_obj_set_size(g_admin_panel_sound, LV_PCT(100), body_h);
+    lv_obj_align(g_admin_panel_sound, LV_ALIGN_TOP_MID, 0, body_y);
     lv_obj_set_style_bg_opa(g_admin_panel_sound, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(g_admin_panel_sound, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(g_admin_panel_sound, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(g_admin_panel_sound, LV_LAYOUT_NONE, LV_PART_MAIN);
     lv_obj_add_flag(g_admin_panel_sound, LV_OBJ_FLAG_HIDDEN);
 
+    g_admin_img_sound_title_box = lv_image_create(g_admin_panel_sound);
+    lv_image_set_src(g_admin_img_sound_title_box, &title_box);
+    lv_obj_align(g_admin_img_sound_title_box, LV_ALIGN_TOP_MID, 0, 25);
+
     g_admin_lbl_sound_title = lv_label_create(g_admin_panel_sound);
     ui_lang_bind_label(g_admin_lbl_sound_title, STR_ADMIN_M1_SOUND);
     lv_obj_set_style_text_color(g_admin_lbl_sound_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_sound_title, s_font_sc_30);
-    lv_obj_align(g_admin_lbl_sound_title, LV_ALIGN_TOP_LEFT, 350, 30);
+    lv_obj_align(g_admin_lbl_sound_title, LV_ALIGN_TOP_MID, 0, 25);
 
-    g_admin_lbl_sound_line1 = lv_label_create(g_admin_panel_sound);
+    g_admin_sound_set_box_wrap = lv_obj_create(g_admin_panel_sound);
+    lv_obj_set_size(g_admin_sound_set_box_wrap, 1117, 409);
+    lv_obj_align(g_admin_sound_set_box_wrap, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_set_style_bg_opa(g_admin_sound_set_box_wrap, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(g_admin_sound_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(g_admin_sound_set_box_wrap, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(g_admin_sound_set_box_wrap, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_admin_sound_set_box_wrap, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * img_sound_set_box = lv_image_create(g_admin_sound_set_box_wrap);
+    lv_image_set_src(img_sound_set_box, &set_box);
+    lv_obj_center(img_sound_set_box);
+
+    /* ===== 与待机时间页相同的行位置；行宽同亮度页（含图标+滑条） ===== */
+    const lv_coord_t sound_row_w   = 800;
+    const lv_coord_t sound_row1_y  = 85;   /* 同待机时间「时间设置」行距 set_box 顶 */
+    const lv_coord_t sound_sep_y   = 220;  /* 同待机时间横线 */
+    const lv_coord_t sound_row2_y  = 250;  /* 同待机时间「不熄屏」行 */
+    const lv_coord_t sound_row_pad = 30;   /* 主文字行与图标/滑条间距（无小字） */
+    const lv_coord_t sound_icon_gap = 16;  /* 同亮度页：图标与滑条间距 */
+    const lv_coord_t sound_area_h = BRIGHT_PAGE_TRACK_H + 8;
+    /* 行容器右侧多 SIDE_PAD：轨道右端对齐白线，旋钮防裁切区落在线外 */
+    const lv_coord_t sound_row_outer_w = sound_row_w + BRIGHT_PAGE_SIDE_PAD;
+    const lv_coord_t sound_row_x_ofs = BRIGHT_PAGE_SIDE_PAD / 2; /* TOP_MID 偏移，使左缘仍对齐白线 */
+
+    /* 行1：触控声音（主文字+开关，下方 touch_sound_logo + 滑条） */
+    lv_obj_t * sound_row1 = lv_obj_create(g_admin_sound_set_box_wrap);
+    lv_obj_set_size(sound_row1, sound_row_outer_w, LV_SIZE_CONTENT);
+    lv_obj_align(sound_row1, LV_ALIGN_TOP_MID, sound_row_x_ofs, sound_row1_y);
+    lv_obj_set_style_bg_opa(sound_row1, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_row1, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_row1, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_row1, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_row1, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(sound_row1, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(sound_row1, sound_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(sound_row1, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(sound_row1, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * sound_title_line1 = lv_obj_create(sound_row1);
+    lv_obj_set_size(sound_title_line1, sound_row_w, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(sound_title_line1, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_title_line1, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_title_line1, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_title_line1, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_title_line1, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(sound_title_line1, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(sound_title_line1, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_lbl_sound_line1 = lv_label_create(sound_title_line1);
     ui_lang_bind_label(g_admin_lbl_sound_line1, STR_SOUND_TOUCH);
     lv_obj_set_style_text_color(g_admin_lbl_sound_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_sound_line1, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_sound_line1, 400, 120);
 
-    g_admin_sw_touch_sound = lv_switch_create(g_admin_panel_sound);
+    g_admin_sw_touch_sound = lv_switch_create(sound_title_line1);
+    admin_data_style_switch(g_admin_sw_touch_sound);
     lv_obj_add_event_cb(g_admin_sw_touch_sound, cb_admin_sound_touch_switch_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    g_admin_lbl_sound_line2 = lv_label_create(g_admin_panel_sound);
+    lv_obj_t * sound_slider_row1 = lv_obj_create(sound_row1);
+    lv_obj_set_size(sound_slider_row1, sound_row_outer_w, sound_area_h);
+    lv_obj_set_style_bg_opa(sound_slider_row1, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_slider_row1, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_slider_row1, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_slider_row1, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_slider_row1, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(sound_slider_row1, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(sound_slider_row1, sound_icon_gap, LV_PART_MAIN);
+    lv_obj_clear_flag(sound_slider_row1, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(sound_slider_row1, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * img_touch_sound_logo = lv_image_create(sound_slider_row1);
+    lv_image_set_src(img_touch_sound_logo, &touch_sound_logo);
+    lv_obj_remove_flag(img_touch_sound_logo, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t * touch_sound_slider_area = lv_obj_create(sound_slider_row1);
+    lv_obj_set_flex_grow(touch_sound_slider_area, 1);
+    lv_obj_set_height(touch_sound_slider_area, sound_area_h);
+    lv_obj_set_style_bg_opa(touch_sound_slider_area, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(touch_sound_slider_area, 0, LV_PART_MAIN);
+    /* 左/右均留 SIDE_PAD；行宽多出右侧 SIDE_PAD → 轨道右端对齐白线 */
+    lv_obj_set_style_pad_hor(touch_sound_slider_area, BRIGHT_PAGE_SIDE_PAD, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(touch_sound_slider_area, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(touch_sound_slider_area, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_clear_flag(touch_sound_slider_area, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(touch_sound_slider_area, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    admin_bright_style_slider_build(touch_sound_slider_area,
+                                    &g_admin_touch_sound_volume_fill,
+                                    &g_admin_touch_sound_volume_fill_grad,
+                                    &g_admin_slider_touch_sound_volume,
+                                    cb_admin_sound_touch_sound_volume_slider_changed);
+    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_slider_size_changed,
+                        LV_EVENT_SIZE_CHANGED, NULL);
+
+    /* 两项之间的白色横线 */
+    lv_obj_t * sound_sep = lv_obj_create(g_admin_sound_set_box_wrap);
+    lv_obj_set_size(sound_sep, sound_row_w, 1);
+    lv_obj_align(sound_sep, LV_ALIGN_TOP_MID, 0, sound_sep_y);
+    lv_obj_set_style_bg_color(sound_sep, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sound_sep, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_sep, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(sound_sep, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+    /* 行2：声音播报（主文字+开关，下方 sound_logo + 滑条） */
+    lv_obj_t * sound_row2 = lv_obj_create(g_admin_sound_set_box_wrap);
+    lv_obj_set_size(sound_row2, sound_row_outer_w, LV_SIZE_CONTENT);
+    lv_obj_align(sound_row2, LV_ALIGN_TOP_MID, sound_row_x_ofs, sound_row2_y);
+    lv_obj_set_style_bg_opa(sound_row2, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_row2, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_row2, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_row2, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_row2, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(sound_row2, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_pad_row(sound_row2, sound_row_pad, LV_PART_MAIN);
+    lv_obj_clear_flag(sound_row2, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(sound_row2, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    lv_obj_t * sound_title_line2 = lv_obj_create(sound_row2);
+    lv_obj_set_size(sound_title_line2, sound_row_w, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(sound_title_line2, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_title_line2, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_title_line2, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_title_line2, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_title_line2, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(sound_title_line2, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(sound_title_line2, LV_OBJ_FLAG_SCROLLABLE);
+
+    g_admin_lbl_sound_line2 = lv_label_create(sound_title_line2);
     ui_lang_bind_label(g_admin_lbl_sound_line2, STR_SOUND_VOICE);
     lv_obj_set_style_text_color(g_admin_lbl_sound_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(g_admin_lbl_sound_line2, s_font_sc_30);
-    lv_obj_set_pos(g_admin_lbl_sound_line2, 400, 175);
 
-    g_admin_sw_voice_broadcast = lv_switch_create(g_admin_panel_sound);
+    g_admin_sw_voice_broadcast = lv_switch_create(sound_title_line2);
+    admin_data_style_switch(g_admin_sw_voice_broadcast);
     lv_obj_add_event_cb(g_admin_sw_voice_broadcast, cb_admin_sound_voice_broadcast_switch_changed,
                         LV_EVENT_VALUE_CHANGED, NULL);
 
-    brightness_slider_style_init();
+    lv_obj_t * sound_slider_row2 = lv_obj_create(sound_row2);
+    lv_obj_set_size(sound_slider_row2, sound_row_outer_w, sound_area_h);
+    lv_obj_set_style_bg_opa(sound_slider_row2, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sound_slider_row2, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sound_slider_row2, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(sound_slider_row2, LV_LAYOUT_FLEX, LV_PART_MAIN);
+    lv_obj_set_flex_flow(sound_slider_row2, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(sound_slider_row2, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(sound_slider_row2, sound_icon_gap, LV_PART_MAIN);
+    lv_obj_clear_flag(sound_slider_row2, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(sound_slider_row2, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    /* 音量滑条（上方，先创建） */
-    lv_obj_t * sound_volume_slider_frame = lv_obj_create(g_admin_panel_sound);
-    lv_obj_set_size(sound_volume_slider_frame, 815, 60);
-    lv_obj_align(sound_volume_slider_frame, LV_ALIGN_BOTTOM_RIGHT, -400, -128+50);
-    lv_obj_add_style(sound_volume_slider_frame, &s_brightness_slider_frame_style, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(sound_volume_slider_frame, 0, LV_PART_MAIN);
-    lv_obj_remove_flag(sound_volume_slider_frame, LV_OBJ_FLAG_SCROLLABLE);
-    admin_gradient_slider_fill_inner(sound_volume_slider_frame, &g_admin_sound_volume_bar,
-                                     &g_admin_slider_sound_volume, &g_admin_sound_volume_slider_focus);
+    lv_obj_t * img_sound_logo = lv_image_create(sound_slider_row2);
+    lv_image_set_src(img_sound_logo, &sound_logo);
+    lv_obj_remove_flag(img_sound_logo, LV_OBJ_FLAG_CLICKABLE);
 
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_focus_frame, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_focus_frame, LV_EVENT_DEFOCUSED,
-                        NULL);
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_changed, LV_EVENT_VALUE_CHANGED,
-                        NULL);
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_key,
-                        LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_encoder, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_volume_slider_encoder, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_t * voice_sound_slider_area = lv_obj_create(sound_slider_row2);
+    lv_obj_set_flex_grow(voice_sound_slider_area, 1);
+    lv_obj_set_height(voice_sound_slider_area, sound_area_h);
+    lv_obj_set_style_bg_opa(voice_sound_slider_area, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(voice_sound_slider_area, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(voice_sound_slider_area, BRIGHT_PAGE_SIDE_PAD, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(voice_sound_slider_area, 0, LV_PART_MAIN);
+    lv_obj_set_style_layout(voice_sound_slider_area, LV_LAYOUT_NONE, LV_PART_MAIN);
+    lv_obj_clear_flag(voice_sound_slider_area, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(voice_sound_slider_area, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    /* 触控声音滑条（靠下，同亮度页 BOTTOM_MID, 0, -40） */
-    lv_obj_t * touch_sound_slider_frame = lv_obj_create(g_admin_panel_sound);
-    lv_obj_set_size(touch_sound_slider_frame, 815, 60);
-    lv_obj_align(touch_sound_slider_frame, LV_ALIGN_BOTTOM_RIGHT, -400, -40+40);
-    lv_obj_add_style(touch_sound_slider_frame, &s_brightness_slider_frame_style, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(touch_sound_slider_frame, 0, LV_PART_MAIN);
-    lv_obj_remove_flag(touch_sound_slider_frame, LV_OBJ_FLAG_SCROLLABLE);
-    admin_gradient_slider_fill_inner(touch_sound_slider_frame, &g_admin_touch_sound_volume_bar,
-                                     &g_admin_slider_touch_sound_volume,
-                                     &g_admin_touch_sound_volume_slider_focus);
-
-    g_admin_lbl_sound_vol_icon = lv_label_create(g_admin_panel_sound);
-    lv_label_set_text(g_admin_lbl_sound_vol_icon, LV_SYMBOL_VOLUME_MAX);
-    lv_obj_set_style_text_color(g_admin_lbl_sound_vol_icon, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    lv_obj_set_style_text_font(g_admin_lbl_sound_vol_icon, &lv_font_montserrat_30, LV_PART_MAIN);
-    lv_obj_align(g_admin_lbl_sound_vol_icon, LV_ALIGN_TOP_LEFT, 400, 176+100);
-
-    g_admin_lbl_touch_sound_icon = lv_label_create(g_admin_panel_sound);
-    lv_label_set_text(g_admin_lbl_touch_sound_icon, LV_SYMBOL_GPS);
-    lv_obj_set_style_text_color(g_admin_lbl_touch_sound_icon, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-    lv_obj_set_style_text_font(g_admin_lbl_touch_sound_icon, &lv_font_montserrat_30, LV_PART_MAIN);
-    lv_obj_align(g_admin_lbl_touch_sound_icon, LV_ALIGN_TOP_LEFT, 400, 254+100);
-
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_focus_frame,
-                        LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_focus_frame,
-                        LV_EVENT_DEFOCUSED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_changed,
-                        LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_key,
-                        LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_encoder,
-                        LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(g_admin_slider_touch_sound_volume, cb_admin_sound_touch_sound_volume_slider_encoder,
-                        LV_EVENT_DEFOCUSED, NULL);
+    admin_bright_style_slider_build(voice_sound_slider_area,
+                                    &g_admin_sound_volume_fill,
+                                    &g_admin_sound_volume_fill_grad,
+                                    &g_admin_slider_sound_volume,
+                                    cb_admin_sound_volume_slider_changed);
+    lv_obj_add_event_cb(g_admin_slider_sound_volume, cb_admin_sound_slider_size_changed,
+                        LV_EVENT_SIZE_CHANGED, NULL);
 
     admin_sound_sync_ui();
 
