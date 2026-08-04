@@ -441,7 +441,14 @@ static bool g_ui_data_upload_auto_dispense = false;
 static bool g_ui_data_upload_payment_order = false;
 static bool g_ui_data_upload_user_op = false;
 static bool g_ui_data_upload_device = true;
-static ui_data_upload_strategy_t g_ui_data_upload_strategy = UI_DATA_STRATEGY_4G_ONLY;
+/* 每个上传项各自保存一份上传策略（进入策略页时按当前项恢复） */
+#define ADMIN_DATA_UPLOAD_COUNT 7
+static ui_data_upload_strategy_t g_ui_data_upload_strategy[ADMIN_DATA_UPLOAD_COUNT] = {
+    UI_DATA_STRATEGY_4G_ONLY, UI_DATA_STRATEGY_4G_ONLY, UI_DATA_STRATEGY_4G_ONLY,
+    UI_DATA_STRATEGY_4G_ONLY, UI_DATA_STRATEGY_4G_ONLY, UI_DATA_STRATEGY_4G_ONLY,
+    UI_DATA_STRATEGY_4G_ONLY
+};
+static int g_admin_data_strategy_item = 0; /* 当前正在编辑策略的上传项下标 */
 
 /* 读取「基础运行数据」上传项是否开启 */
 bool ui_data_upload_basic_get(void)
@@ -562,24 +569,44 @@ bool ui_data_upload_device_set(bool enabled)
     return true;
 }
 
-/* 读取当前上传策略（五选一） */
+/* 读取当前编辑项的上传策略（五选一） */
 ui_data_upload_strategy_t ui_data_upload_strategy_get(void)
 {
-    return g_ui_data_upload_strategy;
+    if(g_admin_data_strategy_item < 0 || g_admin_data_strategy_item >= ADMIN_DATA_UPLOAD_COUNT) {
+        return UI_DATA_STRATEGY_4G_ONLY;
+    }
+    return g_ui_data_upload_strategy[g_admin_data_strategy_item];
 }
 
-/* 设置上传策略；非法值按「仅 4G 上传」处理；与当前相同返回 false */
+/* 设置当前编辑项的上传策略；非法值按「仅 4G 上传」处理；与当前相同返回 false */
 bool ui_data_upload_strategy_set(ui_data_upload_strategy_t strategy)
 {
     if(strategy > UI_DATA_STRATEGY_FORBIDDEN) {
         strategy = UI_DATA_STRATEGY_4G_ONLY;
     }
-    if(strategy == g_ui_data_upload_strategy) {
+    if(g_admin_data_strategy_item < 0 || g_admin_data_strategy_item >= ADMIN_DATA_UPLOAD_COUNT) {
         return false;
     }
-    g_ui_data_upload_strategy = strategy;
+    if(strategy == g_ui_data_upload_strategy[g_admin_data_strategy_item]) {
+        return false;
+    }
+    g_ui_data_upload_strategy[g_admin_data_strategy_item] = strategy;
     admin_data_sync_strategy_ui();
     return true;
+}
+
+/* 出厂恢复：所有上传项策略统一重置 */
+static void ui_data_upload_strategy_reset_all(ui_data_upload_strategy_t strategy)
+{
+    unsigned i;
+    if(strategy > UI_DATA_STRATEGY_FORBIDDEN) {
+        strategy = UI_DATA_STRATEGY_4G_ONLY;
+    }
+    for(i = 0; i < ADMIN_DATA_UPLOAD_COUNT; i++) {
+        g_ui_data_upload_strategy[i] = strategy;
+    }
+    g_admin_data_strategy_item = 0;
+    admin_data_sync_strategy_ui();
 }
 
 /* ============================================================================
@@ -2628,7 +2655,7 @@ static const ui_str_id_t g_data_strategy_str_ids[5];
 static int admin_data_upload_index_from_cb(lv_obj_t * cb);
 static void cb_admin_data_strategy_changed(lv_event_t * e);
 static void cb_admin_data_upload_switch_changed(lv_event_t * e);
-static void admin_data_open_strategy(void);
+static void admin_data_open_strategy(int item_idx);
 static void ui_idle_apply_dormancy_period(void);  //按 g_ui_dormancy_timeout_ms 刷新空闲定时器周期
 static const char * ui_dormancy_timeout_label(uint32_t ms);  //毫秒待机时长 → 界面显示文案（与待机 roller 选项一致）
 static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon);  //创建管理员菜单按钮（admin_button_box底+图标+文字）
@@ -8967,7 +8994,7 @@ static void admin_factory_run_restore(void)
     ui_data_upload_payment_order_set(false);
     ui_data_upload_user_op_set(false);
     ui_data_upload_device_set(true);
-    ui_data_upload_strategy_set(UI_DATA_STRATEGY_4G_ONLY);
+    ui_data_upload_strategy_reset_all(UI_DATA_STRATEGY_4G_ONLY);
 }
 
 /* 恢复默认子页：切换确认前 / 恢复中 / 完成 的控件可见性与状态文案 */
@@ -9652,7 +9679,7 @@ static void cb_admin_4g_result_click(lv_event_t * e)
 static void admin_4g_start_provisioning(void)
 {
     admin_4g_timer_stop();
-    g_ui_4g_connect_result = 0;//PC默认值，2秒后读取硬件反馈的值
+    g_ui_4g_connect_result = 1;//PC默认值，2秒后读取硬件反馈的值
     admin_4g_set_phase(ADMIN_4G_PHASE_PROVISIONING);
     g_admin_4g_timer = lv_timer_create(cb_admin_4g_timer, 2000, NULL);
     lv_timer_set_repeat_count(g_admin_4g_timer, 1);
@@ -9858,7 +9885,7 @@ static void cb_admin_wifi_result_click(lv_event_t * e)
 static void admin_wifi_start_provisioning(void)
 {
     admin_wifi_timer_stop();
-    g_ui_wifi_connect_result = 0;//PC默认值，2秒后读取硬件反馈的值
+    g_ui_wifi_connect_result = 1;//PC默认值，2秒后读取硬件反馈的值
     admin_wifi_set_phase(ADMIN_WIFI_PHASE_PROVISIONING);
     g_admin_wifi_timer = lv_timer_create(cb_admin_wifi_timer, 2000, NULL);
     lv_timer_set_repeat_count(g_admin_wifi_timer, 1);
@@ -10404,10 +10431,11 @@ static void admin_data_set_page(admin_data_page_t page)
     }
 }
 
-/* 数据设置页：按 g_ui_data_upload_strategy 刷新策略页互斥开关 */
+/* 数据设置页：按当前上传项已保存的策略刷新策略页互斥开关 */
 static void admin_data_sync_strategy_ui(void)
 {
     unsigned i;
+    ui_data_upload_strategy_t cur = ui_data_upload_strategy_get();
 
     g_admin_data_strategy_ui_loading = true;
     for(i = 0; i < 5; i++) {
@@ -10415,7 +10443,7 @@ static void admin_data_sync_strategy_ui(void)
         if(g_admin_lbl_data_strategy[i] != NULL) {
             lv_label_set_text(g_admin_lbl_data_strategy[i], ui_translation(g_data_strategy_str_ids[i]));
         }
-        if((ui_data_upload_strategy_t)i == g_ui_data_upload_strategy) {
+        if((ui_data_upload_strategy_t)i == cur) {
             lv_obj_add_state(g_admin_cb_data_strategy[i], LV_STATE_CHECKED);
         }
         else {
@@ -10446,9 +10474,11 @@ static int admin_data_strategy_index_from_cb(lv_obj_t * cb)
     return -1;
 }
 
-/* 数据设置页：打开策略页（无标题，仅 set_box + 5 项互斥开关） */
-static void admin_data_open_strategy(void)
+/* 数据设置页：打开指定上传项的策略页，并恢复该单项已保存的开关状态 */
+static void admin_data_open_strategy(int item_idx)
 {
+    if(item_idx < 0 || item_idx >= ADMIN_DATA_UPLOAD_COUNT) return;
+    g_admin_data_strategy_item = item_idx;
     admin_data_set_page(ADMIN_DATA_PAGE_STRATEGY);
     admin_data_sync_strategy_ui();
     if(g_group_admin != NULL) {
@@ -10457,7 +10487,7 @@ static void admin_data_open_strategy(void)
     admin_encoder_rebuild();
 }
 
-/* 数据设置页：策略项 VALUE_CHANGED 互斥回调（只允许一项开启） */
+/* 数据设置页：策略项 VALUE_CHANGED 互斥回调（只允许一项开启；写入当前上传项） */
 
 static void cb_admin_data_strategy_changed(lv_event_t * e)
 {
@@ -10480,7 +10510,7 @@ static void cb_admin_data_strategy_changed(lv_event_t * e)
             }
         }
     }
-    else if((ui_data_upload_strategy_t)idx == g_ui_data_upload_strategy) {
+    else if((ui_data_upload_strategy_t)idx == ui_data_upload_strategy_get()) {
         g_admin_data_strategy_ui_loading = true;
         lv_obj_add_state(cb, LV_STATE_CHECKED);
         g_admin_data_strategy_ui_loading = false;
@@ -10508,9 +10538,9 @@ static void cb_admin_data_upload_switch_changed(lv_event_t * e)
     case 6: ui_data_upload_device_set(on); break;
     default: break;
     }
-    /* 开关打开后跳转到策略页 */
+    /* 开关打开后跳转到该单项的策略页，并恢复该项已保存策略 */
     if(on) {
-        admin_data_open_strategy();
+        admin_data_open_strategy(idx);
     }
 }
 
