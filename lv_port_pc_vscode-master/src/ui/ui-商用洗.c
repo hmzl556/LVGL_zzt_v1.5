@@ -4180,8 +4180,11 @@ static void ui_idle_on_screen_changed(lv_obj_t * scr)
         lv_timer_pause(g_idle_timer);
         g_idle_last_ptr_x = -1;
         g_idle_last_ptr_y = -1;
+        /* 常亮页（含管理员）期间重置无操作计时，避免离开后立刻 FSM 熄屏 */
+        lv_display_trigger_activity(NULL);
     }
     else {
+        lv_display_trigger_activity(NULL);  /* 离开常亮页后重新起算待机时间 */
         ui_idle_reset();
     }
 }
@@ -7795,11 +7798,13 @@ static void ui_idle_apply_dormancy_period(void)
     ui_idle_reset();
 }
 
-/* 按管理员待机设置判断：无操作时长是否已到，应进入 FSM_OFF */
+/* 按管理员待机设置判断：无操作时长是否已到，应进入 FSM_OFF。
+ * 当前为常亮页（管理员/结束页/运行常亮等）时不熄屏。 */
 static bool ui_dormancy_inactive_should_off(void)
 {
 	if(g_ui_dormancy_no_sleep) return false;
 	if(g_ui_dormancy_timeout_ms == UI_DORMANCY_DISABLED_MS) return false;
+	if(ui_idle_screen_keeps_awake(lv_scr_act())) return false;
 	return lv_display_get_inactive_time(NULL) >= g_ui_dormancy_timeout_ms;
 }
 
