@@ -1815,7 +1815,6 @@ static void home_sync_program_labels(void);  //按当前选中程序刷新主页
 
 static ui_lang_t ui_lang_get(void);	//获取当前界面语言
 static void ui_lang_set(ui_lang_t lang);	//设置界面语言并刷新文案（与当前相同则不变）
-static void ui_lang_toggle(void);	//在中/英之间切换 g_ui_lang
 static const char * ui_translation(ui_str_id_t id);	//按当前语言取字符串；id 非法时返回空串
 static void ui_lang_bind_label(lv_obj_t * lbl, ui_str_id_t id);	//将 label 登记到绑定表，并立即设置对应语言的文案
 static void ui_lang_apply_all(void);	//切换语言后刷新：已绑定标签 + 轮播名 + 运行页程序名 + 主页底部参数
@@ -1824,7 +1823,6 @@ static void program_admin_refresh_i18n(void);	//程序设置页字段名与程�
 static void admin_refresh_visible_status_text(void);	//恢复出厂/升级/4G 等动态状态文案
 static void orange_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);	//橙色按钮内 label 绑定 i18n
 static void admin_prog_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);	//程序 Tab 按钮绑定 i18n
-static void cb_lang_toggle(lv_event_t * e);	//主页语言图标按钮点击：切换语言并全界面刷新文案
 static const char * ui_program_name_get(int32_t idx);	//按程序索引取显示名（大物/Heavy 等），idx 先取模到 0..4
 static int32_t wheel_mod_total(int32_t v);  //程序索引在 0..TOTAL_PROGRAMS-1 内循环取模
 
@@ -1832,12 +1830,6 @@ static int32_t wheel_mod_total(int32_t v);  //程序索引在 0..TOTAL_PROGRAMS-
 static ui_lang_t ui_lang_get(void)
 {
     return g_ui_lang;                                /* 返回全局语言状态 */
-}
-
-/* 在中/英之间切换 g_ui_lang */
-static void ui_lang_toggle(void)
-{
-    g_ui_lang = (g_ui_lang == UI_LANG_ZH) ? UI_LANG_EN : UI_LANG_ZH; /* 中文↔英文 */
 }
 
 /* 按当前语言取字符串；id 非法时返回空串 */
@@ -1879,14 +1871,6 @@ static void ui_lang_set(ui_lang_t lang)
     if(g_ui_lang == lang) return;
     g_ui_lang = lang;
     ui_lang_apply_all();
-}
-
-/* 主页语言图标按钮点击：切换语言并全界面刷新文案 */
-static void cb_lang_toggle(lv_event_t * e)
-{
-    (void)e;                                           /* 未使用事件参数 */
-    ui_lang_toggle();                                  /* 翻转中/英 */
-    ui_lang_apply_all();                               /* 刷新所有可翻译文字 */
 }
 
 /* 按程序索引取显示名（大物/Heavy 等），idx 先取模到 0..4 */
@@ -2688,7 +2672,6 @@ static lv_obj_t * g_mode_dots[TOTAL_PROGRAMS];
 static lv_obj_t * g_lbl_home_time;
 static lv_obj_t * g_lbl_home_temp;
 static lv_obj_t * g_lbl_home_pay;
-static lv_obj_t * g_btn_home_lang;
 static lv_obj_t * g_lbl_home_lang;
 static lv_obj_t * g_lbl_pay_price;
 static lv_obj_t * g_lbl_pay_hint;
@@ -4407,7 +4390,7 @@ static void cb_running_child_lock_released(lv_event_t * e)
 
 
 
-/* 构建主页：顶部栏、程序轮播、底部五列参数栏与语言切换 */
+/* 构建主页：顶部栏、程序轮播、底部五列参数栏与语言指示 */
 
 static void build_home(void)
 {
@@ -4429,13 +4412,6 @@ static void build_home(void)
 		g_home_btn_power = add_encoder_top_btn(top, "电源", 180, NULL); /* 固定中文：电源 */
 		lv_obj_add_event_cb(g_home_btn_power, cb_home_power_alarm_sim, LV_EVENT_CLICKED, NULL); /* PC：切换 E1 仿真 */
 		lv_obj_add_event_cb(g_home_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, g_scr_running);
-
-		/* --- 语言切换图标按钮（稍后挂到第 4 列图标行） --- */
-		LV_IMAGE_DECLARE(language);                        /* 声明语言图标资源 */
-		g_btn_home_lang = lv_imgbtn_create(root);          /* 创建可点击的语言 imgbtn */
-		lv_imgbtn_set_src(g_btn_home_lang, LV_IMGBTN_STATE_RELEASED, NULL, &language, NULL); /* 常态显示 language 图 */
-		lv_obj_remove_flag(g_btn_home_lang, LV_OBJ_FLAG_SCROLLABLE); /* 禁止滚动 */
-		lv_obj_add_event_cb(g_btn_home_lang, cb_lang_toggle, LV_EVENT_CLICKED, NULL); /* 点击切换中/英 */
 
 		/* --- 轮播区：5 张程序卡片，每张含图片 + 程序名 label --- */
 		lv_obj_t * mid = lv_obj_create(root);              /* 轮播区容器 */
@@ -4567,12 +4543,12 @@ static void build_home(void)
 		lv_obj_align(lbl_pay, LV_ALIGN_CENTER, bar_col3_x, 0);
 		home_sync_program_labels();                            /* 按 g_wheel_sel 写入时间/温度/价格 */
 
-		/* 第 4 列文字：语言指示，中文界面「China」/ 英文界面「English」（STR_LANG_INDICATOR） */
+		/* 第 4 列文字：语言指示，中文界面「China」/ 英文界面「English」（仅展示，切换在管理员语言设置） */
 		g_lbl_home_lang = lv_label_create(lbl_row);
 		lv_obj_set_style_text_color(g_lbl_home_lang, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 		ui_set_obj_font(g_lbl_home_lang, s_font_sc_35);
 		lv_obj_align(g_lbl_home_lang, LV_ALIGN_CENTER, bar_col4_x, 0);
-		ui_lang_bind_label(g_lbl_home_lang, STR_LANG_INDICATOR); /* 绑定 i18n，点击语言图标会刷新 */
+		ui_lang_bind_label(g_lbl_home_lang, STR_LANG_INDICATOR);
 
 		/* 第 5 列文字：管理员入口，固定英文「Login」，不参与语言表 */
 		lv_obj_t * lbl_manager = lv_label_create(lbl_row);
@@ -4614,6 +4590,7 @@ static void build_home(void)
 		LV_IMAGE_DECLARE(comm_time);
 		LV_IMAGE_DECLARE(temperature);
 		LV_IMAGE_DECLARE(pay);
+		LV_IMAGE_DECLARE(language);
 		LV_IMAGE_DECLARE(admin);
 
 		lv_obj_t * icon_row = lv_obj_create(bottom_panel);  //图标行（虚线下方）
@@ -4624,22 +4601,28 @@ static void build_home(void)
 		lv_obj_set_style_pad_all(icon_row, 0, LV_PART_MAIN);
 		lv_obj_set_style_layout(icon_row, LV_LAYOUT_NONE, LV_PART_MAIN);
 
+        /* 第 1 列：时间图标 */
 		lv_obj_t * img_time = lv_image_create(icon_row);
 		lv_image_set_src(img_time, &comm_time);
 		lv_obj_align(img_time, LV_ALIGN_TOP_MID, bar_col1_x, 0);
 
+        /* 第 2 列：温度图标 */
 		lv_obj_t * img_temperature = lv_image_create(icon_row);
 		lv_image_set_src(img_temperature, &temperature);
 		lv_obj_align(img_temperature, LV_ALIGN_TOP_MID, bar_col2_x, 0);
 
+        /* 第 3 列：金额图标 */
 		lv_obj_t * img_pay = lv_image_create(icon_row);
 		lv_image_set_src(img_pay, &pay);
 		lv_obj_align(img_pay, LV_ALIGN_TOP_MID, bar_col3_x, 0);
 
-		lv_obj_set_parent(g_btn_home_lang, icon_row);          /* 语言 imgbtn 移到第 4 列图标位 */
-		lv_obj_align(g_btn_home_lang, LV_ALIGN_TOP_MID, bar_col4_x, 0); /* 与上方 g_lbl_home_lang 对齐 */
+		/* 第 4 列：语言图标 */
+		lv_obj_t * img_lang = lv_image_create(icon_row);
+		lv_image_set_src(img_lang, &language);
+		lv_obj_align(img_lang, LV_ALIGN_TOP_MID, bar_col4_x, 0);
 
-		g_home_btn_admin = lv_imgbtn_create(icon_row);               /* 第 5 列：管理员入口 */
+        /* 第 5 列：管理员入口 */
+		g_home_btn_admin = lv_imgbtn_create(icon_row);
 		lv_imgbtn_set_src(g_home_btn_admin, LV_IMGBTN_STATE_RELEASED, NULL, &admin, NULL);
 		lv_obj_align(g_home_btn_admin, LV_ALIGN_TOP_MID, bar_col5_x, 0);
 		lv_obj_remove_flag(g_home_btn_admin, LV_OBJ_FLAG_SCROLLABLE);
