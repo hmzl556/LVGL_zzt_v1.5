@@ -103,7 +103,7 @@ typedef void (*ui_auto_dispense_changed_cb_t)(bool enabled);
 static bool g_ui_auto_dispense_enabled = true;
 static ui_auto_dispense_changed_cb_t s_auto_dispense_hw_cb;
 /* 自投功能两项开关/用量（须在 ui_auto_dispense_set 之前声明） */
-static bool g_admin_auto_softener_on = false;
+static bool g_admin_auto_softener_on = true;  /* 上电默认开启 */
 static bool g_admin_auto_detergent_on = true;
 static int g_admin_auto_softener_dose = 3;   /* 0少量 1中等 2多量 3自动 */
 static int g_admin_auto_detergent_dose = 3;
@@ -657,6 +657,58 @@ bool ui_4g_set(bool enabled)
 void ui_4g_sync_to_hw(void)
 {
     ui_4g_apply_hw(g_ui_4g_enabled);
+}
+
+/* ============================================================================
+ * WIFI 开关 — 状态维护（管理员 WIFI 设置页）
+ * ============================================================================ */
+
+typedef void (*ui_wifi_changed_cb_t)(bool enabled);
+
+static bool g_ui_wifi_enabled = false;  /* 上电默认关闭 */
+static ui_wifi_changed_cb_t s_wifi_hw_cb;
+
+static void admin_wifi_sync_switch_ui(void);  //WIFI 设置页：刷新开关与 ui_wifi_get 一致
+
+/* 通知已注册的硬件回调（未注册则无操作） */
+static void ui_wifi_apply_hw(bool enabled)
+{
+    if(s_wifi_hw_cb != NULL) {
+        s_wifi_hw_cb(enabled);
+    }
+}
+
+/* 注册 WIFI 开关状态变化回调；保存后立即以当前 enabled 调用一次 cb */
+void ui_wifi_hw_register(ui_wifi_changed_cb_t cb)
+{
+    s_wifi_hw_cb = cb;
+    if(cb != NULL) {
+        cb(g_ui_wifi_enabled);
+    }
+}
+
+/* 读取 WIFI 是否开启 */
+bool ui_wifi_get(void)
+{
+    return g_ui_wifi_enabled;
+}
+
+/* 设置 WIFI 开关；与当前相同返回 false；否则刷新 WIFI 页开关并通知硬件 */
+bool ui_wifi_set(bool enabled)
+{
+    if(enabled == g_ui_wifi_enabled) {
+        return false;
+    }
+    g_ui_wifi_enabled = enabled;
+    admin_wifi_sync_switch_ui();
+    ui_wifi_apply_hw(enabled);
+    return true;
+}
+
+/* 将当前 WIFI 开关状态再次推送给硬件（不修改 UI，用于通信重连等） */
+void ui_wifi_sync_to_hw(void)
+{
+    ui_wifi_apply_hw(g_ui_wifi_enabled);
 }
 
 /* ============================================================================
@@ -9009,7 +9061,8 @@ static void admin_factory_run_restore(void)
     ui_payment_alipay_set(true);
     ui_payment_wechat_set(true);
     ui_payment_timeout_sec_set(180);
-    ui_4g_set(false);
+    ui_4g_set(true);
+    ui_wifi_set(false);
     ui_data_upload_basic_set(true);
     ui_data_upload_sensor_set(true);
     ui_data_upload_fault_set(true);
@@ -9783,13 +9836,13 @@ static void admin_wifi_timer_stop(void)
     }
 }
 
-/* WIFI 设置页：按 ui_4g_get 刷新开关状态（WIFI 暂用同一底层 4G 开关） */
+/* WIFI 设置页：按 ui_wifi_get 刷新开关状态 */
 
 static void admin_wifi_sync_switch_ui(void)
 {
     if(g_admin_sw_wifi == NULL) return;
     g_admin_wifi_ui_loading = true;
-    if(ui_4g_get()) {
+    if(ui_wifi_get()) {
         lv_obj_add_state(g_admin_sw_wifi, LV_STATE_CHECKED);
     }
     else {
@@ -9898,7 +9951,7 @@ static void cb_admin_wifi_result_click(lv_event_t * e)
         return;
     }
     if(g_admin_wifi_phase == ADMIN_WIFI_PHASE_FAILURE) {
-        ui_4g_set(false);
+        ui_wifi_set(false);
         admin_wifi_ui_enter();
     }
 }
@@ -9927,12 +9980,12 @@ static void cb_admin_wifi_switch_changed(lv_event_t * e)
 
     if(on) {
         if(g_admin_wifi_phase == ADMIN_WIFI_PHASE_PROMPT) {
-            ui_4g_set(true);
+            ui_wifi_set(true);
             admin_wifi_start_provisioning();
         }
     }
     else {
-        ui_4g_set(false);
+        ui_wifi_set(false);
         if(g_admin_wifi_phase != ADMIN_WIFI_PHASE_PROMPT) {
             admin_wifi_timer_stop();
             admin_wifi_set_phase(ADMIN_WIFI_PHASE_PROMPT);
