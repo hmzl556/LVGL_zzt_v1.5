@@ -2893,16 +2893,20 @@ static cycle_session_t g_cycle_session;
 
 static ui_program_profile_t g_program_profiles[TOTAL_PROGRAMS];
 static ui_program_run_stages_t g_program_run_stages[TOTAL_PROGRAMS];
-static ui_program_admin_t g_prog_cfg[TOTAL_PROGRAMS];
+static ui_program_admin_t g_prog_cfg[TOTAL_PROGRAMS];          /* 程序设置编辑草稿 */
+static ui_program_admin_t g_prog_cfg_applied[TOTAL_PROGRAMS];  /* 已确认：主页/运行/MCU 唯一下发源 */
 static ui_program_admin_t g_prog_cfg_factory[TOTAL_PROGRAMS];
 
 static void program_admin_init_factory(void);  //写入表3.1 程序初值并同步到主页/运行页
 static void program_admin_apply_one(int32_t idx);  //将单程序 cfg 同步到主页/运行页参数表
 static void program_admin_apply_all(void);  //将全部程序 cfg 同步到主页/运行页
+static void program_admin_commit_applied(void);  //草稿 → 已确认快照
+static void program_admin_discard_drafts(void);  //丢弃未确认草稿，恢复已确认
+static void program_admin_fill_param_change(int32_t prog_idx);  //已确认 cfg → param_change[] 供 MCU
 static void program_admin_ui_save_fields(void);  //从程序设置 UI 控件写回 g_prog_cfg
 static void program_admin_ui_load_fields(void);  //将 g_prog_cfg 加载到程序设置 UI 控件
 static void program_admin_build_panel(lv_obj_t * root, lv_coord_t body_y, lv_coord_t body_h);  //构建程序设置子面板
-static void program_admin_back_to_menu1(void);  //离开程序设置 LIST：回 menu1
+static void program_admin_back_to_menu1(void);  //离开程序设置 LIST：丢弃草稿回 menu1
 static void program_admin_back_from_detail(void);  //DETAIL 返回 LIST（存草稿）
 static void program_admin_show_list(void);  //显示程序设置 LIST
 static void program_admin_show_detail(void);  //显示程序设置 DETAIL
@@ -2924,6 +2928,7 @@ static void carousel_size_cb(lv_event_t * e);  //轮播区尺寸变化时重新�
 static void carousel_update_card_images(void);  //按当前选中程序刷新 5 张可见卡片图与名称标签
 static lv_coord_t carousel_slot_center_x(int slot);  //计算槽位相对轮播中心的水平偏移
 static void carousel_wrap_relayout(void);  //轮播区整体布局：卡片位置/缩放/透明度与指示点
+static int32_t carousel_dot_preview_sel(void);  //拖动中指示点预览选中（不改 g_wheel_sel）
 static int32_t wheel_mod_total(int32_t v);  //程序索引在 0..TOTAL_PROGRAMS-1 内循环取模
 static void home_sync_encoder_focus_after_carousel_drag(void);  //触摸滑动改程序后对齐编码器焦点
 static void home_encoder_group_build(void);  //主页编码器：启停→电源→语言→管理员→轮播（不首尾循环）
@@ -3411,11 +3416,13 @@ static void carousel_wrap_relayout(void)  //重排轮播布局
 		lv_obj_move_foreground(g_mode_cards[CAROUSEL_CENTER_SLOT]);
 	}
 
+	/* 指示点随拖动预览高亮；正式选中仍是 g_wheel_sel（松手/编码器才改） */
+	const int32_t dot_sel = carousel_dot_preview_sel();
 	lv_coord_t dot_w[TOTAL_PROGRAMS];
 	lv_coord_t total_w = 0;
 	const lv_coord_t dot_gap = 8;
 	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-		dot_w[i] = (i == g_wheel_sel) ? 13 : 10;
+		dot_w[i] = (i == dot_sel) ? 13 : 10;
 		total_w += dot_w[i];
 		if(i < TOTAL_PROGRAMS - 1) total_w += dot_gap;
 	}
@@ -3429,9 +3436,16 @@ static void carousel_wrap_relayout(void)  //重排轮播布局
 
 		lv_obj_set_size(g_mode_dots[i], dot_w[i], dot_w[i]);
 		lv_obj_align(g_mode_dots[i], LV_ALIGN_CENTER, x_cursor + dot_w[i] / 2, 0);
-		lv_obj_set_style_bg_color(g_mode_dots[i], lv_color_hex((i == g_wheel_sel) ? COL_TEXT : COL_DIM), LV_PART_MAIN);
+		lv_obj_set_style_bg_color(g_mode_dots[i], lv_color_hex((i == dot_sel) ? COL_TEXT : COL_DIM), LV_PART_MAIN);
 		x_cursor += dot_w[i] + dot_gap;
 	}
+}
+
+/* 指示点预览选中：turn 负（左滑）→ 下一程序靠近中心 → 索引增大；不改 g_wheel_sel */
+static int32_t carousel_dot_preview_sel(void)
+{
+	int step = (int)(g_wheel_turn >= 0.f ? (g_wheel_turn + 0.5f) : (g_wheel_turn - 0.5f));
+	return wheel_mod_total(g_wheel_sel - step);
 }
 
 //程序索引在 0..TOTAL_PROGRAMS-1 范围内循环
@@ -4232,22 +4246,8 @@ static void ui_screen_load(lv_obj_t * scr)
 		ui_set_encoder_group(g_group_end);               /* 结束页 label 已在 build 时绑定 i18n */
 	}
 	else if(scr == g_scr_pay) {
-		param_change[0] = g_prog_cfg[g_wheel_sel].wash_min;
-		param_change[1] = g_prog_cfg[g_wheel_sel].rinse_min;
-		param_change[2] = g_prog_cfg[g_wheel_sel].rinse_cnt <= 0 ? 0 : g_prog_cfg[g_wheel_sel].rinse_cnt;
-		param_change[3] = g_prog_cfg[g_wheel_sel].temp_idx <= 0 ? 0 : g_prog_cfg[g_wheel_sel].temp_idx;
-		param_change[4] = g_prog_cfg[g_wheel_sel].spin_rpm;
-		param_change[5] = g_prog_cfg[g_wheel_sel].spin_min;
-		param_change[6] = g_prog_cfg[g_wheel_sel].water_level > 0 ?
-			(uint16_t)g_prog_cfg[g_wheel_sel].water_level : 0;
-		switch(g_wheel_sel) {
-			case 0: {param_change[7] = 3;break;}
-			case 1: {param_change[7] = 4;break;}
-			case 2: {param_change[7] = 2;break;}
-			case 3: {param_change[7] = 5;break;}
-			case 4: {param_change[7] = 1;break;}
-			default: {param_change[7] = 3;break;}
-		}
+		/* 仅下发已确认配置，避免程序设置未点确定的草稿进 MCU */
+		program_admin_fill_param_change(g_wheel_sel);
 		ui_set_encoder_group(g_group_pay);
 		pay_sync_price_label();                          /* 刷新 g_lbl_pay_price */
 		pay_sync_pay_ui();
@@ -4837,7 +4837,8 @@ static const ui_program_profile_t * program_profile_get(int32_t idx)  //获取�
 
 static void program_format_time_label(uint32_t sec, char * buf, size_t buf_sz)
 {
-	uint32_t min = (sec == 0u) ? 0u : (sec + 59u) / 60u;
+	/* 主页只显示整分钟；不足 1 分钟的秒数忽略（如筒自洁 3min+10s → 3min） */
+	uint32_t min = sec / 60u;
 	snprintf(buf, buf_sz, "%umin", (unsigned)min);
 }
 
@@ -6297,10 +6298,10 @@ static const char * program_admin_temp_str(int8_t idx)
 {
 	switch(idx) {
 	case 0: return "COLD";
-	case 1: return "30";
-	case 2: return "40";
-	case 3: return "60";
-	case 4: return "90";
+	case 1: return "30℃";
+	case 2: return "40℃";
+	case 3: return "60℃";
+	case 4: return "90℃";
 	default: return "--";
 	}
 }
@@ -6487,6 +6488,7 @@ static void program_admin_init_factory(void)
 	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
 		g_prog_cfg_factory[i] = factory[i];
 		g_prog_cfg[i] = factory[i];
+		g_prog_cfg_applied[i] = factory[i];
 	}
 	program_admin_apply_all();
 }
@@ -6515,6 +6517,51 @@ static void program_admin_apply_all(void)
 {
 	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
 		program_admin_apply_one(i);
+	}
+}
+
+/* 确定后：草稿落为已确认（主页/运行页/MCU 只认这份） */
+static void program_admin_commit_applied(void)
+{
+	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
+		g_prog_cfg_applied[i] = g_prog_cfg[i];
+	}
+}
+
+/* 离开程序设置未确定：丢弃草稿 */
+static void program_admin_discard_drafts(void)
+{
+	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
+		g_prog_cfg[i] = g_prog_cfg_applied[i];
+	}
+}
+
+/*
+ * 支付页 → MCU 参数表（读已确认 cfg）
+ * [0]洗时长 [1]漂时长 [2]漂次数 [3]温度档 [4]转速 [5]脱时长 [6]水位 [7]程序码
+ * 时间约定：洗/漂/脱下发「秒」（配置分钟 ×60）；筒自洁脱水(spin_is_sec)配置已是秒，不再 ×60。
+ * 无对应 cap 的项填 0。
+ */
+static void program_admin_fill_param_change(int32_t prog_idx)
+{
+	prog_idx = wheel_mod_total(prog_idx);
+	const ui_program_admin_t * c = &g_prog_cfg_applied[prog_idx];
+
+	param_change[0] = (c->cap & PROG_CAP_WASH) ? (c->wash_min * 60u) : 0;
+	param_change[1] = (c->cap & PROG_CAP_RINSE_DUR) ? (c->rinse_min * 60u) : 0;
+	param_change[2] = ((c->cap & PROG_CAP_RINSE_CNT) && c->rinse_cnt > 0) ? c->rinse_cnt : 0;
+	param_change[3] = ((c->cap & PROG_CAP_TEMP) && c->temp_idx >= 0) ? c->temp_idx : 0;
+	param_change[4] = (c->cap & PROG_CAP_SPIN_RPM) ? (c->spin_rpm < 0 ? 0 : c->spin_rpm) : 0;
+	param_change[5] = (c->cap & PROG_CAP_SPIN_DUR) ? (c->spin_is_sec ? c->spin_min : (uint16_t)(c->spin_min * 60u)) : 0;
+	param_change[6] = ((c->cap & PROG_CAP_WATER) && c->water_level > 0) ? c->water_level : 0;
+
+	switch(prog_idx) {
+        case 0: param_change[7] = 3; break; // 大物
+        case 1: param_change[7] = 4; break; // 单脱水
+        case 2: param_change[7] = 2; break; // 标准洗
+        case 3: param_change[7] = 5; break; // 筒自洁
+        case 4: param_change[7] = 1; break; // 快洗
+        default: param_change[7] = 2; break;// 默认标准洗
 	}
 }
 
@@ -6694,10 +6741,16 @@ static void program_admin_roller_sel_to_cfg(ui_program_admin_t * c, prog_param_i
 
 static void program_admin_format_total_hm(uint32_t sec, char * buf, size_t buf_sz)
 {
-	/* 显示为 小时:分钟（前两位小时，后两位数分钟） */
-	uint32_t h = sec / 3600u;
-	uint32_t m = (sec % 3600u) / 60u;
-	lv_snprintf(buf, buf_sz, "%02u:%02u", (unsigned)h, (unsigned)m);
+	/* 整分钟：HH:MM（如 00:35）；含秒余数（筒自洁 3min+10s）：MM:SS（03:10） */
+	if((sec % 60u) != 0u) {
+		uint32_t m = sec / 60u;
+		uint32_t s = sec % 60u;
+		lv_snprintf(buf, buf_sz, "%02u:%02u", (unsigned)m, (unsigned)s);
+	} else {
+		uint32_t h = sec / 3600u;
+		uint32_t m = (sec % 3600u) / 60u;
+		lv_snprintf(buf, buf_sz, "%02u:%02u", (unsigned)h, (unsigned)m);
+	}
 }
 
 /* DETAIL 参数列：主词/单位位置（改这里，build 与 load 共用）
@@ -6932,6 +6985,7 @@ static void cb_admin_prog_confirm(lv_event_t * e)
 	(void)e;
 	program_admin_ui_save_fields();
 	program_admin_apply_all();
+	program_admin_commit_applied();
 	home_sync_program_labels();
 	pay_sync_price_label();
 	program_admin_show_list();
@@ -6946,6 +7000,8 @@ static void cb_admin_open_program_settings(lv_event_t * e)
 
 static void program_admin_back_to_menu1(void)
 {
+	/* 未点确定：草稿作废，避免脏数据进主页/MCU */
+	program_admin_discard_drafts();
 	if(g_group_admin != NULL) {
 		lv_group_set_editing(g_group_admin, false);
 	}
@@ -7701,6 +7757,8 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
+        /* 进入时从已确认快照开始编辑，避免上次未确定的草稿残留 */
+        program_admin_discard_drafts();
         program_admin_show_list();
     }
     else if(view == SCREEN_BRIGHTNESS && g_admin_panel_brightness != NULL) {
@@ -9313,7 +9371,7 @@ static void cb_admin_open_cycle(lv_event_t * e)
     selfcheck_timer_stop_all();
     cycle_ui_reset();
     for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-        g_cycle_cfg[i] = g_prog_cfg[i];
+        g_cycle_cfg[i] = g_prog_cfg_applied[i];
     }
     g_cycle_active = true;
     g_cycle_ui_state = CYCLE_UI_SETUP;
@@ -15087,7 +15145,9 @@ static void cycle_session_apply_to_running(void)
 {
 	g_wheel_sel = g_cycle_session.prog_idx;
 	g_prog_cfg[g_wheel_sel] = g_cycle_session.cfg;
+	g_prog_cfg_applied[g_wheel_sel] = g_cycle_session.cfg;
 	program_admin_apply_one(g_wheel_sel);
+	home_sync_program_labels();
 }
 
 static void cycle_session_snapshot_from_ui(void)

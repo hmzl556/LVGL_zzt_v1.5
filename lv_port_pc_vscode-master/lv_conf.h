@@ -857,7 +857,7 @@
     #define LV_THEME_DEFAULT_DARK 0
 
     /** 1: Enable grow on press */
-    #define LV_THEME_DEFAULT_GROW 1
+    #define LV_THEME_DEFAULT_GROW 0     // 按下按钮不放大
 
     /** Default transition time in ms. */
     #define LV_THEME_DEFAULT_TRANSITION_TIME 80
