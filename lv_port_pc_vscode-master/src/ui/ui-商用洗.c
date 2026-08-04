@@ -1359,7 +1359,8 @@ typedef enum {
     STR_COUNT
 } ui_str_id_t;
 
-#define UI_LANG_BIND_MAX  128u
+/* 语言绑定表容量：报警 E1~E15 每页约 6 条 + 管理员各子页标题/按钮/说明，128 会在 menu2 之后溢出导致英文不刷新 */
+#define UI_LANG_BIND_MAX  512u
 
 typedef struct {
     lv_obj_t * lbl;
@@ -10887,7 +10888,7 @@ static void build_admin(void)
 
     /* 标题：管理员设置 */
     lv_obj_t * lbl_admin_title = lv_label_create(g_admin_panel_pwd);
-    lv_label_set_text(lbl_admin_title, "管理员设置");
+    ui_lang_bind_label(lbl_admin_title, STR_ADMIN_MENU_TITLE);
     lv_obj_set_style_text_color(lbl_admin_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(lbl_admin_title, s_font_sc_30);
     lv_obj_align(lbl_admin_title, LV_ALIGN_TOP_MID, 0, 10);
@@ -10900,7 +10901,7 @@ static void build_admin(void)
     /* 提示文字 */
     lv_obj_t * lbl_serial_title = lv_label_create(g_admin_panel_pwd);
     g_admin_lbl_serial_title = lbl_serial_title;
-    lv_label_set_text(lbl_serial_title, "请输入特殊出厂序列号");
+    ui_lang_bind_label(lbl_serial_title, STR_VENDOR_SERIAL_HINT);
     lv_obj_set_style_text_color(lbl_serial_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
     ui_set_obj_font(lbl_serial_title, s_font_sc_40);
     lv_obj_align(lbl_serial_title, LV_ALIGN_TOP_MID, 0, 170);
