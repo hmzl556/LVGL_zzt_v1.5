@@ -4643,12 +4643,13 @@ static void build_home(void)
 		lv_obj_align(g_lbl_home_lang, LV_ALIGN_CENTER, bar_col4_x, 0);
 		ui_lang_bind_label(g_lbl_home_lang, STR_LANG_INDICATOR);
 
-		/* 第 5 列文字：管理员入口，固定英文「Login」，不参与语言表 */
+        /* 第 5 列文字：管理员入口，固定英文「Login」，不参与语言表 */
 		lv_obj_t * lbl_manager = lv_label_create(lbl_row);
 		lv_label_set_text(lbl_manager, "Login");               /* 固定文案 */
 		lv_obj_set_style_text_color(lbl_manager, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 		ui_set_obj_font(lbl_manager, s_font_sc_35);
 		lv_obj_align(lbl_manager, LV_ALIGN_CENTER, bar_col5_x, 0);
+		lv_obj_clear_flag(lbl_manager, LV_OBJ_FLAG_CLICKABLE); /* 点击由下方扩大热区承接 */
 
 		const int sep_w_pct = 100;             /* 虚线宽度占 bottom_panel 百分比 */
 		const lv_coord_t sep_stroke_w = 4;     /* 线粗 */
@@ -4714,12 +4715,28 @@ static void build_home(void)
 		lv_image_set_src(img_lang, &language);
 		lv_obj_align(img_lang, LV_ALIGN_TOP_MID, bar_col4_x, 0);
 
-        /* 第 5 列：管理员入口 */
+        /* 第 5 列：管理员入口图标（视觉）；触摸由 bottom_panel 扩大热区承接 */
 		g_home_btn_admin = lv_imgbtn_create(icon_row);
 		lv_imgbtn_set_src(g_home_btn_admin, LV_IMGBTN_STATE_RELEASED, NULL, &admin, NULL);
 		lv_obj_align(g_home_btn_admin, LV_ALIGN_TOP_MID, bar_col5_x, 0);
 		lv_obj_remove_flag(g_home_btn_admin, LV_OBJ_FLAG_SCROLLABLE);
-		lv_obj_add_event_cb(g_home_btn_admin, cb_load_admin, LV_EVENT_CLICKED, NULL);
+		lv_obj_clear_flag(g_home_btn_admin, LV_OBJ_FLAG_CLICKABLE);
+
+		/* 管理员入口扩大热区：覆盖 Login 文案 + 图标整列（约右下角一角，对齐示意红框） */
+		{
+			const lv_coord_t admin_hit_w = 280; /* 约 18% 屏宽，含 Login/图标左右留白 */
+			lv_obj_t * admin_hit = lv_obj_create(bottom_panel);
+			lv_obj_set_size(admin_hit, admin_hit_w, LV_PCT(100));
+			lv_obj_align(admin_hit, LV_ALIGN_RIGHT_MID, 0, 0);
+			lv_obj_set_style_bg_opa(admin_hit, LV_OPA_TRANSP, LV_PART_MAIN);
+			lv_obj_set_style_border_width(admin_hit, 0, LV_PART_MAIN);
+			lv_obj_set_style_pad_all(admin_hit, 0, LV_PART_MAIN);
+			lv_obj_set_style_radius(admin_hit, 0, LV_PART_MAIN);
+			lv_obj_remove_flag(admin_hit, LV_OBJ_FLAG_SCROLLABLE);
+			lv_obj_add_flag(admin_hit, LV_OBJ_FLAG_CLICKABLE);
+			lv_obj_add_event_cb(admin_hit, cb_load_admin, LV_EVENT_CLICKED, NULL);
+			lv_obj_move_foreground(admin_hit);
+		}
 
 		home_encoder_group_build();
 }
