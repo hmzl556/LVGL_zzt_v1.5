@@ -672,13 +672,14 @@ void ui_4g_sync_to_hw(void)
  *   extern bool ui_screen_run_always_on_set(bool enabled);
  *   extern void ui_screen_run_always_on_sync_to_hw(void);
  *
- * enabled == true  ：用户选择「运行过程中屏幕常亮」（管理员页开关 ON）
- * enabled == false ：用户选择关闭常亮（管理员页开关 OFF、上电默认、恢复出厂默认）
+ * enabled == true  ：用户选择「运行过程中屏幕常亮」（管理员页开关 ON、上电默认、恢复出厂默认）
+ * enabled == false ：用户选择关闭常亮（管理员页开关 OFF）
  *
  * 【本期 UI 行为】
  *   - 开关可切换并刷新样式，维护 g_ui_screen_run_always_on 状态
- *   - **暂不接入** ui_idle_screen_keeps_awake()，不改变运行页/熄屏/待机逻辑
- *   - 后续若需「关开关后运行中无操作可熄屏」，再在 ui_idle_screen_keeps_awake 中读取本接口
+ *   - 已接入 ui_idle_screen_keeps_awake()：
+ *       ON  → 洗涤运行页常亮，不允许空闲进待机
+ *       OFF → 洗涤运行页也可按待机时间进入待机页
  *
  * 【职责划分】
  *   - UI：维护显示与用户选择；变更时调用 ui_screen_run_always_on_set。
@@ -699,18 +700,19 @@ void ui_4g_sync_to_hw(void)
  *       ui_init();
  *   }
  *
- * 【用户点开关】UI 内部 → ui_screen_run_always_on_set → 刷新 lv_switch → cb(enabled)。
- * 【恢复出厂】admin 恢复默认 → ui_screen_run_always_on_set(false) → cb(false)。
+ * 【用户点开关】UI 内部 → ui_screen_run_always_on_set → 刷新 lv_switch → cb(enabled) → 刷新空闲计时。
+ * 【恢复出厂】admin 恢复默认 → ui_screen_run_always_on_set(true) → cb(true)。
  * 【只读】if(ui_screen_run_always_on_get()) { ... }
  * 【通信重连】ui_screen_run_always_on_sync_to_hw() 再推送当前状态，不改动 UI。
  * ============================================================================ */
 
 typedef void (*ui_screen_run_always_on_changed_cb_t)(bool enabled);
 
-static bool g_ui_screen_run_always_on = false;  /* 上电默认关闭 */
+static bool g_ui_screen_run_always_on = true;  /* 上电默认开启：运行页常亮 */
 static ui_screen_run_always_on_changed_cb_t s_screen_run_always_on_hw_cb;
 
 static void admin_brightness_sync_switch_ui(void);  //屏幕亮度页：刷新常亮开关样式
+static void ui_idle_on_screen_changed(lv_obj_t * scr);  //常亮开关变更时立即刷新空闲计时
 
 /* 通知已注册的运行常亮硬件回调（未注册则无操作） */
 static void ui_screen_run_always_on_apply_hw(bool enabled)
@@ -735,7 +737,7 @@ bool ui_screen_run_always_on_get(void)
     return g_ui_screen_run_always_on;
 }
 
-/* 设置运行常亮开关；与当前相同返回 false；否则刷新管理员页开关并通知硬件 */
+/* 设置运行常亮开关；与当前相同返回 false；否则刷新管理员页开关、空闲计时并通知硬件 */
 bool ui_screen_run_always_on_set(bool enabled)
 {
     if(enabled == g_ui_screen_run_always_on) {
@@ -744,6 +746,7 @@ bool ui_screen_run_always_on_set(bool enabled)
     g_ui_screen_run_always_on = enabled;
     admin_brightness_sync_switch_ui();
     ui_screen_run_always_on_apply_hw(enabled);
+    ui_idle_on_screen_changed(lv_scr_act());
     return true;
 }
 
@@ -4141,14 +4144,20 @@ static void ui_screen_load(lv_obj_t * scr)
 	ui_idle_on_screen_changed(scr);                    /* 待机页暂停空闲计时 */
 }
 
-/* 当前屏幕不进入空闲待机（待机页、运行页、洗涤完成页、报警弹层可见、管理员页常亮） */
+/* 当前屏幕不进入空闲待机：
+ * 待机页/完成页/管理员页/报警弹层常亮；
+ * 运行页仅在「运行常亮」开关开启时常亮，关闭后可按待机时间进待机页 */
 static bool ui_alarm_overlay_is_visible(void);  //前向声明：报警弹层是否正在显示
 
 static bool ui_idle_screen_keeps_awake(lv_obj_t * scr)
 {
 	if(scr == NULL) return false;
 	if(ui_alarm_overlay_is_visible()) return true;     //报警弹层可见时保持常亮
-	return scr == g_scr_off || scr == g_scr_running || scr == g_scr_end || scr == g_scr_admin;
+	if(scr == g_scr_off || scr == g_scr_end || scr == g_scr_admin) return true;
+	if(scr == g_scr_running) {
+		return ui_screen_run_always_on_get();           //开=运行常亮；关=允许空闲待机
+	}
+	return false;
 }
 
 //重置空闲计时（有输入时调用）
@@ -7786,6 +7795,14 @@ static void ui_idle_apply_dormancy_period(void)
     ui_idle_reset();
 }
 
+/* 按管理员待机设置判断：无操作时长是否已到，应进入 FSM_OFF */
+static bool ui_dormancy_inactive_should_off(void)
+{
+	if(g_ui_dormancy_no_sleep) return false;
+	if(g_ui_dormancy_timeout_ms == UI_DORMANCY_DISABLED_MS) return false;
+	return lv_display_get_inactive_time(NULL) >= g_ui_dormancy_timeout_ms;
+}
+
 static void admin_prog_roller_exit_edit(lv_obj_t * roller)
 {
     if(g_group_admin == NULL || roller == NULL) return;
@@ -8974,7 +8991,7 @@ static void admin_factory_run_restore(void)
     ui_auto_dispense_set(true);
     ui_ozone_set(true);
     ui_fresh_air_care_set(true);
-    ui_screen_run_always_on_set(false);
+    ui_screen_run_always_on_set(true);
     ui_screen_brightness_set(100);
     ui_touch_sound_set(true);
     ui_voice_broadcast_set(true);
@@ -15090,8 +15107,6 @@ void ui_init(void)
 
 void task_lvgl(void *pvParameters)
 {
-	uint32_t inactive_time = 0;
-
 	while (1) {
 		uint32_t delay_ms = lv_timer_handler();
 		scr_load_async();
@@ -15102,8 +15117,7 @@ void task_lvgl(void *pvParameters)
 			delay_ms = LV_DEF_REFR_PERIOD;
 		}
 
-		inactive_time = lv_display_get_inactive_time(NULL);
-		if(inactive_time >= 300000 && fsm.state == FSM_STANDBY) {
+		if(ui_dormancy_inactive_should_off() && fsm.state == FSM_STANDBY) {
 			fsm_state_change(FSM_OFF);
 		}
 
@@ -15137,7 +15151,7 @@ void ui_tick(void)
 	ui_fsm_poll_running_pause_sync();
 	ui_alarm_poll();                                     //报警弹层轮播与显隐
 
-	if(lv_display_get_inactive_time(NULL) >= 300000 && fsm.state == FSM_STANDBY) {
+	if(ui_dormancy_inactive_should_off() && fsm.state == FSM_STANDBY) {
 		fsm_state_change(FSM_OFF);
 	}
 }
