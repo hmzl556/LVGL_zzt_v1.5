@@ -1229,6 +1229,18 @@ typedef enum {
     STR_PROG_FIELD_TEMP,
     STR_PROG_FIELD_WATER,
     STR_PROG_WATER_SMART,
+    STR_PROG_WORD_WASH,
+    STR_PROG_WORD_RINSE,
+    STR_PROG_WORD_TEMP,
+    STR_PROG_WORD_RPM,
+    STR_PROG_WORD_WATER,
+    STR_PROG_WORD_PRICE,
+    STR_PROG_WORD_SPIN,
+    STR_PROG_UNIT_MIN,
+    STR_PROG_UNIT_CNT,
+    STR_PROG_UNIT_DEG,
+    STR_PROG_UNIT_RPM,
+    STR_PROG_UNIT_SEC,
     STR_BRIGHTNESS_LINE1,
     STR_BRIGHTNESS_LINE2,
     STR_SOUND_TOUCH,
@@ -1463,6 +1475,18 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_FIELD_TEMP]        = "水温",
         [STR_PROG_FIELD_WATER]       = "水位",
         [STR_PROG_WATER_SMART]       = "智能设定",
+        [STR_PROG_WORD_WASH]         = "洗涤",
+        [STR_PROG_WORD_RINSE]        = "漂洗",
+        [STR_PROG_WORD_TEMP]         = "温度",
+        [STR_PROG_WORD_RPM]          = "转速",
+        [STR_PROG_WORD_WATER]        = "水位",
+        [STR_PROG_WORD_PRICE]        = "金额",
+        [STR_PROG_WORD_SPIN]         = "脱水",
+        [STR_PROG_UNIT_MIN]          = "分",
+        [STR_PROG_UNIT_CNT]          = "次",
+        [STR_PROG_UNIT_DEG]          = "度",
+        [STR_PROG_UNIT_RPM]          = "转",
+        [STR_PROG_UNIT_SEC]          = "秒",
         [STR_BRIGHTNESS_LINE1]       = "运行过程中屏幕处于常亮状态，如若关闭此功能，则在运行过程中无操作自动熄灭屏幕",
         [STR_BRIGHTNESS_LINE2]       = "",
         [STR_SOUND_TOUCH]            = "触控声音",
@@ -1679,6 +1703,18 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_PROG_FIELD_TEMP]        = "Temperature",
         [STR_PROG_FIELD_WATER]       = "Water Level",
         [STR_PROG_WATER_SMART]       = "Smart",
+        [STR_PROG_WORD_WASH]         = "Wash",
+        [STR_PROG_WORD_RINSE]        = "Rinse",
+        [STR_PROG_WORD_TEMP]         = "Temp",
+        [STR_PROG_WORD_RPM]          = "Speed",
+        [STR_PROG_WORD_WATER]        = "Level",
+        [STR_PROG_WORD_PRICE]        = "Price",
+        [STR_PROG_WORD_SPIN]         = "Spin",
+        [STR_PROG_UNIT_MIN]          = "min",
+        [STR_PROG_UNIT_CNT]          = "x",
+        [STR_PROG_UNIT_DEG]          = "C",
+        [STR_PROG_UNIT_RPM]          = "rpm",
+        [STR_PROG_UNIT_SEC]          = "s",
         [STR_BRIGHTNESS_LINE1]       = "Screen stays on during operation. If disabled, the screen turns off after inactivity while running",
         [STR_BRIGHTNESS_LINE2]       = "",
         [STR_SOUND_TOUCH]            = "Touch Sound",
@@ -2350,21 +2386,31 @@ static lv_timer_t * g_admin_factory_timer;
 static admin_system_upgrade_phase_t g_admin_system_upgrade_phase = ADMIN_SYSTEM_UPGRADE_PHASE_PROMPT;
 static lv_timer_t * g_admin_system_upgrade_timer;
 static lv_obj_t * g_admin_prog_btns[TOTAL_PROGRAMS];
-static lv_obj_t * g_admin_prog_ta[4];           /* 金额/洗涤/漂洗/脱水时长 */
-static lv_obj_t * g_admin_prog_roller[3];       /* 漂洗次数/转速/水温 */
-static lv_obj_t * g_admin_prog_field_box[8];      /* 8 列统一白底外框 */
-static lv_obj_t * g_admin_prog_water_lbl;         /* 水位只读文字 */
-static lv_obj_t * g_admin_prog_dash[8];         /* 不可用参数显示 -- */
+static lv_obj_t * g_admin_prog_btn_lbls[TOTAL_PROGRAMS]; /* LIST 程序名叠字 */
+static lv_obj_t * g_admin_prog_list;                   /* LIST 子页 */
+static lv_obj_t * g_admin_prog_detail;                 /* DETAIL 子页 */
+static lv_obj_t * g_admin_img_prog_title_box;
+static lv_obj_t * g_admin_lbl_prog_title;
+static lv_obj_t * g_admin_prog_left_bg;
+static lv_obj_t * g_admin_prog_left_icon;
+static lv_obj_t * g_admin_prog_left_name;
+static lv_obj_t * g_admin_prog_total_val_lbl;          /* DETAIL 左侧总时长 */
 static lv_obj_t * g_admin_btn_prog_reset;
 static lv_obj_t * g_admin_btn_prog_confirm;
+#define PROG_ADMIN_SLOT_MAX 5
+static lv_obj_t * g_admin_prog_slot[PROG_ADMIN_SLOT_MAX];
+static lv_obj_t * g_admin_prog_up[PROG_ADMIN_SLOT_MAX];
+static lv_obj_t * g_admin_prog_down[PROG_ADMIN_SLOT_MAX];
+static lv_obj_t * g_admin_prog_roller[PROG_ADMIN_SLOT_MAX];
+static lv_obj_t * g_admin_prog_word_lbl[PROG_ADMIN_SLOT_MAX];
+static lv_obj_t * g_admin_prog_unit_lbl[PROG_ADMIN_SLOT_MAX];
 static int32_t g_admin_prog_sel;
-static lv_obj_t * g_admin_prog_field_lbl[8];       /* 程序设置 8 参数字段名 */
-static lv_obj_t * g_admin_prog_total_val_lbl;     /* 上栏左侧：当前程序总时长（同主页底部） */
+static int32_t g_admin_prog_param_page;               /* 0/1：8 项程序翻页 */
+static bool g_admin_prog_is_detail;                   /* false=LIST true=DETAIL */
+static bool g_admin_prog_ui_loading;                  /* load_fields 期间禁止 save */
 static lv_style_t s_admin_prog_btn_style;
 static lv_style_t s_admin_prog_btn_sel_style;
 static bool s_admin_prog_btn_style_inited;
-static lv_obj_t * g_admin_ta_prog_active;       /* 程序设置页当前绑定的键盘输入框 */
-static bool g_admin_prog_ui_loading;            /* load_fields 期间禁止 save，避免覆盖各程序默认值 */
 static admin_view_t g_admin_view = PASSWORD;
 static bool g_admin_unlocked;
 static uint32_t g_machine_id = 1u;             /* 默认机器 ID，界面显示 000001 */
@@ -2601,7 +2647,6 @@ static void cb_admin_data_upload_switch_changed(lv_event_t * e);
 static void admin_data_open_strategy(void);
 static void ui_idle_apply_dormancy_period(void);  //按 g_ui_dormancy_timeout_ms 刷新空闲定时器周期
 static const char * ui_dormancy_timeout_label(uint32_t ms);  //毫秒待机时长 → 界面显示文案（与待机 roller 选项一致）
-static void cb_admin_prog_roller_encoder(lv_event_t * e);  //程序设置 roller 编码器短按切换编辑/导航
 static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon);  //创建管理员菜单按钮（admin_button_box底+图标+文字）
 static lv_obj_t * admin_menu_btn_get_label(lv_obj_t * btn);  //管理员菜单按钮内文字 label
 static void admin_menu_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);  //菜单按钮 label 绑定 i18n
@@ -2767,6 +2812,14 @@ LV_IMAGE_DECLARE(bright_logo);
 LV_IMAGE_DECLARE(touch_sound_logo);
 LV_IMAGE_DECLARE(sound_logo);
 LV_IMAGE_DECLARE(time_set_box);
+LV_IMAGE_DECLARE(dawu_set);
+LV_IMAGE_DECLARE(dntuoshui_set);
+LV_IMAGE_DECLARE(biaozhunxi_set);
+LV_IMAGE_DECLARE(tongzijie_set);
+LV_IMAGE_DECLARE(kuaixi_set);
+LV_IMAGE_DECLARE(progrm_background);
+LV_IMAGE_DECLARE(up_key);
+LV_IMAGE_DECLARE(down_key);
 LV_IMAGE_DECLARE(softener_logo);
 LV_IMAGE_DECLARE(detergent_logo);
 LV_IMAGE_DECLARE(auto_put_btn_box);
@@ -2818,11 +2871,12 @@ typedef struct {
     int32_t price;          /* 程序金额（元）；-1 表示 -- */
     uint16_t wash_min;      /* 单次洗涤时长（分钟）；无洗涤时忽略 */
     uint16_t rinse_min;     /* 单次漂洗时长（分钟） */
-    uint16_t spin_min;      /* 脱水时长（分钟） */
-    int8_t rinse_cnt;       /* 漂洗次数 0~4；-1 表示 -- */
+    uint16_t spin_min;      /* 脱水时长：分钟，或秒（spin_is_sec） */
+    int8_t rinse_cnt;       /* 漂洗次数 1~4；-1 表示 -- */
     int16_t spin_rpm;       /* 脱水转速；-1 表示 -- */
     int8_t temp_idx;        /* 0=COLD 1=30℃ … 4=90℃；-1 表示 -- */
-    bool water_smart;       /* true 显示「智能设定」 */
+    int8_t water_level;     /* 水位 2/3/4；-1 不可用 */
+    bool spin_is_sec;       /* true：spin_min 存秒（筒自洁） */
     uint16_t cap;           /* 各参数是否可用（见 PROG_CAP_*） */
 } ui_program_admin_t;
 
@@ -2847,12 +2901,13 @@ static void program_admin_apply_one(int32_t idx);  //将单程序 cfg 同步到�
 static void program_admin_apply_all(void);  //将全部程序 cfg 同步到主页/运行页
 static void program_admin_ui_save_fields(void);  //从程序设置 UI 控件写回 g_prog_cfg
 static void program_admin_ui_load_fields(void);  //将 g_prog_cfg 加载到程序设置 UI 控件
-static void program_admin_ui_apply_caps(void);  //按 cap 显示/隐藏程序设置各参数字段
 static void program_admin_build_panel(lv_obj_t * root, lv_coord_t body_y, lv_coord_t body_h);  //构建程序设置子面板
-static void program_admin_back_to_menu1(void);  //离开程序设置：保存并回 menu1
-static void program_admin_sync_prog_pick_ui(void);  //刷新程序选择上栏按钮选中样式
-static void program_admin_update_total_display(void);  //刷新程序设置上栏总时长显示
-static lv_obj_t * make_admin_prog_btn(lv_obj_t * parent, const char * txt);  //创建程序设置上栏程序按钮
+static void program_admin_back_to_menu1(void);  //离开程序设置 LIST：回 menu1
+static void program_admin_back_from_detail(void);  //DETAIL 返回 LIST（存草稿）
+static void program_admin_show_list(void);  //显示程序设置 LIST
+static void program_admin_show_detail(void);  //显示程序设置 DETAIL
+static void program_admin_update_total_display(void);  //刷新 DETAIL 总时长
+static lv_obj_t * make_admin_prog_btn(lv_obj_t * parent, const char * txt);  //创建程序按钮（周期测试复用）
 
 /* ========== ui.c 功能函数前向声明 ========== */
 static void ui_send_beep_seq(int32_t seq);  //向蜂鸣器任务发送音效序号（RTOS 队列；PC 仿真为空实现）
@@ -4002,23 +4057,12 @@ static void admin_kb_close(void)
 {
 	if(g_admin_kb == NULL || !admin_kb_is_visible()) return;
 
-	if(g_admin_view == PROGRAM_SETTINGS) {
-		program_admin_ui_save_fields();
-		g_admin_ta_prog_active = NULL;
-	}
-
 	g_admin_kb_ta = NULL;
 	lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
 
 	if(g_group_admin != NULL) {
 		lv_group_set_editing(g_group_admin, false);
-		if(g_admin_view == PROGRAM_SETTINGS) {
-			if(g_admin_prog_sel >= 0 && g_admin_prog_sel < TOTAL_PROGRAMS &&
-			   g_admin_prog_btns[g_admin_prog_sel] != NULL) {
-				lv_group_focus_obj(g_admin_prog_btns[g_admin_prog_sel]);
-			}
-		}
-		else if(g_admin_view == PASSWORD && g_admin_ta_pwd != NULL) {
+		if(g_admin_view == PASSWORD && g_admin_ta_pwd != NULL) {
 			lv_group_focus_obj(g_admin_ta_pwd);
 		}
 		else if(g_admin_view == MACHINE_ID && g_admin_ta_machine_id != NULL) {
@@ -4194,7 +4238,8 @@ static void ui_screen_load(lv_obj_t * scr)
 		param_change[3] = g_prog_cfg[g_wheel_sel].temp_idx <= 0 ? 0 : g_prog_cfg[g_wheel_sel].temp_idx;
 		param_change[4] = g_prog_cfg[g_wheel_sel].spin_rpm;
 		param_change[5] = g_prog_cfg[g_wheel_sel].spin_min;
-		param_change[6] = g_prog_cfg[g_wheel_sel].water_smart ? prog_table_comm[g_wheel_sel][6] : 0;
+		param_change[6] = g_prog_cfg[g_wheel_sel].water_level > 0 ?
+			(uint16_t)g_prog_cfg[g_wheel_sel].water_level : 0;
 		switch(g_wheel_sel) {
 			case 0: {param_change[7] = 3;break;}
 			case 1: {param_change[7] = 4;break;}
@@ -6252,10 +6297,10 @@ static const char * program_admin_temp_str(int8_t idx)
 {
 	switch(idx) {
 	case 0: return "COLD";
-	case 1: return "30℃";
-	case 2: return "40℃";
-	case 3: return "60℃";
-	case 4: return "90℃";
+	case 1: return "30";
+	case 2: return "40";
+	case 3: return "60";
+	case 4: return "90";
 	default: return "--";
 	}
 }
@@ -6263,18 +6308,15 @@ static const char * program_admin_temp_str(int8_t idx)
 static int program_admin_spin_rpm_to_roller(int16_t rpm)
 {
 	switch(rpm) {
-	case 1200: return 0;
+	case 600:  return 0;
 	case 800:  return 1;
-	case 600:  return 2;
-	case 400:  return 3;
-	case 0:    return 4;
 	default:   return 1;
 	}
 }
 
 static int16_t program_admin_roller_to_spin_rpm(uint32_t sel)
 {
-	static const int16_t tbl[] = { 1200, 800, 600, 400, 0 };
+	static const int16_t tbl[] = { 600, 800 };
 	if(sel >= sizeof(tbl) / sizeof(tbl[0])) return 800;
 	return tbl[sel];
 }
@@ -6289,8 +6331,7 @@ static uint32_t program_admin_cfg_to_sec(uint16_t cfg_val)
 #endif
 }
 
-/* 根据程序设置 cfg 计算各阶段秒数；总时长 = 洗涤 + 漂洗时长×漂洗次数 + 脱水 */
-
+/* 根据程序设置 cfg 计算各阶段秒数；总时长 = 洗涤 + 漂洗时长×次数 + 脱水 */
 static void program_admin_calc_stages(const ui_program_admin_t * c,
 	uint32_t * wash_out, uint32_t * rinse_total_out, uint32_t * spin_out)
 {
@@ -6301,11 +6342,17 @@ static void program_admin_calc_stages(const ui_program_admin_t * c,
 	if(c->cap & PROG_CAP_WASH) {
 		wash = program_admin_cfg_to_sec(c->wash_min);
 	}
-	if((c->cap & PROG_CAP_RINSE_DUR) && (c->cap & PROG_CAP_RINSE_CNT) && c->rinse_cnt >= 0) {
-		rinse_total = program_admin_cfg_to_sec(c->rinse_min) * (uint32_t)c->rinse_cnt;
+	if(c->cap & PROG_CAP_RINSE_DUR) {
+		if((c->cap & PROG_CAP_RINSE_CNT) && c->rinse_cnt > 0) {
+			rinse_total = program_admin_cfg_to_sec(c->rinse_min) * (uint32_t)c->rinse_cnt;
+		} else if(!(c->cap & PROG_CAP_RINSE_CNT)) {
+			/* 仅有漂洗时长（筒自洁）：按 1 次计 */
+			rinse_total = program_admin_cfg_to_sec(c->rinse_min);
+		}
 	}
 	if(c->cap & PROG_CAP_SPIN_DUR) {
-		spin = program_admin_cfg_to_sec(c->spin_min);
+		if(c->spin_is_sec) spin = (uint32_t)c->spin_min;
+		else spin = program_admin_cfg_to_sec(c->spin_min);
 	}
 
 	if(wash_out != NULL) *wash_out = wash;
@@ -6324,27 +6371,116 @@ static ui_str_id_t program_admin_stages_bar_id(uint32_t wash, uint32_t rinse_tot
 	return STR_RUN_STAGES;
 }
 
-/* 写入表2.4 程序时限表初值到 g_prog_cfg_factory[]（时长字段为分钟）。 */
+typedef enum {
+	PROG_PARAM_WASH_MIN = 0,
+	PROG_PARAM_RINSE_CNT,
+	PROG_PARAM_TEMP,
+	PROG_PARAM_SPIN_RPM,
+	PROG_PARAM_WATER,
+	PROG_PARAM_PRICE,
+	PROG_PARAM_RINSE_MIN,
+	PROG_PARAM_SPIN_MIN,
+	PROG_PARAM_SPIN_SEC,
+	PROG_PARAM_NONE = -1
+} prog_param_id_t;
 
+#define PROG_ADMIN_PAGE_MAX 2
+#define PROG_ADMIN_COLS_MAX PROG_ADMIN_SLOT_MAX
+
+static const prog_param_id_t g_prog_param_layout[TOTAL_PROGRAMS][PROG_ADMIN_PAGE_MAX][PROG_ADMIN_COLS_MAX] = {
+	/* 0 大物：2 页 */
+	{
+		{ PROG_PARAM_WASH_MIN, PROG_PARAM_RINSE_CNT, PROG_PARAM_TEMP, PROG_PARAM_SPIN_RPM, PROG_PARAM_WATER },
+		{ PROG_PARAM_PRICE, PROG_PARAM_RINSE_MIN, PROG_PARAM_SPIN_MIN, PROG_PARAM_NONE, PROG_PARAM_NONE }
+	},
+	/* 1 单脱水：1 页 */
+	{
+		{ PROG_PARAM_SPIN_MIN, PROG_PARAM_PRICE, PROG_PARAM_SPIN_RPM, PROG_PARAM_NONE, PROG_PARAM_NONE },
+		{ PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE }
+	},
+	/* 2 标准洗：2 页 */
+	{
+		{ PROG_PARAM_WASH_MIN, PROG_PARAM_RINSE_CNT, PROG_PARAM_TEMP, PROG_PARAM_SPIN_RPM, PROG_PARAM_WATER },
+		{ PROG_PARAM_PRICE, PROG_PARAM_RINSE_MIN, PROG_PARAM_SPIN_MIN, PROG_PARAM_NONE, PROG_PARAM_NONE }
+	},
+	/* 3 筒自洁：1 页 */
+	{
+		{ PROG_PARAM_SPIN_RPM, PROG_PARAM_WATER, PROG_PARAM_PRICE, PROG_PARAM_RINSE_MIN, PROG_PARAM_SPIN_SEC },
+		{ PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE, PROG_PARAM_NONE }
+	},
+	/* 4 快洗：2 页 */
+	{
+		{ PROG_PARAM_WASH_MIN, PROG_PARAM_RINSE_CNT, PROG_PARAM_TEMP, PROG_PARAM_SPIN_RPM, PROG_PARAM_WATER },
+		{ PROG_PARAM_PRICE, PROG_PARAM_RINSE_MIN, PROG_PARAM_SPIN_MIN, PROG_PARAM_NONE, PROG_PARAM_NONE }
+	},
+};
+
+static int program_admin_page_count(int32_t prog_idx)
+{
+	if(prog_idx < 0 || prog_idx >= TOTAL_PROGRAMS) return 1;
+	if(g_prog_param_layout[prog_idx][1][0] == PROG_PARAM_NONE) return 1;
+	return 2;
+}
+
+static uint16_t program_admin_snap_range(uint16_t v, uint16_t lo, uint16_t hi)
+{
+	if(v < lo) return lo;
+	if(v > hi) return hi;
+	return v;
+}
+
+static int32_t program_admin_snap_price(int32_t price)
+{
+	static const int32_t tbl[] = { 1, 5, 6, 7, 8, 9, 10 };
+	int32_t best = tbl[0];
+	int32_t best_d = 9999;
+	for(unsigned i = 0; i < sizeof(tbl) / sizeof(tbl[0]); i++) {
+		int32_t d = price - tbl[i];
+		if(d < 0) d = -d;
+		if(d < best_d) {
+			best_d = d;
+			best = tbl[i];
+		}
+	}
+	return best;
+}
+
+static uint16_t program_admin_snap_spin_sec(uint16_t sec)
+{
+	static const uint16_t tbl[] = { 10, 15, 20 };
+	uint16_t best = tbl[0];
+	int best_d = 9999;
+	for(unsigned i = 0; i < sizeof(tbl) / sizeof(tbl[0]); i++) {
+		int d = (int)sec - (int)tbl[i];
+		if(d < 0) d = -d;
+		if(d < best_d) {
+			best_d = d;
+			best = tbl[i];
+		}
+	}
+	return best;
+}
+
+/* 写入程序时限表初值到 g_prog_cfg_factory[] */
 static void program_admin_init_factory(void)
 {
 	static const ui_program_admin_t factory[TOTAL_PROGRAMS] = {
-		/* 0 大物：总42min | 洗12(进水3+洗涤9) | 漂11×2 | 脱8(排水1+脱水7) | 800rpm | 40℃ */
-		{ 9, 12, 11, 8,  2, 800,  2,  true,
+		/* 0 大物：总42min | 洗12 | 漂11×2 | 脱8 | 800rpm | 40℃ | 水位3 */
+		{ 9, 12, 11, 8,  2, 800,  2,  3, false,
 		  PROG_CAP_PRICE | PROG_CAP_WASH | PROG_CAP_RINSE_DUR | PROG_CAP_SPIN_DUR |
 		  PROG_CAP_RINSE_CNT | PROG_CAP_SPIN_RPM | PROG_CAP_TEMP | PROG_CAP_WATER },
-		/* 1 单脱水：总9min | 脱9(排水1+脱水7+抖散1) | 800rpm */
-		{ 5,  0,  0, 9, -1, 800, -1, false,
+		/* 1 单脱水：总9min | 脱9 | 800rpm */
+		{ 5,  0,  0, 9, -1, 800, -1, -1, false,
 		  PROG_CAP_PRICE | PROG_CAP_SPIN_DUR | PROG_CAP_SPIN_RPM },
-		/* 2 标准洗：总35min | 洗10(进水3+洗涤7) | 漂8×2 | 脱9(排水1+脱水7+抖散1) | 800rpm | 30℃ */
-		{ 8, 10,  8, 9,  2, 800,  1,  true,
+		/* 2 标准洗：总35min | 洗10 | 漂8×2 | 脱9 | 800rpm | 30℃ | 水位3 */
+		{ 8, 10,  8, 9,  2, 800,  1,  3, false,
 		  PROG_CAP_PRICE | PROG_CAP_WASH | PROG_CAP_RINSE_DUR | PROG_CAP_SPIN_DUR |
 		  PROG_CAP_RINSE_CNT | PROG_CAP_SPIN_RPM | PROG_CAP_TEMP | PROG_CAP_WATER },
-		/* 3 筒自洁：总3min | 漂2(排水1+脱水2) | 脱1(10s→1min) | 600rpm */
-		{ 1,  0,  2, 1,  1, 600, -1, false,
-		  PROG_CAP_PRICE | PROG_CAP_RINSE_DUR | PROG_CAP_SPIN_DUR | PROG_CAP_RINSE_CNT | PROG_CAP_SPIN_RPM },
-		/* 4 快洗：总24min | 洗9(进水3+洗涤6) | 漂8×1 | 脱7(排水1+脱水5+抖散1) | 800rpm | COLD */
-		{ 7,  9,  8, 7,  1, 800,  0,  true,
+		/* 3 筒自洁：漂3min + 脱10s = 3:10 | 600rpm | 水位3 */
+		{ 1,  0,  3, 10, -1, 600, -1,  3, true,
+		  PROG_CAP_PRICE | PROG_CAP_RINSE_DUR | PROG_CAP_SPIN_DUR | PROG_CAP_SPIN_RPM | PROG_CAP_WATER },
+		/* 4 快洗：总24min | 洗9 | 漂8×1 | 脱7 | 800rpm | COLD | 水位3 */
+		{ 7,  9,  8, 7,  1, 800,  0,  3, false,
 		  PROG_CAP_PRICE | PROG_CAP_WASH | PROG_CAP_RINSE_DUR | PROG_CAP_SPIN_DUR |
 		  PROG_CAP_RINSE_CNT | PROG_CAP_SPIN_RPM | PROG_CAP_TEMP | PROG_CAP_WATER },
 	};
@@ -6354,8 +6490,6 @@ static void program_admin_init_factory(void)
 	}
 	program_admin_apply_all();
 }
-
-/* 将某一程序的 g_prog_cfg 写入 g_program_profiles / g_program_run_stages（供主页与运行页使用） */
 
 static void program_admin_apply_one(int32_t idx)
 {
@@ -6386,93 +6520,464 @@ static void program_admin_apply_all(void)
 
 static void program_admin_clamp_cfg(ui_program_admin_t * c)
 {
-	if(c->price > 999) c->price = 999;
-	if(c->wash_min > 90) c->wash_min = 90;
-	if(c->rinse_min > 90) c->rinse_min = 90;
-	if(c->spin_min > 90) c->spin_min = 90;
-	if(c->rinse_cnt > 4) c->rinse_cnt = 4;
+	if(c->cap & PROG_CAP_PRICE) {
+		if(c->price < 0) c->price = 1;
+		c->price = program_admin_snap_price(c->price);
+	}
+	if(c->cap & PROG_CAP_WASH) {
+		c->wash_min = program_admin_snap_range(c->wash_min, 8, 18);
+	}
+	if(c->cap & PROG_CAP_RINSE_DUR) {
+		c->rinse_min = program_admin_snap_range(c->rinse_min, 3, 20);
+	}
+	if(c->cap & PROG_CAP_SPIN_DUR) {
+		if(c->spin_is_sec) c->spin_min = program_admin_snap_spin_sec(c->spin_min);
+		else c->spin_min = program_admin_snap_range(c->spin_min, 5, 11);
+	}
+	if(c->cap & PROG_CAP_RINSE_CNT) {
+		if(c->rinse_cnt < 1) c->rinse_cnt = 1;
+		if(c->rinse_cnt > 4) c->rinse_cnt = 4;
+	}
+	if(c->cap & PROG_CAP_SPIN_RPM) {
+		if(c->spin_rpm != 600 && c->spin_rpm != 800) c->spin_rpm = 800;
+	}
+	if(c->cap & PROG_CAP_TEMP) {
+		if(c->temp_idx < 0) c->temp_idx = 0;
+		if(c->temp_idx > 4) c->temp_idx = 4;
+	}
+	if(c->cap & PROG_CAP_WATER) {
+		if(c->water_level < 2 || c->water_level > 4) c->water_level = 3;
+	} else {
+		c->water_level = -1;
+	}
+}
+
+static void program_admin_build_opt_range(char * buf, size_t buf_sz, int lo, int hi)
+{
+	size_t n = 0;
+	buf[0] = '\0';
+	for(int v = lo; v <= hi; v++) {
+		int wr = lv_snprintf(buf + n, buf_sz - n, (n == 0) ? "%d" : "\n%d", v);
+		if(wr < 0) break;
+		n += (size_t)wr;
+		if(n + 1 >= buf_sz) break;
+	}
+}
+
+static uint32_t program_admin_opt_index_int(int lo, int hi, int val)
+{
+	if(val < lo) val = lo;
+	if(val > hi) val = hi;
+	return (uint32_t)(val - lo);
+}
+
+static int program_admin_opt_value_int(int lo, uint32_t sel)
+{
+	return lo + (int)sel;
+}
+
+static uint32_t program_admin_price_to_sel(int32_t price)
+{
+	static const int32_t tbl[] = { 1, 5, 6, 7, 8, 9, 10 };
+	price = program_admin_snap_price(price);
+	for(unsigned i = 0; i < sizeof(tbl) / sizeof(tbl[0]); i++) {
+		if(tbl[i] == price) return i;
+	}
+	return 0;
+}
+
+static int32_t program_admin_sel_to_price(uint32_t sel)
+{
+	static const int32_t tbl[] = { 1, 5, 6, 7, 8, 9, 10 };
+	if(sel >= sizeof(tbl) / sizeof(tbl[0])) return 1;
+	return tbl[sel];
+}
+
+static uint32_t program_admin_spin_sec_to_sel(uint16_t sec)
+{
+	sec = program_admin_snap_spin_sec(sec);
+	if(sec == 10) return 0;
+	if(sec == 15) return 1;
+	return 2;
+}
+
+static uint16_t program_admin_sel_to_spin_sec(uint32_t sel)
+{
+	static const uint16_t tbl[] = { 10, 15, 20 };
+	if(sel >= sizeof(tbl) / sizeof(tbl[0])) return 10;
+	return tbl[sel];
+}
+
+static void program_admin_param_labels(prog_param_id_t id, ui_str_id_t * word_out, ui_str_id_t * unit_out)
+{
+	ui_str_id_t word = STR_PROG_WORD_WASH;
+	ui_str_id_t unit = STR_COUNT; /* STR_COUNT = 无单位 */
+	switch(id) {
+	case PROG_PARAM_WASH_MIN:   word = STR_PROG_WORD_WASH;  unit = STR_PROG_UNIT_MIN; break;
+	case PROG_PARAM_RINSE_CNT:  word = STR_PROG_WORD_RINSE; unit = STR_PROG_UNIT_CNT; break;
+	case PROG_PARAM_TEMP:       word = STR_PROG_WORD_TEMP;  unit = STR_PROG_UNIT_DEG; break;
+	case PROG_PARAM_SPIN_RPM:   word = STR_PROG_WORD_RPM;   unit = STR_PROG_UNIT_RPM; break;
+	case PROG_PARAM_WATER:      word = STR_PROG_WORD_WATER; unit = STR_COUNT; break;
+	case PROG_PARAM_PRICE:      word = STR_PROG_WORD_PRICE; unit = STR_COUNT; break;
+	case PROG_PARAM_RINSE_MIN:  word = STR_PROG_WORD_RINSE; unit = STR_PROG_UNIT_MIN; break;
+	case PROG_PARAM_SPIN_MIN:   word = STR_PROG_WORD_SPIN;  unit = STR_PROG_UNIT_MIN; break;
+	case PROG_PARAM_SPIN_SEC:   word = STR_PROG_WORD_SPIN;  unit = STR_PROG_UNIT_SEC; break;
+	default: break;
+	}
+	if(word_out) *word_out = word;
+	if(unit_out) *unit_out = unit;
+}
+
+static void program_admin_set_roller_options(lv_obj_t * roller, prog_param_id_t id)
+{
+	static char wash_opts[64];
+	static char rinse_cnt_opts[16];
+	static char rinse_min_opts[96];
+	static char spin_min_opts[48];
+	static bool opts_ready = false;
+	if(!opts_ready) {
+		program_admin_build_opt_range(wash_opts, sizeof(wash_opts), 8, 18);
+		program_admin_build_opt_range(rinse_cnt_opts, sizeof(rinse_cnt_opts), 1, 4);
+		program_admin_build_opt_range(rinse_min_opts, sizeof(rinse_min_opts), 3, 20);
+		program_admin_build_opt_range(spin_min_opts, sizeof(spin_min_opts), 5, 11);
+		opts_ready = true;
+	}
+	const char * opts = "0";
+	switch(id) {
+	case PROG_PARAM_WASH_MIN:  opts = wash_opts; break;
+	case PROG_PARAM_RINSE_CNT: opts = rinse_cnt_opts; break;
+	case PROG_PARAM_TEMP:      opts = "COLD\n30\n40\n60\n90"; break; /* 单位在标签「度」，选项不加 ℃ */
+	case PROG_PARAM_SPIN_RPM:  opts = "600\n800"; break;
+	case PROG_PARAM_WATER:     opts = "2\n3\n4"; break;
+	case PROG_PARAM_PRICE:     opts = "1\n5\n6\n7\n8\n9\n10"; break;
+	case PROG_PARAM_RINSE_MIN: opts = rinse_min_opts; break;
+	case PROG_PARAM_SPIN_MIN:  opts = spin_min_opts; break;
+	case PROG_PARAM_SPIN_SEC:  opts = "10\n15\n20"; break;
+	default: break;
+	}
+	lv_roller_set_options(roller, opts, LV_ROLLER_MODE_NORMAL);
+}
+
+static void program_admin_cfg_to_roller_sel(const ui_program_admin_t * c, prog_param_id_t id, uint32_t * sel_out)
+{
+	uint32_t sel = 0;
+	switch(id) {
+	case PROG_PARAM_WASH_MIN:  sel = program_admin_opt_index_int(8, 18, (int)c->wash_min); break;
+	case PROG_PARAM_RINSE_CNT: sel = program_admin_opt_index_int(1, 4, (int)c->rinse_cnt); break;
+	case PROG_PARAM_TEMP:      sel = (c->temp_idx < 0) ? 0u : (uint32_t)c->temp_idx; break;
+	case PROG_PARAM_SPIN_RPM:  sel = (uint32_t)program_admin_spin_rpm_to_roller(c->spin_rpm); break;
+	case PROG_PARAM_WATER:     sel = program_admin_opt_index_int(2, 4, (int)c->water_level); break;
+	case PROG_PARAM_PRICE:     sel = program_admin_price_to_sel(c->price); break;
+	case PROG_PARAM_RINSE_MIN: sel = program_admin_opt_index_int(3, 20, (int)c->rinse_min); break;
+	case PROG_PARAM_SPIN_MIN:  sel = program_admin_opt_index_int(5, 11, (int)c->spin_min); break;
+	case PROG_PARAM_SPIN_SEC:  sel = program_admin_spin_sec_to_sel(c->spin_min); break;
+	default: break;
+	}
+	if(sel_out) *sel_out = sel;
+}
+
+static void program_admin_roller_sel_to_cfg(ui_program_admin_t * c, prog_param_id_t id, uint32_t sel)
+{
+	switch(id) {
+	case PROG_PARAM_WASH_MIN:  c->wash_min = (uint16_t)program_admin_opt_value_int(8, sel); break;
+	case PROG_PARAM_RINSE_CNT: c->rinse_cnt = (int8_t)program_admin_opt_value_int(1, sel); break;
+	case PROG_PARAM_TEMP:      c->temp_idx = (int8_t)sel; break;
+	case PROG_PARAM_SPIN_RPM:  c->spin_rpm = program_admin_roller_to_spin_rpm(sel); break;
+	case PROG_PARAM_WATER:     c->water_level = (int8_t)program_admin_opt_value_int(2, sel); break;
+	case PROG_PARAM_PRICE:     c->price = program_admin_sel_to_price(sel); break;
+	case PROG_PARAM_RINSE_MIN: c->rinse_min = (uint16_t)program_admin_opt_value_int(3, sel); break;
+	case PROG_PARAM_SPIN_MIN:  c->spin_min = (uint16_t)program_admin_opt_value_int(5, sel); break;
+	case PROG_PARAM_SPIN_SEC:  c->spin_min = program_admin_sel_to_spin_sec(sel); break;
+	default: break;
+	}
+}
+
+static void program_admin_format_total_hm(uint32_t sec, char * buf, size_t buf_sz)
+{
+	/* 显示为 小时:分钟（前两位小时，后两位数分钟） */
+	uint32_t h = sec / 3600u;
+	uint32_t m = (sec % 3600u) / 60u;
+	lv_snprintf(buf, buf_sz, "%02u:%02u", (unsigned)h, (unsigned)m);
+}
+
+/* DETAIL 参数列：主词/单位位置（改这里，build 与 load 共用）
+ * 单位用 align_to 贴在主词右侧，UNIT_GAP_X 才是真正的字间距。 */
+static const lv_coord_t PROG_ADMIN_WORD_X       = -12; /* 有单位时主词相对列中心水平偏移 */
+static const lv_coord_t PROG_ADMIN_WORD_Y       = 160; /* 主词垂直偏移 */
+static const lv_coord_t PROG_ADMIN_UNIT_GAP_X   = 3;   /* 主词右缘 → 单位左缘间距 */
+static const lv_coord_t PROG_ADMIN_UNIT_DY      = -2;   /* 单位相对主词底边的垂直微调 */
+static const lv_coord_t PROG_ADMIN_WORD_X_ALONE = 0;   /* 无单位时主词水平居中 */
+
+static void program_admin_align_param_labels(int slot, bool has_unit)
+{
+	if(slot < 0 || slot >= PROG_ADMIN_SLOT_MAX) return;
+	lv_obj_t * word = g_admin_prog_word_lbl[slot];
+	lv_obj_t * unit = g_admin_prog_unit_lbl[slot];
+	if(word == NULL) return;
+
+	if(has_unit && unit != NULL) {
+		lv_obj_align(word, LV_ALIGN_TOP_MID, PROG_ADMIN_WORD_X, PROG_ADMIN_WORD_Y);
+		lv_obj_update_layout(word); /* 先按文案算准宽度，再贴单位 */
+		lv_obj_align_to(unit, word, LV_ALIGN_OUT_RIGHT_BOTTOM,
+			PROG_ADMIN_UNIT_GAP_X, PROG_ADMIN_UNIT_DY);
+	} else {
+		lv_obj_align(word, LV_ALIGN_TOP_MID, PROG_ADMIN_WORD_X_ALONE, PROG_ADMIN_WORD_Y);
+	}
+}
+
+/* DETAIL 左侧程序图缩放到 260×260 */
+static void program_admin_set_left_icon(int32_t idx)
+{
+	if(g_admin_prog_left_icon == NULL) return;
+	idx = wheel_mod_total(idx);
+	const lv_image_dsc_t * dsc = g_program_imgs[idx];
+	lv_image_set_src(g_admin_prog_left_icon, dsc);
+	if(dsc == NULL || dsc->header.w == 0 || dsc->header.h == 0) return;
+	lv_image_set_scale_x(g_admin_prog_left_icon, (260u * 256u) / (uint32_t)dsc->header.w);
+	lv_image_set_scale_y(g_admin_prog_left_icon, (260u * 256u) / (uint32_t)dsc->header.h);
+}
+
+static void program_admin_update_total_display(void)
+{
+	if(g_admin_prog_total_val_lbl == NULL) return;
+	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
+
+	const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
+	uint32_t wash = 0, rinse_total = 0, spin = 0;
+	program_admin_calc_stages(c, &wash, &rinse_total, &spin);
+	char buf[16];
+	program_admin_format_total_hm(wash + rinse_total + spin, buf, sizeof(buf));
+	lv_label_set_text(g_admin_prog_total_val_lbl, buf);
 }
 
 static void program_admin_ui_save_fields(void)
 {
 	if(g_admin_prog_ui_loading) return;
+	if(!g_admin_prog_is_detail) return;
 	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
 	ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
+	int pages = program_admin_page_count(g_admin_prog_sel);
+	int page = g_admin_prog_param_page;
+	if(page < 0) page = 0;
+	if(page >= pages) page = pages - 1;
 
-	if(g_admin_prog_ta[0] != NULL && (c->cap & PROG_CAP_PRICE)) {
-		const char * t = lv_textarea_get_text(g_admin_prog_ta[0]);
-		if(t != NULL && t[0] != '\0') c->price = (int32_t)atoi(t);
-	}
-	if(g_admin_prog_ta[1] != NULL && (c->cap & PROG_CAP_WASH)) {
-		const char * t = lv_textarea_get_text(g_admin_prog_ta[1]);
-		if(t != NULL && t[0] != '\0') c->wash_min = (uint16_t)atoi(t);
-	}
-	if(g_admin_prog_ta[2] != NULL && (c->cap & PROG_CAP_RINSE_DUR)) {
-		const char * t = lv_textarea_get_text(g_admin_prog_ta[2]);
-		if(t != NULL && t[0] != '\0') c->rinse_min = (uint16_t)atoi(t);
-	}
-	if(g_admin_prog_ta[3] != NULL && (c->cap & PROG_CAP_SPIN_DUR)) {
-		const char * t = lv_textarea_get_text(g_admin_prog_ta[3]);
-		if(t != NULL && t[0] != '\0') c->spin_min = (uint16_t)atoi(t);
-	}
-	if(g_admin_prog_roller[0] != NULL && (c->cap & PROG_CAP_RINSE_CNT)) {
-		c->rinse_cnt = (int8_t)lv_roller_get_selected(g_admin_prog_roller[0]);
-	}
-	if(g_admin_prog_roller[1] != NULL && (c->cap & PROG_CAP_SPIN_RPM)) {
-		c->spin_rpm = program_admin_roller_to_spin_rpm(lv_roller_get_selected(g_admin_prog_roller[1]));
-	}
-	if(g_admin_prog_roller[2] != NULL && (c->cap & PROG_CAP_TEMP)) {
-		c->temp_idx = (int8_t)lv_roller_get_selected(g_admin_prog_roller[2]);
+	for(int i = 0; i < PROG_ADMIN_SLOT_MAX; i++) {
+		prog_param_id_t id = g_prog_param_layout[g_admin_prog_sel][page][i];
+		if(id == PROG_PARAM_NONE) continue;
+		if(g_admin_prog_roller[i] == NULL) continue;
+		if(lv_obj_has_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_HIDDEN)) continue;
+		program_admin_roller_sel_to_cfg(c, id, lv_roller_get_selected(g_admin_prog_roller[i]));
 	}
 	program_admin_clamp_cfg(c);
+}
+
+static void program_admin_style_roller(lv_obj_t * roller)
+{
+	lv_roller_set_visible_row_count(roller, 1);
+	lv_obj_set_style_text_font(roller, s_font_sc_40, LV_PART_MAIN);//滚轮字体
+	lv_obj_set_style_text_font(roller, s_font_sc_40, LV_PART_SELECTED);//滚轮选中字体
+	lv_obj_set_style_bg_opa(roller, LV_OPA_TRANSP, LV_PART_MAIN);
+	/* 不要选中行灰底 */
+	//lv_obj_set_style_bg_color(roller, lv_color_hex(0x424242), LV_PART_SELECTED);
+	//lv_obj_set_style_bg_opa(roller, LV_OPA_COVER, LV_PART_SELECTED);
+	lv_obj_set_style_bg_opa(roller, LV_OPA_TRANSP, LV_PART_SELECTED);
+	lv_obj_set_style_text_color(roller, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_set_style_text_color(roller, lv_color_hex(COL_TEXT), LV_PART_SELECTED);
+	lv_obj_set_style_border_width(roller, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(roller, 0, LV_PART_MAIN);
+	lv_obj_set_style_text_align(roller, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+	lv_obj_remove_flag(roller, LV_OBJ_FLAG_CLICK_FOCUSABLE);
 }
 
 static void program_admin_ui_load_fields(void)
 {
 	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
+	if(!g_admin_prog_is_detail) return;
 	const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
-	char buf[16];
+	int pages = program_admin_page_count(g_admin_prog_sel);
+	if(g_admin_prog_param_page < 0) g_admin_prog_param_page = 0;
+	if(g_admin_prog_param_page >= pages) g_admin_prog_param_page = pages - 1;
+	const int page = g_admin_prog_param_page;
 
 	g_admin_prog_ui_loading = true;
 
-	if(g_admin_prog_ta[0] != NULL) {
-		if(c->cap & PROG_CAP_PRICE) {
-			if(c->price < 0) lv_textarea_set_text(g_admin_prog_ta[0], "");
-			else lv_snprintf(buf, sizeof(buf), "%d", c->price), lv_textarea_set_text(g_admin_prog_ta[0], buf);
+	if(g_admin_prog_left_icon != NULL) {
+		program_admin_set_left_icon(g_admin_prog_sel);
+	}
+	if(g_admin_prog_left_name != NULL) {
+		lv_label_set_text(g_admin_prog_left_name, ui_program_name_get(g_admin_prog_sel));
+		/* 文字宽度变化后需重新居中，否则二字/三字相对程序图会偏 */
+		lv_obj_align_to(g_admin_prog_left_name, g_admin_prog_left_bg, LV_ALIGN_CENTER, 0, 15);
+	}
+
+	/* 固定按五列左缘对齐：少于五列时与五列前几列同位，不随可见数居中 */
+	const lv_coord_t col_w = 110;//每组宽度
+	const lv_coord_t gap = 40;//每组水平间距
+	const lv_coord_t area_x0 = 525;//整组水平位置
+	const lv_coord_t area_w = 800;//整组宽度
+	const lv_coord_t row_w = (lv_coord_t)(PROG_ADMIN_SLOT_MAX * col_w + (PROG_ADMIN_SLOT_MAX - 1) * gap);
+	const lv_coord_t start_x = area_x0 + (area_w - row_w) / 2;
+	const lv_coord_t slot_y = 85;//整组垂直位置
+
+	int vis_i = 0;
+	for(int i = 0; i < PROG_ADMIN_SLOT_MAX; i++) {
+		prog_param_id_t id = g_prog_param_layout[g_admin_prog_sel][page][i];
+		if(g_admin_prog_slot[i] == NULL) continue;
+		if(id == PROG_PARAM_NONE) {
+			lv_obj_add_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_HIDDEN);
+			continue;
 		}
-	}
-	if(g_admin_prog_ta[1] != NULL && (c->cap & PROG_CAP_WASH)) {
-		lv_snprintf(buf, sizeof(buf), "%u", (unsigned)c->wash_min);
-		lv_textarea_set_text(g_admin_prog_ta[1], buf);
-	}
-	if(g_admin_prog_ta[2] != NULL && (c->cap & PROG_CAP_RINSE_DUR)) {
-		lv_snprintf(buf, sizeof(buf), "%u", (unsigned)c->rinse_min);
-		lv_textarea_set_text(g_admin_prog_ta[2], buf);
-	}
-	if(g_admin_prog_ta[3] != NULL && (c->cap & PROG_CAP_SPIN_DUR)) {
-		lv_snprintf(buf, sizeof(buf), "%u", (unsigned)c->spin_min);
-		lv_textarea_set_text(g_admin_prog_ta[3], buf);
-	}
-	if(g_admin_prog_roller[0] != NULL && (c->cap & PROG_CAP_RINSE_CNT) && c->rinse_cnt >= 0) {
-		lv_roller_set_selected(g_admin_prog_roller[0], (uint32_t)c->rinse_cnt, LV_ANIM_OFF);
-	}
-	if(g_admin_prog_roller[1] != NULL && (c->cap & PROG_CAP_SPIN_RPM) && c->spin_rpm >= 0) {
-		lv_roller_set_selected(g_admin_prog_roller[1], (uint32_t)program_admin_spin_rpm_to_roller(c->spin_rpm), LV_ANIM_OFF);
-	}
-	if(g_admin_prog_roller[2] != NULL && (c->cap & PROG_CAP_TEMP) && c->temp_idx >= 0) {
-		lv_roller_set_selected(g_admin_prog_roller[2], (uint32_t)c->temp_idx, LV_ANIM_OFF);
-	}
-	if(g_admin_prog_water_lbl != NULL) {
-		if(c->cap & PROG_CAP_WATER) lv_label_set_text(g_admin_prog_water_lbl, ui_translation(STR_PROG_WATER_SMART));
-		else lv_label_set_text(g_admin_prog_water_lbl, "--");
+		lv_obj_remove_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_HIDDEN);
+		lv_obj_set_pos(g_admin_prog_slot[i], start_x + vis_i * (col_w + gap), slot_y);
+		vis_i++;
+
+		ui_str_id_t word_id = STR_PROG_WORD_WASH;
+		ui_str_id_t unit_id = STR_COUNT;
+		program_admin_param_labels(id, &word_id, &unit_id);
+		if(g_admin_prog_word_lbl[i] != NULL) {
+			lv_label_set_text(g_admin_prog_word_lbl[i], ui_translation(word_id));
+		}
+		if(g_admin_prog_unit_lbl[i] != NULL) {
+			if(unit_id < STR_COUNT) {
+				lv_obj_remove_flag(g_admin_prog_unit_lbl[i], LV_OBJ_FLAG_HIDDEN);
+				lv_label_set_text(g_admin_prog_unit_lbl[i], ui_translation(unit_id));
+				program_admin_align_param_labels(i, true);
+			} else {
+				lv_obj_add_flag(g_admin_prog_unit_lbl[i], LV_OBJ_FLAG_HIDDEN);
+				program_admin_align_param_labels(i, false);
+			}
+		}
+
+		program_admin_set_roller_options(g_admin_prog_roller[i], id);
+		uint32_t sel = 0;
+		program_admin_cfg_to_roller_sel(c, id, &sel);
+		lv_roller_set_selected(g_admin_prog_roller[i], sel, LV_ANIM_OFF);
 	}
 
 	g_admin_prog_ui_loading = false;
+	program_admin_update_total_display();
+}
 
-	program_admin_ui_apply_caps();
-	program_admin_sync_prog_pick_ui();
-	if(g_admin_view == PROGRAM_SETTINGS) {
-		admin_encoder_rebuild();
+static void cb_admin_prog_param_changed(lv_event_t * e)
+{
+	(void)e;
+	if(g_admin_prog_ui_loading) return;
+	if(g_admin_view != PROGRAM_SETTINGS || !g_admin_prog_is_detail) return;
+	program_admin_ui_save_fields();
+	program_admin_update_total_display();
+}
+
+static void cb_admin_prog_up_down(lv_event_t * e)
+{
+	lv_obj_t * btn = lv_event_get_target_obj(e);
+	intptr_t ud = (intptr_t)lv_event_get_user_data(e);
+	int slot = (int)(ud & 0xff);
+	int is_up = (int)((ud >> 8) & 0xff);
+	if(slot < 0 || slot >= PROG_ADMIN_SLOT_MAX) return;
+	if(g_admin_prog_roller[slot] == NULL) return;
+	if(lv_obj_has_flag(g_admin_prog_slot[slot], LV_OBJ_FLAG_HIDDEN)) return;
+	(void)btn;
+
+	uint32_t sel = lv_roller_get_selected(g_admin_prog_roller[slot]);
+	uint32_t cnt = lv_roller_get_option_count(g_admin_prog_roller[slot]);
+	if(cnt == 0) return;
+	if(is_up) {
+		if(sel + 1u < cnt) sel++;
+	} else {
+		if(sel > 0) sel--;
+	}
+	lv_roller_set_selected(g_admin_prog_roller[slot], sel, LV_ANIM_ON);
+	program_admin_ui_save_fields();
+	program_admin_update_total_display();
+}
+
+static void program_admin_show_list(void)
+{
+	g_admin_prog_is_detail = false;
+	if(g_admin_prog_list != NULL) lv_obj_remove_flag(g_admin_prog_list, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_prog_detail != NULL) lv_obj_add_flag(g_admin_prog_detail, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_img_prog_title_box != NULL) lv_obj_remove_flag(g_admin_img_prog_title_box, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_lbl_prog_title != NULL) lv_obj_remove_flag(g_admin_lbl_prog_title, LV_OBJ_FLAG_HIDDEN);
+	admin_encoder_rebuild();
+}
+
+static void program_admin_show_detail(void)
+{
+	g_admin_prog_is_detail = true;
+	g_admin_prog_param_page = 0;
+	if(g_admin_prog_list != NULL) lv_obj_add_flag(g_admin_prog_list, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_prog_detail != NULL) lv_obj_remove_flag(g_admin_prog_detail, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_img_prog_title_box != NULL) lv_obj_add_flag(g_admin_img_prog_title_box, LV_OBJ_FLAG_HIDDEN);
+	if(g_admin_lbl_prog_title != NULL) lv_obj_add_flag(g_admin_lbl_prog_title, LV_OBJ_FLAG_HIDDEN);
+	program_admin_ui_load_fields();
+	admin_encoder_rebuild();
+}
+
+static void cb_admin_prog_pick(lv_event_t * e)
+{
+	g_admin_prog_sel = (int32_t)(intptr_t)lv_event_get_user_data(e);
+	program_admin_show_detail();
+}
+
+static void cb_admin_prog_reset(lv_event_t * e)
+{
+	(void)e;
+	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
+	g_prog_cfg[g_admin_prog_sel] = g_prog_cfg_factory[g_admin_prog_sel];
+	program_admin_ui_load_fields();
+}
+
+static void cb_admin_prog_confirm(lv_event_t * e)
+{
+	(void)e;
+	program_admin_ui_save_fields();
+	program_admin_apply_all();
+	home_sync_program_labels();
+	pay_sync_price_label();
+	program_admin_show_list();
+}
+
+static void cb_admin_open_program_settings(lv_event_t * e)
+{
+	(void)e;
+	g_admin_prog_sel = 0;
+	admin_panel_show(PROGRAM_SETTINGS);
+}
+
+static void program_admin_back_to_menu1(void)
+{
+	if(g_group_admin != NULL) {
+		lv_group_set_editing(g_group_admin, false);
+	}
+	admin_panel_show(MENU1);
+}
+
+static void program_admin_back_from_detail(void)
+{
+	program_admin_ui_save_fields();
+	program_admin_show_list();
+}
+
+static void cb_admin_prog_detail_gesture(lv_event_t * e)
+{
+	if(lv_event_get_code(e) != LV_EVENT_GESTURE) return;
+	if(g_admin_view != PROGRAM_SETTINGS || !g_admin_prog_is_detail) return;
+	if(program_admin_page_count(g_admin_prog_sel) < 2) return;
+
+	lv_indev_t * indev = lv_indev_active();
+	if(indev == NULL) return;
+	lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+	program_admin_ui_save_fields();
+	if(dir == LV_DIR_LEFT) {
+		if(g_admin_prog_param_page + 1 < program_admin_page_count(g_admin_prog_sel)) {
+			g_admin_prog_param_page++;
+			program_admin_ui_load_fields();
+		}
+	} else if(dir == LV_DIR_RIGHT) {
+		if(g_admin_prog_param_page > 0) {
+			g_admin_prog_param_page--;
+			program_admin_ui_load_fields();
+		}
 	}
 }
 
@@ -6501,49 +7006,6 @@ static void admin_prog_btn_style_init(void)
 	s_admin_prog_btn_style_inited = true;
 }
 
-static void program_admin_sync_prog_pick_ui(void)
-{
-	admin_prog_btn_style_init();
-	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-		lv_obj_t * b = g_admin_prog_btns[i];
-		if(b == NULL) continue;
-		if(i == g_admin_prog_sel) {
-			lv_obj_remove_style(b, &s_admin_prog_btn_style, LV_PART_MAIN);
-			lv_obj_add_style(b, &s_admin_prog_btn_sel_style, LV_PART_MAIN);
-		} else {
-			lv_obj_remove_style(b, &s_admin_prog_btn_sel_style, LV_PART_MAIN);
-			lv_obj_add_style(b, &s_admin_prog_btn_style, LV_PART_MAIN);
-		}
-	}
-	program_admin_update_total_display();
-}
-
-static void program_admin_update_total_display(void)
-{
-	if(g_admin_prog_total_val_lbl == NULL) return;
-	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
-
-	const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
-	uint32_t wash = 0;
-	uint32_t rinse_total = 0;
-	uint32_t spin = 0;
-	program_admin_calc_stages(c, &wash, &rinse_total, &spin);
-	const uint32_t total = wash + rinse_total + spin;
-
-	char buf[16];
-	program_format_time_label(total, buf, sizeof(buf));
-	lv_label_set_text(g_admin_prog_total_val_lbl, buf);
-}
-
-static void cb_admin_prog_time_field_changed(lv_event_t * e)
-{
-	(void)e;
-	if(g_admin_prog_ui_loading) return;
-	if(g_admin_view != PROGRAM_SETTINGS) return;
-	program_admin_ui_save_fields();
-	program_admin_update_total_display();
-}
-
 static lv_obj_t * make_admin_prog_btn(lv_obj_t * parent, const char * txt)
 {
 	admin_prog_btn_style_init();
@@ -6556,31 +7018,6 @@ static lv_obj_t * make_admin_prog_btn(lv_obj_t * parent, const char * txt)
 	ui_set_obj_font(l, s_font_sc_30);
 	lv_obj_center(l);
 	return b;
-}
-
-static void program_admin_ui_apply_caps(void)
-{
-	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
-	const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
-	static const uint16_t cap_map[8] = {
-		PROG_CAP_PRICE, PROG_CAP_WASH, PROG_CAP_RINSE_DUR, PROG_CAP_SPIN_DUR,
-		PROG_CAP_RINSE_CNT, PROG_CAP_SPIN_RPM, PROG_CAP_TEMP, PROG_CAP_WATER
-	};
-	lv_obj_t * widgets[8] = {
-		g_admin_prog_ta[0], g_admin_prog_ta[1], g_admin_prog_ta[2], g_admin_prog_ta[3],
-		g_admin_prog_roller[0], g_admin_prog_roller[1], g_admin_prog_roller[2], g_admin_prog_water_lbl
-	};
-	for(int i = 0; i < 8; i++) {
-		bool en = (c->cap & cap_map[i]) != 0;
-		if(widgets[i] != NULL) {
-			if(en) lv_obj_remove_flag(widgets[i], LV_OBJ_FLAG_HIDDEN);
-			else lv_obj_add_flag(widgets[i], LV_OBJ_FLAG_HIDDEN);
-		}
-		if(g_admin_prog_dash[i] != NULL) {
-			if(en) lv_obj_add_flag(g_admin_prog_dash[i], LV_OBJ_FLAG_HIDDEN);
-			else lv_obj_remove_flag(g_admin_prog_dash[i], LV_OBJ_FLAG_HIDDEN);
-		}
-	}
 }
 
 static lv_obj_t * program_admin_make_value_box(lv_obj_t * parent, lv_coord_t w, lv_coord_t h)
@@ -6598,250 +7035,177 @@ static lv_obj_t * program_admin_make_value_box(lv_obj_t * parent, lv_coord_t w, 
 	return box;
 }
 
-/* 程序设置页：外框内 textarea/roller 透明、水平铺满，高度随内容（由 Flex 垂直居中） */
-
-static void program_admin_style_field_inner(lv_obj_t * obj)
-{
-	lv_obj_set_width(obj, LV_PCT(100));
-	lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, LV_PART_MAIN);
-	lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN);
-	lv_obj_set_style_pad_all(obj, 0, LV_PART_MAIN);
-	lv_obj_set_style_radius(obj, 0, LV_PART_MAIN);
-	lv_obj_set_style_shadow_width(obj, 0, LV_PART_MAIN);
-	lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-}
-
-/* 单行 textarea：宽度铺满外框，高度随内容 */
-
-static void program_admin_style_ta(lv_obj_t * ta)
-{
-	program_admin_style_field_inner(ta);
-	lv_textarea_set_one_line(ta, true);
-}
-
-static void program_admin_ta_close_kb(void)
-{
-	admin_kb_close();
-}
-
-static void program_admin_ta_begin_edit(lv_obj_t * ta)
-{
-	if(g_admin_kb == NULL || g_admin_view != PROGRAM_SETTINGS) return;
-	if(ta == NULL || lv_obj_has_flag(ta, LV_OBJ_FLAG_HIDDEN)) return;
-	g_admin_ta_prog_active = ta;
-	g_admin_kb_ta = ta;
-	lv_obj_remove_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-	admin_kb_encoder_enter();
-}
-
-static void cb_admin_prog_ta_focus(lv_event_t * e)
-{
-	lv_obj_t * ta = lv_event_get_target_obj(e);
-	lv_event_code_t code = lv_event_get_code(e);
-	if(g_admin_view != PROGRAM_SETTINGS) return;
-
-	if(code == LV_EVENT_FOCUSED) {
-		/* 编码器：进入 group 编辑模式后再弹键盘；不因失焦自动关闭 */
-		if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-			program_admin_ta_begin_edit(ta);
-		}
-	} else if(code == LV_EVENT_CLICKED) {
-		/* 触摸：点击文本框后进入编辑 */
-		program_admin_ta_begin_edit(ta);
-		if(g_group_admin != NULL) {
-			lv_group_set_editing(g_group_admin, true);
-		}
-	}
-}
-
-static void cb_admin_prog_pick(lv_event_t * e)
-{
-	program_admin_ui_save_fields();
-	g_admin_prog_sel = (int32_t)(intptr_t)lv_event_get_user_data(e);
-	program_admin_ui_load_fields();
-}
-
-static void cb_admin_prog_reset(lv_event_t * e)
-{
-	(void)e;
-	if(g_admin_prog_sel < 0 || g_admin_prog_sel >= TOTAL_PROGRAMS) return;
-	g_prog_cfg[g_admin_prog_sel] = g_prog_cfg_factory[g_admin_prog_sel];
-	program_admin_ui_load_fields();
-}
-
-static void cb_admin_prog_confirm(lv_event_t * e)
-{
-	(void)e;
-	program_admin_ui_save_fields();
-	program_admin_apply_all();   /* 将全部程序 cfg 同步到主页/运行页使用的参数表 */
-	home_sync_program_labels();  /* 刷新主页底部时间/温度/金额 */
-	pay_sync_price_label();
-	program_admin_back_to_menu1(); /* 确认后返回管理员设置页 */
-}
-
-static void cb_admin_open_program_settings(lv_event_t * e)
-{
-	(void)e;
-	g_admin_prog_sel = 0;
-	admin_panel_show(PROGRAM_SETTINGS);
-}
-
-static void program_admin_back_to_menu1(void)
-{
-	program_admin_ui_save_fields();
-	if(g_group_admin != NULL) {
-		lv_group_set_editing(g_group_admin, false);
-	}
-	program_admin_ta_close_kb();
-	admin_panel_show(MENU1);
-}
-
-/* 构建程序设置子页：上栏程序列表，下栏参数值外框 + 8 参数（label/value/edit） */
-
+/* 构建程序设置：LIST（title_box+五程序）/ DETAIL（左图文+中滚轮+右重置确定） */
 static void program_admin_build_panel(lv_obj_t * root, lv_coord_t body_y, lv_coord_t body_h)
 {
-		static const ui_str_id_t field_ids[8] = {
-		STR_PROG_FIELD_PRICE, STR_PROG_FIELD_WASH, STR_PROG_FIELD_RINSE_DUR, STR_PROG_FIELD_SPIN_DUR,
-		STR_PROG_FIELD_RINSE_CNT, STR_PROG_FIELD_SPIN_RPM, STR_PROG_FIELD_TEMP, STR_PROG_FIELD_WATER
+	static const lv_image_dsc_t * const set_imgs[TOTAL_PROGRAMS] = {
+		&dawu_set, &dntuoshui_set, &biaozhunxi_set, &tongzijie_set, &kuaixi_set
 	};
 
-	g_admin_panel_program = lv_obj_create(root);
+	g_admin_panel_program = lv_obj_create(root);//程序设置面板
 	lv_obj_set_size(g_admin_panel_program, LV_PCT(100), body_h);
 	lv_obj_align(g_admin_panel_program, LV_ALIGN_TOP_MID, 0, body_y);
 	lv_obj_set_style_bg_opa(g_admin_panel_program, LV_OPA_TRANSP, LV_PART_MAIN);
 	lv_obj_set_style_border_width(g_admin_panel_program, 0, LV_PART_MAIN);
 	lv_obj_set_style_pad_all(g_admin_panel_program, 0, LV_PART_MAIN);
 	lv_obj_set_style_layout(g_admin_panel_program, LV_LAYOUT_NONE, LV_PART_MAIN);
+	lv_obj_remove_flag(g_admin_panel_program, LV_OBJ_FLAG_SCROLLABLE);
 	lv_obj_add_flag(g_admin_panel_program, LV_OBJ_FLAG_HIDDEN);
 
-	/* 标题 */
-	lv_obj_t * title = lv_label_create(g_admin_panel_program);
-	ui_lang_bind_label(title, STR_ADMIN_M1_PROGRAM);
-	ui_set_obj_font(title, s_font_sc_30);
-	lv_obj_set_style_text_color(title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-	lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
+	g_admin_img_prog_title_box = lv_image_create(g_admin_panel_program);//标题框
+	lv_image_set_src(g_admin_img_prog_title_box, &title_box);
+	lv_obj_align(g_admin_img_prog_title_box, LV_ALIGN_TOP_MID, 0, 25);
 
-	/* 上栏：5 个程序按钮横向排列 */
-	const lv_coord_t prog_btn_w = 140;
-	const lv_coord_t prog_btn_h = 48;
-	const lv_coord_t prog_gap = 12;
-	const lv_coord_t prog_row_w = TOTAL_PROGRAMS * prog_btn_w + (TOTAL_PROGRAMS - 1) * prog_gap;
-	const lv_coord_t prog_row_x0 = (lv_coord_t)((UI_FIXED_W - prog_row_w) / 2);
-	const lv_coord_t prog_row_y = 36+10;
+	g_admin_lbl_prog_title = lv_label_create(g_admin_panel_program);//标题
+	ui_lang_bind_label(g_admin_lbl_prog_title, STR_ADMIN_M1_PROGRAM);
+	ui_set_obj_font(g_admin_lbl_prog_title, s_font_sc_30);
+	lv_obj_set_style_text_color(g_admin_lbl_prog_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_align(g_admin_lbl_prog_title, LV_ALIGN_TOP_MID, 0, 25);
+	lv_obj_set_style_translate_y(g_admin_lbl_prog_title,
+		(lv_coord_t)((title_box.header.h - 30) / 2), LV_PART_MAIN);
 
-	/* 上栏左侧固定：总程序时长（与主页底部时间列相同算法/格式） */
-	const lv_coord_t total_box_w = 120;
-	const lv_coord_t total_gap = 12;
-	const lv_coord_t total_x = prog_row_x0 - total_gap - total_box_w;
+	/* LIST */
+	g_admin_prog_list = lv_obj_create(g_admin_panel_program);//程序列表
+	lv_obj_set_size(g_admin_prog_list, LV_PCT(100), body_h);
+	lv_obj_set_pos(g_admin_prog_list, 0, 0);
+	lv_obj_set_style_bg_opa(g_admin_prog_list, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(g_admin_prog_list, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(g_admin_prog_list, 0, LV_PART_MAIN);
+	lv_obj_set_style_layout(g_admin_prog_list, LV_LAYOUT_NONE, LV_PART_MAIN);
+	lv_obj_remove_flag(g_admin_prog_list, LV_OBJ_FLAG_SCROLLABLE);
 
-	lv_obj_t * total_box = program_admin_make_value_box(g_admin_panel_program, total_box_w, prog_btn_h);
-	lv_obj_set_pos(total_box, total_x, prog_row_y);
-	g_admin_prog_total_val_lbl = lv_label_create(total_box);
-	lv_label_set_text(g_admin_prog_total_val_lbl, "0min");
-	ui_set_obj_font(g_admin_prog_total_val_lbl, s_font_sc_30);
-	lv_obj_set_style_text_color(g_admin_prog_total_val_lbl, lv_color_hex(0x333333), LV_PART_MAIN);
+	const lv_coord_t btn_w = 187;
+	const lv_coord_t btn_h = 186;
+	const lv_coord_t gap = 100;
+	const lv_coord_t row_w = TOTAL_PROGRAMS * btn_w + (TOTAL_PROGRAMS - 1) * gap;
+	const lv_coord_t x0 = (lv_coord_t)((UI_FIXED_W - row_w) / 2);
+	const lv_coord_t by = 190;
 
 	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-		g_admin_prog_btns[i] = make_admin_prog_btn(g_admin_panel_program, ui_program_name_get(i));
-		admin_prog_btn_bind_i18n(g_admin_prog_btns[i], g_mode_name_ids[i]);
-		lv_obj_set_size(g_admin_prog_btns[i], prog_btn_w, prog_btn_h);
-		lv_obj_set_pos(g_admin_prog_btns[i],
-			prog_row_x0 + i * (prog_btn_w + prog_gap), prog_row_y);
+		g_admin_prog_btns[i] = lv_button_create(g_admin_prog_list);
+		lv_obj_set_size(g_admin_prog_btns[i], btn_w, btn_h);
+		lv_obj_set_pos(g_admin_prog_btns[i], x0 + i * (btn_w + gap), by);
+		lv_obj_set_style_bg_opa(g_admin_prog_btns[i], LV_OPA_TRANSP, LV_PART_MAIN);
+		lv_obj_set_style_border_width(g_admin_prog_btns[i], 0, LV_PART_MAIN);
+		lv_obj_set_style_shadow_width(g_admin_prog_btns[i], 0, LV_PART_MAIN);
+		lv_obj_set_style_pad_all(g_admin_prog_btns[i], 0, LV_PART_MAIN);
+		lv_obj_remove_flag(g_admin_prog_btns[i], LV_OBJ_FLAG_CLICK_FOCUSABLE);
+
+		lv_obj_t * img = lv_image_create(g_admin_prog_btns[i]);
+		lv_image_set_src(img, set_imgs[i]);
+		lv_obj_center(img);
+
+		g_admin_prog_btn_lbls[i] = lv_label_create(g_admin_prog_btns[i]);
+		lv_label_set_text(g_admin_prog_btn_lbls[i], ui_program_name_get(i));
+		ui_set_obj_font(g_admin_prog_btn_lbls[i], s_font_sc_20);
+		lv_obj_set_style_text_color(g_admin_prog_btn_lbls[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+		lv_obj_align(g_admin_prog_btn_lbls[i], LV_ALIGN_BOTTOM_MID, 0, -45);
+		ui_lang_bind_label(g_admin_prog_btn_lbls[i], g_mode_name_ids[i]);
+
 		lv_obj_add_event_cb(g_admin_prog_btns[i], cb_admin_prog_pick, LV_EVENT_CLICKED, (void *)(intptr_t)i);
 	}
 
-	/* 下栏：左侧 8 参数 + 右侧重置/确认（field_w × field_h 全部一致） */
-	const lv_coord_t btn_col_w = 100;
-	const lv_coord_t btn_col_x = (lv_coord_t)UI_FIXED_W - btn_col_w - 80;
-	const lv_coord_t field_x0 = 100;//左间距
-	const lv_coord_t field_gap = 8;//间距
-	const lv_coord_t field_h = 60;//高度
-	const lv_coord_t field_w = 150;//宽度
-	const lv_coord_t field_y_lbl = 100+30;//文字y位置
-	const lv_coord_t field_y_val = 132+45;//文本框y位置
+	/* DETAIL */
+	g_admin_prog_detail = lv_obj_create(g_admin_panel_program);//程序详情
+	lv_obj_set_size(g_admin_prog_detail, LV_PCT(100), body_h);
+	lv_obj_set_pos(g_admin_prog_detail, 0, 0);
+	lv_obj_set_style_bg_opa(g_admin_prog_detail, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(g_admin_prog_detail, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(g_admin_prog_detail, 0, LV_PART_MAIN);
+	lv_obj_set_style_layout(g_admin_prog_detail, LV_LAYOUT_NONE, LV_PART_MAIN);
+	lv_obj_remove_flag(g_admin_prog_detail, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_add_flag(g_admin_prog_detail, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_remove_flag(g_admin_prog_detail, LV_OBJ_FLAG_GESTURE_BUBBLE);
+	lv_obj_add_event_cb(g_admin_prog_detail, cb_admin_prog_detail_gesture, LV_EVENT_GESTURE, NULL);
+	lv_obj_add_flag(g_admin_prog_detail, LV_OBJ_FLAG_HIDDEN);
 
-	for(int i = 0; i < 8; i++) {
-		const lv_coord_t fx = field_x0 + i * (field_w + field_gap);
-		lv_obj_t * lbl = lv_label_create(g_admin_panel_program);
-		g_admin_prog_field_lbl[i] = lbl;
-		ui_lang_bind_label(lbl, field_ids[i]);
-		ui_set_obj_font(lbl, s_font_sc_30);
-		lv_obj_set_style_text_color(lbl, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-		lv_obj_set_width(lbl, field_w);
-		lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-		lv_obj_set_pos(lbl, fx, field_y_lbl);
+	g_admin_prog_left_bg = lv_image_create(g_admin_prog_detail);//背景图片
+	lv_image_set_src(g_admin_prog_left_bg, &progrm_background);
+	lv_obj_set_pos(g_admin_prog_left_bg, 80, 70);
 
-		/* 统一外框：8 列同宽同高，内部控件铺满外框 */
-		g_admin_prog_field_box[i] = program_admin_make_value_box(g_admin_panel_program, field_w, field_h);
-		lv_obj_set_pos(g_admin_prog_field_box[i], fx, field_y_val);
-		lv_obj_add_flag(g_admin_prog_field_box[i], LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+	g_admin_prog_left_icon = lv_image_create(g_admin_prog_detail);//程序图
+	program_admin_set_left_icon(0);
+	lv_obj_align_to(g_admin_prog_left_icon, g_admin_prog_left_bg, LV_ALIGN_CENTER, 0, -50);
 
-		g_admin_prog_dash[i] = lv_label_create(g_admin_prog_field_box[i]);
-		lv_label_set_text(g_admin_prog_dash[i], "--");
-		ui_set_obj_font(g_admin_prog_dash[i], s_font_sc_30);
-		lv_obj_set_style_text_color(g_admin_prog_dash[i], lv_color_hex(0x333333), LV_PART_MAIN);
-		lv_obj_add_flag(g_admin_prog_dash[i], LV_OBJ_FLAG_HIDDEN);
+	g_admin_prog_left_name = lv_label_create(g_admin_prog_detail);//程序名
+	lv_label_set_text(g_admin_prog_left_name, ui_program_name_get(0));
+	ui_set_obj_font(g_admin_prog_left_name, s_font_sc_30);
+	lv_obj_set_style_text_color(g_admin_prog_left_name, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_set_style_text_align(g_admin_prog_left_name, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+	lv_obj_align_to(g_admin_prog_left_name, g_admin_prog_left_bg, LV_ALIGN_CENTER, 0, 15);
+
+	g_admin_prog_total_val_lbl = lv_label_create(g_admin_prog_detail);//总时间
+	lv_label_set_text(g_admin_prog_total_val_lbl, "00:00");
+	ui_set_obj_font(g_admin_prog_total_val_lbl, s_font_sc_35);
+	lv_obj_set_style_text_color(g_admin_prog_total_val_lbl, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_align_to(g_admin_prog_total_val_lbl, g_admin_prog_left_bg, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+
+	for(int i = 0; i < PROG_ADMIN_SLOT_MAX; i++) {
+		g_admin_prog_slot[i] = lv_obj_create(g_admin_prog_detail);//程序槽
+		lv_obj_set_size(g_admin_prog_slot[i], 110, 310);
+		lv_obj_set_style_bg_opa(g_admin_prog_slot[i], LV_OPA_TRANSP, LV_PART_MAIN);
+		lv_obj_set_style_border_width(g_admin_prog_slot[i], 0, LV_PART_MAIN);
+		lv_obj_set_style_pad_all(g_admin_prog_slot[i], 0, LV_PART_MAIN);
+		lv_obj_set_style_layout(g_admin_prog_slot[i], LV_LAYOUT_NONE, LV_PART_MAIN);
+		lv_obj_remove_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_SCROLLABLE);
+		lv_obj_add_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_HIDDEN);
+		lv_obj_add_flag(g_admin_prog_slot[i], LV_OBJ_FLAG_GESTURE_BUBBLE);
+
+		g_admin_prog_up[i] = lv_imgbtn_create(g_admin_prog_slot[i]);//上键
+		lv_imgbtn_set_src(g_admin_prog_up[i], LV_IMGBTN_STATE_RELEASED, NULL, &up_key, NULL);
+		lv_obj_set_size(g_admin_prog_up[i], 64, 32);
+		lv_obj_align(g_admin_prog_up[i], LV_ALIGN_TOP_MID, 0, 0);
+		lv_obj_add_flag(g_admin_prog_up[i], LV_OBJ_FLAG_CLICKABLE);
+		lv_obj_remove_flag(g_admin_prog_up[i], LV_OBJ_FLAG_CLICK_FOCUSABLE);
+		lv_obj_add_event_cb(g_admin_prog_up[i], cb_admin_prog_up_down, LV_EVENT_CLICKED,
+			(void *)(intptr_t)(i | (1 << 8)));
+
+		g_admin_prog_roller[i] = lv_roller_create(g_admin_prog_slot[i]);//滚轮
+		lv_obj_set_size(g_admin_prog_roller[i], 100, 70);
+		lv_obj_align(g_admin_prog_roller[i], LV_ALIGN_TOP_MID, 0, 100);
+		program_admin_style_roller(g_admin_prog_roller[i]);
+		lv_obj_add_event_cb(g_admin_prog_roller[i], cb_admin_prog_param_changed, LV_EVENT_VALUE_CHANGED, NULL);
+		lv_obj_add_flag(g_admin_prog_roller[i], LV_OBJ_FLAG_GESTURE_BUBBLE);
+
+		/* 主词、单位各自对齐；偏移见上方 PROG_ADMIN_WORD_* / PROG_ADMIN_UNIT_* */
+		g_admin_prog_word_lbl[i] = lv_label_create(g_admin_prog_slot[i]);//主词
+		lv_label_set_text(g_admin_prog_word_lbl[i], "");
+		ui_set_obj_font(g_admin_prog_word_lbl[i], s_font_sc_30);
+		lv_obj_set_style_text_color(g_admin_prog_word_lbl[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+
+		g_admin_prog_unit_lbl[i] = lv_label_create(g_admin_prog_slot[i]);//单位
+		lv_label_set_text(g_admin_prog_unit_lbl[i], "");
+		ui_set_obj_font(g_admin_prog_unit_lbl[i], s_font_sc_20);
+		lv_obj_set_style_text_color(g_admin_prog_unit_lbl[i], lv_color_hex(COL_TEXT), LV_PART_MAIN);
+		lv_obj_add_flag(g_admin_prog_unit_lbl[i], LV_OBJ_FLAG_GESTURE_BUBBLE);
+		program_admin_align_param_labels(i, true);
+
+		g_admin_prog_down[i] = lv_imgbtn_create(g_admin_prog_slot[i]);//下键
+		lv_imgbtn_set_src(g_admin_prog_down[i], LV_IMGBTN_STATE_RELEASED, NULL, &down_key, NULL);
+		lv_obj_set_size(g_admin_prog_down[i], 64, 32);
+		lv_obj_align(g_admin_prog_down[i], LV_ALIGN_TOP_MID, 0, 260);
+		lv_obj_add_flag(g_admin_prog_down[i], LV_OBJ_FLAG_CLICKABLE);
+		lv_obj_remove_flag(g_admin_prog_down[i], LV_OBJ_FLAG_CLICK_FOCUSABLE);
+		lv_obj_add_event_cb(g_admin_prog_down[i], cb_admin_prog_up_down, LV_EVENT_CLICKED,
+			(void *)(intptr_t)(i | (0 << 8)));
 	}
 
-	for(int i = 0; i < 4; i++) {
-		g_admin_prog_ta[i] = lv_textarea_create(g_admin_prog_field_box[i]);
-		program_admin_style_ta(g_admin_prog_ta[i]);
-		lv_textarea_set_max_length(g_admin_prog_ta[i], 3);
-		lv_textarea_set_accepted_chars(g_admin_prog_ta[i], "0123456789");
-		lv_obj_set_style_text_font(g_admin_prog_ta[i], s_font_sc_30, LV_PART_MAIN);
-		lv_obj_set_style_text_color(g_admin_prog_ta[i], lv_color_hex(0x000000), LV_PART_MAIN);
-		lv_obj_add_flag(g_admin_prog_ta[i], LV_OBJ_FLAG_CLICKABLE);
-		lv_obj_add_event_cb(g_admin_prog_ta[i], cb_admin_prog_ta_focus, LV_EVENT_ALL, NULL);
-		style_prog_field_encoder_focus_inner(g_admin_prog_ta[i]);
-		if(i >= 1 && i <= 3) {
-			lv_obj_add_event_cb(g_admin_prog_ta[i], cb_admin_prog_time_field_changed, LV_EVENT_VALUE_CHANGED, NULL);
-		}
-	}
-	lv_textarea_set_max_length(g_admin_prog_ta[0], 3);
-
-	for(int i = 0; i < 3; i++) {
-		g_admin_prog_roller[i] = lv_roller_create(g_admin_prog_field_box[4 + i]);
-		program_admin_style_field_inner(g_admin_prog_roller[i]);
-		lv_roller_set_visible_row_count(g_admin_prog_roller[i], 1);
-		lv_obj_set_style_text_font(g_admin_prog_roller[i], s_font_sc_30, LV_PART_MAIN);
-		lv_obj_set_style_text_font(g_admin_prog_roller[i], s_font_sc_30, LV_PART_SELECTED);
-		lv_obj_set_style_bg_opa(g_admin_prog_roller[i], LV_OPA_TRANSP, LV_PART_MAIN);
-		lv_obj_set_style_bg_opa(g_admin_prog_roller[i], LV_OPA_TRANSP, LV_PART_SELECTED);
-		lv_obj_set_style_text_color(g_admin_prog_roller[i], lv_color_hex(0x000000), LV_PART_MAIN);
-		lv_obj_set_style_text_color(g_admin_prog_roller[i], lv_color_hex(0x000000), LV_PART_SELECTED);
-		lv_obj_add_event_cb(g_admin_prog_roller[i], cb_admin_prog_roller_encoder, LV_EVENT_CLICKED, NULL);
-		lv_obj_add_event_cb(g_admin_prog_roller[i], cb_admin_prog_roller_encoder, LV_EVENT_DEFOCUSED, NULL);
-		style_prog_field_encoder_focus_inner(g_admin_prog_roller[i]);
-	}
-	lv_roller_set_options(g_admin_prog_roller[0], "0\n1\n2\n3\n4", LV_ROLLER_MODE_NORMAL);
-	lv_roller_set_options(g_admin_prog_roller[1], "1200\n800\n600\n400\n0", LV_ROLLER_MODE_NORMAL);
-	lv_roller_set_options(g_admin_prog_roller[2], "COLD\n30℃\n40℃\n60℃\n90℃", LV_ROLLER_MODE_NORMAL);
-	for(int i = 0; i < 3; i++) {
-		lv_obj_add_event_cb(g_admin_prog_roller[i], cb_admin_prog_time_field_changed, LV_EVENT_VALUE_CHANGED, NULL);
-	}
-
-	g_admin_prog_water_lbl = lv_label_create(g_admin_prog_field_box[7]);
-	lv_label_set_text(g_admin_prog_water_lbl, ui_translation(STR_PROG_WATER_SMART));
-	ui_set_obj_font(g_admin_prog_water_lbl, s_font_sc_30);
-	lv_obj_set_style_text_color(g_admin_prog_water_lbl, lv_color_hex(0x333333), LV_PART_MAIN);
-	lv_obj_set_width(g_admin_prog_water_lbl, LV_PCT(100));
-	lv_obj_set_style_text_align(g_admin_prog_water_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-	/* 下栏右侧：重置（上）、确认（下） */
-	g_admin_btn_prog_reset = make_orange_outline_btn(g_admin_panel_program, ui_translation(STR_BTN_RESET), btn_col_w, 44);
-	lv_obj_set_pos(g_admin_btn_prog_reset, btn_col_x, field_y_val);
+	g_admin_btn_prog_reset = make_orange_outline_btn(g_admin_prog_detail, ui_translation(STR_BTN_RESET), 110, 50);//重置按钮
+	lv_obj_align(g_admin_btn_prog_reset, LV_ALIGN_TOP_RIGHT, -140, 170);
 	ui_set_obj_font(lv_obj_get_child(g_admin_btn_prog_reset, 0), s_font_sc_30);
 	orange_btn_bind_i18n(g_admin_btn_prog_reset, STR_BTN_RESET);
+	lv_obj_remove_flag(g_admin_btn_prog_reset, LV_OBJ_FLAG_CLICK_FOCUSABLE);
 	lv_obj_add_event_cb(g_admin_btn_prog_reset, cb_admin_prog_reset, LV_EVENT_CLICKED, NULL);
 
-	g_admin_btn_prog_confirm = make_orange_fill_btn(g_admin_panel_program, ui_translation(STR_BTN_CONFIRM), btn_col_w, 44);
-	lv_obj_set_pos(g_admin_btn_prog_confirm, btn_col_x, field_y_val + 44 + 10);
+	g_admin_btn_prog_confirm = make_orange_fill_btn(g_admin_prog_detail, ui_translation(STR_BTN_CONFIRM), 110, 50);//确定按钮
+	lv_obj_align(g_admin_btn_prog_confirm, LV_ALIGN_TOP_RIGHT, -140, 250);
 	ui_set_obj_font(lv_obj_get_child(g_admin_btn_prog_confirm, 0), s_font_sc_30);
 	orange_btn_bind_i18n(g_admin_btn_prog_confirm, STR_BTN_CONFIRM);
+	lv_obj_remove_flag(g_admin_btn_prog_confirm, LV_OBJ_FLAG_CLICK_FOCUSABLE);
 	lv_obj_add_event_cb(g_admin_btn_prog_confirm, cb_admin_prog_confirm, LV_EVENT_CLICKED, NULL);
 
 	g_admin_prog_sel = 0;
-	program_admin_ui_load_fields();
+	g_admin_prog_is_detail = false;
 }
 
 /* ---------- 管理员界面：子面板显示/隐藏、密码与机器 ID ---------- */
@@ -6959,40 +7323,9 @@ static void admin_encoder_rebuild(void)
         }
         break;
     case PROGRAM_SETTINGS:
-        for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-            if(g_admin_prog_btns[i] != NULL) ui_encoder_group_add(g_group_admin, g_admin_prog_btns[i]);
-        }
-        if(g_admin_prog_sel >= 0 && g_admin_prog_sel < TOTAL_PROGRAMS) {
-            const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
-            static const uint16_t ta_caps[4] = {
-                PROG_CAP_PRICE, PROG_CAP_WASH, PROG_CAP_RINSE_DUR, PROG_CAP_SPIN_DUR
-            };
-            for(int i = 0; i < 4; i++) {
-                if(g_admin_prog_ta[i] != NULL && (c->cap & ta_caps[i])) {
-                    ui_encoder_group_add_prog_field(g_group_admin, g_admin_prog_ta[i]);
-                }
-            }
-        }
-        for(int i = 0; i < 3; i++) {
-            if(g_admin_prog_roller[i] != NULL) {
-                ui_encoder_group_add_prog_field(g_group_admin, g_admin_prog_roller[i]);
-            }
-        }
-        if(g_admin_btn_prog_reset != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_prog_reset);
-        if(g_admin_btn_prog_confirm != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_prog_confirm);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_ta_prog_active != NULL) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        } else {
-            lv_group_set_editing(g_group_admin, false);
-            if(g_admin_prog_sel >= 0 && g_admin_prog_sel < TOTAL_PROGRAMS &&
-                g_admin_prog_btns[g_admin_prog_sel] != NULL) {
-                focus_first = g_admin_prog_btns[g_admin_prog_sel];
-            } else {
-                focus_first = (g_admin_prog_btns[0] != NULL) ? g_admin_prog_btns[0] : g_admin_btn_back;
-            }
-        }
+        /* LIST/DETAIL 主体不进编码器；仅状态栏返回/启停/电源 */
+        lv_group_set_editing(g_group_admin, false);
+        focus_first = g_admin_btn_back;
         break;
     case SCREEN_BRIGHTNESS:
         /* 焦点顺序：返回 → 启停 → 电源 → 常亮开关（滑条仅触摸，不进编码器） */
@@ -7361,7 +7694,6 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == PROGRAM_SETTINGS && g_admin_panel_program != NULL) {
         lv_obj_remove_flag(g_admin_panel_program, LV_OBJ_FLAG_HIDDEN);
-        g_admin_ta_prog_active = NULL;
         if(g_group_admin != NULL) {
             lv_group_set_editing(g_group_admin, false);
         }
@@ -7369,7 +7701,7 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        program_admin_ui_load_fields();
+        program_admin_show_list();
     }
     else if(view == SCREEN_BRIGHTNESS && g_admin_panel_brightness != NULL) {
         lv_obj_remove_flag(g_admin_panel_brightness, LV_OBJ_FLAG_HIDDEN);
@@ -7729,7 +8061,11 @@ static void cb_admin_back(lv_event_t * e)
         return;
     }
     if(g_admin_view == PROGRAM_SETTINGS) {
-        program_admin_back_to_menu1();
+        if(g_admin_prog_is_detail) {
+            program_admin_back_from_detail();
+        } else {
+            program_admin_back_to_menu1();
+        }
         return;
     }
     if(g_admin_view == SCREEN_BRIGHTNESS) {
@@ -7904,43 +8240,6 @@ static void admin_prog_roller_exit_edit(lv_obj_t * roller)
     program_admin_ui_save_fields();
     lv_group_set_editing(g_group_admin, false);
 }
-
-/*
- * 程序设置 roller：外设编码器短按发 LV_EVENT_CLICKED，在编辑/导航间切换。
- * 短按进入编辑（旋转改值），再按退回选择（旋转切焦点）；失焦时自动退出编辑。
- */
-
-static void cb_admin_prog_roller_encoder(lv_event_t * e)
-{
-    lv_obj_t * roller = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
-    if(g_admin_view != PROGRAM_SETTINGS) return;
-    if(roller == NULL || lv_obj_has_flag(roller, LV_OBJ_FLAG_HIDDEN)) return;
-
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_prog_roller_exit_edit(roller);
-        }
-        return;
-    }
-
-    if(admin_kb_is_visible()) return;
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != roller) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_prog_roller_exit_edit(roller);
-    } else {
-        uint32_t sel = lv_roller_get_selected(roller);
-        lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
-        lv_group_set_editing(g_group_admin, true);
-    }
-    lv_event_stop_processing(e);
-}
-
-/* 程序设置：绑定 textarea 并弹出数字键盘 */
 
 static const char * ui_dormancy_timeout_label(uint32_t ms)
 {
@@ -9689,21 +9988,15 @@ static void program_admin_refresh_i18n(void)
 {
     unsigned i;
     for(i = 0; i < TOTAL_PROGRAMS; i++) {
-        if(g_admin_prog_btns[i] != NULL) {
-            lv_obj_t * lbl = lv_obj_get_child(g_admin_prog_btns[i], 0);
-            if(lbl != NULL) {
-                lv_label_set_text(lbl, ui_translation(g_mode_name_ids[i]));
-            }
+        if(g_admin_prog_btn_lbls[i] != NULL) {
+            lv_label_set_text(g_admin_prog_btn_lbls[i], ui_translation(g_mode_name_ids[i]));
         }
     }
-    if(g_admin_prog_water_lbl != NULL && g_admin_prog_sel >= 0 && g_admin_prog_sel < TOTAL_PROGRAMS) {
-        const ui_program_admin_t * c = &g_prog_cfg[g_admin_prog_sel];
-        if(c->cap & PROG_CAP_WATER) {
-            lv_label_set_text(g_admin_prog_water_lbl, ui_translation(STR_PROG_WATER_SMART));
-        }
-        else {
-            lv_label_set_text(g_admin_prog_water_lbl, "--");
-        }
+    if(g_admin_prog_is_detail && g_admin_prog_left_name != NULL &&
+       g_admin_prog_sel >= 0 && g_admin_prog_sel < TOTAL_PROGRAMS) {
+        lv_label_set_text(g_admin_prog_left_name, ui_program_name_get(g_admin_prog_sel));
+        lv_obj_align_to(g_admin_prog_left_name, g_admin_prog_left_bg, LV_ALIGN_CENTER, 0, 15);
+        program_admin_ui_load_fields();
     }
 }
 
