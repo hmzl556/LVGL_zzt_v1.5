@@ -1914,7 +1914,6 @@ static const char * ui_program_name_get(int32_t idx)
 #define COL_CHILD_LOCK_RED  0xD03030  //童锁激活：圆形按钮填充色
 #define COL_CHILD_LOCK_WHITE 0xF5F5F5 //童锁未激活：白按钮填充色
 #define CHILD_LOCK_LONG_PRESS_MS 3000u	//童锁长按 3 秒
-#define HOME_CAROUSEL_DOUBLE_CLICK_MS 400u  /* 主页轮播编码器双击间隔上限；固定居中并回启停 */
 
 #define UI_DORMANCY_TIMEOUT_DEFAULT_MS  300000u /* 空闲无操作进待机，默认 5 分钟 */
 #define UI_DORMANCY_DISABLED_MS           0u    /* 不熄屏：不启动空闲待机定时器 */
@@ -2740,7 +2739,6 @@ int32_t* get_g_wheel_sel(void) { return &g_wheel_sel; }
 static float g_wheel_turn = 0.f; /* fractional slot offset while dragging */
 static lv_coord_t g_wheel_press_x;
 static bool g_wheel_dragging;
-static bool g_wheel_moved;
 /* 运行页童锁 */
 static lv_obj_t * g_running_mid;                 /* 中间栏：童锁按钮对齐参考 */
 static lv_obj_t * g_running_btn_back;
@@ -2751,13 +2749,10 @@ static lv_obj_t * g_running_child_lock_img;
 static lv_obj_t * g_running_lock_blocker;      /* 全屏遮罩：童锁时拦截触摸 */
 static lv_obj_t * g_running_o3_img;           /* 运行页 O3 图标 */
 static bool g_ui_child_lock;                     /* 童锁激活时拦截主页滑动及除童锁外的界面跳转 */
-static lv_obj_t * g_home_btn_runpause;           /* 主页顶栏启停；轮播长按固定后编码器焦点回到此键 */
+static lv_obj_t * g_home_btn_runpause;           /* 主页顶栏启停（触摸） */
 static lv_obj_t * g_home_btn_power;              /* 主页顶栏电源 */
 static lv_obj_t * g_home_btn_admin;              /* 主页底栏管理员入口 */
-static lv_obj_t * g_home_carousel_enc;           /* 轮播区编码器焦点代理（旋转选程序，双击回启停） */
-static bool g_home_carousel_dbl_exit_suppress_click; /* 轮播双击回启停后，吞掉同一次松手的 CLICKED */
-static uint32_t g_home_carousel_last_click_ms;        /* 双击间隔计时：第二次 CLICKED 在 400ms 内则退出编辑 */
-static lv_timer_t * g_home_carousel_dbl_suppress_timer;
+static lv_obj_t * g_home_carousel_enc;           /* 轮播编码器：旋转选程序，短按等同启停进支付 */
 
 LV_IMAGE_DECLARE(img_01_dawu);
 LV_IMAGE_DECLARE(img_02_dantuoshui);
@@ -2931,14 +2926,11 @@ static void carousel_wrap_relayout(void);  //轮播区整体布局：卡片位�
 static int32_t carousel_dot_preview_sel(void);  //拖动中指示点预览选中（不改 g_wheel_sel）
 static int32_t wheel_mod_total(int32_t v);  //程序索引在 0..TOTAL_PROGRAMS-1 内循环取模
 static void home_sync_encoder_focus_after_carousel_drag(void);  //触摸滑动改程序后对齐编码器焦点
-static void home_encoder_group_build(void);  //主页编码器：启停→电源→语言→管理员→轮播（不首尾循环）
-static void home_carousel_encoder_lock_and_exit(void);  //轮播双击固定居中并焦点回启停
-static void cb_home_carousel_encoder(lv_event_t * e);  //轮播编码器：编辑模式旋转选程序，双击回启停
-static void cb_home_runpause(lv_event_t * e);  //主页启停：吞掉轮播双击回启停后的误触 CLICKED
-static void ui_indev_encoder_reset_long_press(void);  //重置编码器长按状态，避免松手误判短按
+static void home_encoder_group_build(void);  //主页编码器：仅轮播（常驻 editing）
+static void cb_home_carousel_encoder(lv_event_t * e);  //轮播编码器：旋转选程序，短按进支付
+static void cb_home_runpause(lv_event_t * e);  //主页启停触摸点击
 static void cb_home_prog_dot_focus(lv_event_t * e);  //轮播指示点：触摸点击同步选中程序
 static void wheel_pointer_cb(lv_event_t * e);  //轮播区按下/拖动/释放：滑动切换程序
-static void mode_card_click(lv_event_t * e);  //轮播居中卡片点击：进入支付页
 static void home_enter_pay_screen_request(void);  //延迟进入支付页（含二维码），避免误进支付完成
 static void cb_load_screen(lv_event_t * e);  //通用界面加载事件回调，根据 user_data 切换屏幕
 static void ui_layout_init(void);  //初始化轮播区布局参数（卡片尺寸、间距、拖动灵敏度）
@@ -3075,7 +3067,6 @@ static void cb_pay_debug_skip_to_done(lv_event_t * e)
 static void ui_fsm_runpause_apply(bool long_press)
 {
 	(void)long_press;
-	if(g_home_carousel_dbl_exit_suppress_click) return;
 
 	if(g_cycle_active && lv_scr_act() == g_scr_running) {
 		cycle_abort_run();
@@ -3309,9 +3300,7 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
 		lv_image_set_src(img, &back);
 		lv_obj_center(img);
 		lv_obj_add_event_cb(imgbtn_back, cb_load_screen, LV_EVENT_CLICKED, back_target);
-		if(encoder_group != NULL) {
-			ui_encoder_group_add(encoder_group, imgbtn_back);
-		}
+		(void)encoder_group;
 		if(back_btn_out != NULL) {
 			*back_btn_out = imgbtn_back;
 		}
@@ -3322,14 +3311,12 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
 }
 
 //在顶部栏添加编码器可聚焦的启停/电源类文本按钮
-static lv_obj_t * add_encoder_top_btn(lv_obj_t * top, const char * txt, lv_coord_t x, lv_group_t * group)  //在顶部栏添加编码器可聚焦的启停/电源类文本按钮
+static lv_obj_t * add_encoder_top_btn(lv_obj_t * top, const char * txt, lv_coord_t x, lv_group_t * group)  //在顶部栏添加启停/电源类文本按钮（不再加入编码器 group）
 {
 	lv_obj_t * btn = make_text_btn(top, txt, 80, 32);  //创建透明背景文本按钮
 	lv_obj_align(btn, LV_ALIGN_LEFT_MID, x, 0);
 	lv_obj_remove_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-	if(group != NULL) {
-		ui_encoder_group_add(group, btn);
-	}
+	(void)group;
 	return btn;
 }
 
@@ -3457,81 +3444,28 @@ static int32_t wheel_mod_total(int32_t v)  //程序索引取模
 }
 
 
-// 触摸滑动改程序后，将编码器焦点对齐到当前程序指示点
+// 触摸滑动改程序后，将编码器焦点保持在轮播并进入 editing
 
 static void home_sync_encoder_focus_after_carousel_drag(void)
 {
 	if(g_group_home == NULL) return;
 	if(g_home_carousel_enc != NULL) {
 		lv_group_focus_obj(g_home_carousel_enc);
-		if(g_group_home != NULL) {
-			lv_group_set_editing(g_group_home, true);
-		}
+		lv_group_set_editing(g_group_home, true);
 	}
 }
 
-// 主页编码器 focus 顺序：启停→电源→语言→管理员→轮播；不首尾循环，轮播仅双击回启停
+/* 主页编码器：仅轮播代理；常驻 editing，旋转直接切程序 */
 
 static void home_encoder_group_build(void)
 {
 	if(g_group_home == NULL) return;
 	lv_group_remove_all_objs(g_group_home);
-	if(g_home_btn_runpause != NULL) ui_encoder_group_add(g_group_home, g_home_btn_runpause);
-	if(g_home_btn_power != NULL) ui_encoder_group_add(g_group_home, g_home_btn_power);
-	if(g_btn_home_lang != NULL) ui_encoder_group_add(g_group_home, g_btn_home_lang);
-	if(g_home_btn_admin != NULL) ui_encoder_group_add(g_group_home, g_home_btn_admin);
-	if(g_home_carousel_enc != NULL) ui_encoder_group_add(g_group_home, g_home_carousel_enc);
-	lv_group_set_wrap(g_group_home, false);
-	if(g_home_btn_runpause != NULL) {
-		lv_group_focus_obj(g_home_btn_runpause);
-		lv_group_set_editing(g_group_home, false);
-	}
-}
-
-static void home_carousel_dbl_suppress_timer_cb(lv_timer_t * t)
-{
-	(void)t;
-	g_home_carousel_dbl_suppress_timer = NULL;
-	g_home_carousel_dbl_exit_suppress_click = false;
-}
-
-static void ui_indev_encoder_reset_long_press(void)
-{
-	lv_indev_t * indev = NULL;
-	while((indev = lv_indev_get_next(indev)) != NULL) {
-		if(lv_indev_get_type(indev) == LV_INDEV_TYPE_ENCODER) {
-			lv_indev_reset_long_press(indev);
-			break;
-		}
-	}
-}
-
-static void home_carousel_encoder_lock_and_exit(void)
-{
-	if(g_ui_child_lock) return;
-	g_wheel_turn = 0.f;
-	carousel_wrap_relayout();
-	home_sync_program_labels();
-
-	/* 双击过程中已切到启停：松手时 LVGL 仍可能对启停发 CLICKED，需隔开 */
-	g_home_carousel_dbl_exit_suppress_click = true;
-	if(g_home_carousel_dbl_suppress_timer != NULL) {
-		lv_timer_delete(g_home_carousel_dbl_suppress_timer);
-	}
-	g_home_carousel_dbl_suppress_timer = lv_timer_create(home_carousel_dbl_suppress_timer_cb, 400, NULL);
-	lv_timer_set_repeat_count(g_home_carousel_dbl_suppress_timer, 1);
-
-	ui_indev_encoder_reset_long_press();
 	if(g_home_carousel_enc != NULL) {
-		lv_obj_remove_state(g_home_carousel_enc, LV_STATE_PRESSED);
-	}
-
-	if(g_group_home != NULL) {
-		lv_group_set_editing(g_group_home, false); /* 导航模式：旋转在启停/电源/语言/管理员/轮播间移动 */
-	}
-	if(g_home_btn_runpause != NULL) {
-		lv_obj_remove_state(g_home_btn_runpause, LV_STATE_PRESSED);
-		lv_group_focus_obj(g_home_btn_runpause);
+		ui_encoder_group_add(g_group_home, g_home_carousel_enc);
+		lv_group_set_wrap(g_group_home, false);
+		lv_group_focus_obj(g_home_carousel_enc);
+		lv_group_set_editing(g_group_home, true);
 	}
 }
 
@@ -3543,27 +3477,12 @@ static void home_carousel_encoder_step(int32_t delta)
 	home_sync_program_labels();
 }
 
-/* 主页启停：FSM 启动；吞掉轮播双击回启停后的误触 CLICKED */
+/* 主页启停：触摸点击进支付（与编码器短按同一 FSM 路径） */
 
 static void cb_home_runpause(lv_event_t * e)
 {
 	lv_event_code_t code = lv_event_get_code(e);
-	if(code == LV_EVENT_FOCUSED) {
-		if(g_group_home != NULL) {
-			lv_group_set_editing(g_group_home, false);
-		}
-		return;
-	}
 	if(code == LV_EVENT_CLICKED) {
-		if(g_home_carousel_dbl_exit_suppress_click) {
-			g_home_carousel_dbl_exit_suppress_click = false;
-			if(g_home_carousel_dbl_suppress_timer != NULL) {
-				lv_timer_delete(g_home_carousel_dbl_suppress_timer);
-				g_home_carousel_dbl_suppress_timer = NULL;
-			}
-			lv_event_stop_processing(e);
-			return;
-		}
 		cb_runpause(e);
 		return;
 	}
@@ -3572,7 +3491,7 @@ static void cb_home_runpause(lv_event_t * e)
 	}
 }
 
-/* 轮播编码器：编辑模式旋转选程序；DOUBLE_CLICK(400ms) 固定居中并回启停 */
+/* 轮播编码器：旋转选程序；短按等同启停 → 进支付 */
 
 static void cb_home_carousel_encoder(lv_event_t * e)
 {
@@ -3582,28 +3501,14 @@ static void cb_home_carousel_encoder(lv_event_t * e)
 	lv_event_code_t code = lv_event_get_code(e);
 
 	if(code == LV_EVENT_FOCUSED) {
-		g_home_carousel_last_click_ms = 0;
 		if(g_group_home != NULL) {
 			lv_group_set_editing(g_group_home, true);
 		}
 		return;
 	}
-	if(code == LV_EVENT_DEFOCUSED) {
-		g_home_carousel_last_click_ms = 0;
-		if(g_group_home != NULL && lv_group_get_focused(g_group_home) != g_home_carousel_enc) {
-			lv_group_set_editing(g_group_home, false);
-		}
-		return;
-	}
 	if(code == LV_EVENT_CLICKED) {
-		uint32_t now = lv_tick_get();
-		if(g_home_carousel_last_click_ms != 0 &&
-		   lv_tick_elaps(g_home_carousel_last_click_ms) <= HOME_CAROUSEL_DOUBLE_CLICK_MS) {
-			g_home_carousel_last_click_ms = 0;
-			home_carousel_encoder_lock_and_exit();
-		} else {
-			g_home_carousel_last_click_ms = now;
-		}
+		/* 短按 = 启停：STANDBY 主页 → 支付 */
+		cb_runpause(e);
 		lv_event_stop_processing(e);
 		return;
 	}
@@ -3649,7 +3554,6 @@ static void wheel_pointer_cb(lv_event_t * e)  //轮播区按下/拖动/释放
 		g_wheel_press_x = p.x;
 		g_wheel_dragging = true;
 		g_wheel_turn = 0.f;
-		g_wheel_moved = false;
 		return;
 	}
 
@@ -3680,22 +3584,10 @@ static void wheel_pointer_cb(lv_event_t * e)  //轮播区按下/拖动/释放
 		g_wheel_sel = wheel_mod_total((int32_t)g_wheel_sel + delta);  //程序索引取模
 
 		g_wheel_turn = 0.f;
-		g_wheel_moved = true;
 		carousel_wrap_relayout();						//轮播区布局
 		home_sync_program_labels();  //刷新主页程序标签
 		home_sync_encoder_focus_after_carousel_drag();
 	}
-}
-
-//轮播区卡片点击（仅居中槽位：与主页启停相同，经 FSM 进支付页）
-static void mode_card_click(lv_event_t * e)  //轮播居中卡片点击
-{
-	if(g_ui_child_lock) return;
-	if(g_wheel_moved) return;
-	if(lv_scr_act() != g_scr_home) return;
-	intptr_t slot = (intptr_t)lv_event_get_user_data(e);
-	if(slot != CAROUSEL_CENTER_SLOT) return;
-	cb_runpause(NULL);
 }
 
 
@@ -3932,11 +3824,7 @@ static void ui_encoder_group_add_no_outline(lv_group_t * group, lv_obj_t * obj)
 
 static void admin_encoder_group_add_kb(lv_group_t * group)
 {
-	if(group == NULL || g_admin_kb == NULL) return;
-	lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-	lv_obj_set_style_outline_width(g_admin_kb, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(g_admin_kb, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-	lv_group_add_obj(group, g_admin_kb);
+	(void)group;
 }
 
 // 判断管理员数字键盘是否处于显示状态
@@ -3997,32 +3885,7 @@ static void admin_kb_encoder_select_first(lv_obj_t * kb)
 
 static void cb_admin_kb_encoder(lv_event_t * e)
 {
-	lv_obj_t * kb = lv_event_get_target_obj(e);
-	lv_event_code_t code = lv_event_get_code(e);
-	if(kb == NULL) return;
-
-	if(code == LV_EVENT_FOCUSED) {
-		if(g_group_admin != NULL && lv_group_get_editing(g_group_admin) &&
-		   lv_keyboard_get_selected_button(kb) == LV_BUTTONMATRIX_BUTTON_NONE) {
-			admin_kb_encoder_select_first(kb);
-		}
-	}
-	else if(code == LV_EVENT_KEY) {
-		if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-			uint32_t key = lv_event_get_key(e);
-			if(key == LV_KEY_RIGHT) {
-				admin_kb_encoder_step(kb, +1);
-				lv_event_stop_processing(e);
-			}
-			else if(key == LV_KEY_LEFT) {
-				admin_kb_encoder_step(kb, -1);
-				lv_event_stop_processing(e);
-			}
-		}
-	}
-	else if(code == LV_EVENT_VALUE_CHANGED) {
-		lv_obj_invalidate(kb);
-	}
+	(void)e;
 }
 
 // 为键盘内部按键设置编码器焦点描边，并注册编码器事件
@@ -4046,9 +3909,6 @@ static void admin_kb_encoder_style_init(void)
 	lv_obj_set_style_outline_width(g_admin_kb, 0, LV_STATE_FOCUS_KEY);
 	lv_obj_set_style_outline_opa(g_admin_kb, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
 
-	lv_obj_add_event_cb(g_admin_kb, cb_admin_kb_encoder, LV_EVENT_FOCUSED, NULL);
-	lv_obj_add_event_cb(g_admin_kb, cb_admin_kb_encoder, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
-	lv_obj_add_event_cb(g_admin_kb, cb_admin_kb_encoder, LV_EVENT_VALUE_CHANGED, NULL);
 	lv_obj_add_event_cb(g_admin_kb, cb_admin_kb_cancel, LV_EVENT_CANCEL, NULL);
 
 	s_admin_kb_encoder_inited = true;
@@ -4058,11 +3918,6 @@ static void admin_kb_encoder_style_init(void)
 
 static void admin_kb_encoder_enter(void)
 {
-	if(g_admin_kb == NULL || g_group_admin == NULL) return;
-	if(!admin_kb_is_visible()) return;
-	lv_group_focus_obj(g_admin_kb);
-	lv_group_set_editing(g_group_admin, true);
-	admin_kb_encoder_select_first(g_admin_kb);
 }
 
 // 收起管理员数字键盘（点击小键盘图标触发 LV_EVENT_CANCEL）
@@ -4192,9 +4047,8 @@ static void create_screens(void) //创建界面，并按当前显示分辨率设
 }
 
 //将编码器/键盘输入设备绑定到指定 focus group
-static void ui_set_encoder_group(lv_group_t * group)  //切换编码器 group
+static void ui_set_encoder_group(lv_group_t * group)  //切换编码器 group（NULL 清除）
 {
-	if(group == NULL) return;
 	lv_indev_t * indev = NULL;
 	while((indev = lv_indev_get_next(indev)) != NULL) {
 		lv_indev_type_t type = lv_indev_get_type(indev);
@@ -4221,14 +4075,15 @@ static void ui_screen_load(lv_obj_t * scr)
 
 	lv_screen_load(scr);                                 /* LVGL 切换活动屏幕 */
 
-	if(scr == g_scr_off) {
-		ui_set_encoder_group(g_group_off);
+	if(scr == g_scr_home) {
+		home_encoder_group_build();                      /* 仅轮播进组 + 常驻 editing */
+		ui_set_encoder_group(g_group_home);
 	}
-	else if(scr == g_scr_home) {
-		ui_set_encoder_group(g_group_home);              /* 主页：含语言/轮播焦点 */
+	else if(scr == g_scr_off) {
+		ui_set_encoder_group(NULL);
 	}
 	else if(scr == g_scr_running) {
-		ui_set_encoder_group(g_group_running);
+		ui_set_encoder_group(NULL);
 		running_screen_sync_mode_name();                 /* 刷新运行页程序名 label */
 		running_live_params_sync();                      /* 刷新运行页实时参数 label */
 		/* 同步 O3 图标可见性 */
@@ -4243,37 +4098,34 @@ static void ui_screen_load(lv_obj_t * scr)
 		}
 	}
 	else if(scr == g_scr_end) {
-		ui_set_encoder_group(g_group_end);               /* 结束页 label 已在 build 时绑定 i18n */
+		ui_set_encoder_group(NULL);                     /* 结束页 label 已在 build 时绑定 i18n */
 	}
 	else if(scr == g_scr_pay) {
 		/* 仅下发已确认配置，避免程序设置未点确定的草稿进 MCU */
 		program_admin_fill_param_change(g_wheel_sel);
-		ui_set_encoder_group(g_group_pay);
+		ui_set_encoder_group(NULL);
 		pay_sync_price_label();                          /* 刷新 g_lbl_pay_price */
 		pay_sync_pay_ui();
-		if(g_pay_focus_back_on_enter && g_pay_btn_back != NULL) {
-			lv_group_focus_obj(g_pay_btn_back);          /* 避免焦点落在启停上误进支付完成 */
-			g_pay_focus_back_on_enter = false;
-		}
+		g_pay_focus_back_on_enter = false;
 	}
 	else if(scr == g_scr_pay_done) {
-		ui_set_encoder_group(g_group_pay_done);
+		ui_set_encoder_group(NULL);
 		pay_done_timer_start();                          /* 2s 后进入运行页 */
 	}
 	else if(scr == g_scr_admin) {
 		admin_session_reset();
-		ui_set_encoder_group(g_group_admin);
+		ui_set_encoder_group(NULL);
 	}
 	else if(scr == g_scr_selfcheck) {
-		ui_set_encoder_group(g_group_selfcheck);
+		ui_set_encoder_group(NULL);
 		selfcheck_ui_reset();
 	}
 	else if(scr == g_scr_cycle) {
-		ui_set_encoder_group(g_group_cycle);
+		ui_set_encoder_group(NULL);
 		cycle_run_count_label_sync();
 	}
 	else {
-		ui_set_encoder_group(g_ui_group);                /* 未知屏用默认组 */
+		ui_set_encoder_group(NULL);                     /* 非主页一律清除编码器组 */
 	}
 	ui_idle_on_screen_changed(scr);                    /* 待机页暂停空闲计时 */
 }
@@ -4308,9 +4160,6 @@ static void ui_idle_on_screen_changed(lv_obj_t * scr)
         lv_timer_pause(g_idle_timer);
         g_idle_last_ptr_x = -1;
         g_idle_last_ptr_y = -1;
-        if(scr == g_scr_off && g_off_btn_power != NULL && g_group_off != NULL) {
-            lv_group_focus_obj(g_off_btn_power);
-        }
     }
     else {
         ui_idle_reset();
@@ -4475,9 +4324,9 @@ static void running_child_lock_align_btn(void)  //将童锁按钮对齐到运行
 }
 
 //应用童锁锁定/解锁 UI 与编码器 group 状态
-static void running_child_lock_apply_locked(bool locked, bool silent_unlock) //应用童锁锁定/解锁 UI 与编码器 group 状态
+static void running_child_lock_apply_locked(bool locked, bool silent_unlock) //应用童锁锁定/解锁 UI（不操作编码器 group）
 {
-	if(g_running_child_lock_btn == NULL || g_group_running == NULL) return;
+	if(g_running_child_lock_btn == NULL) return;
 
 	bool* need_child_lock = &g_ui_child_lock;
 	if(locked) {
@@ -4502,12 +4351,6 @@ static void running_child_lock_apply_locked(bool locked, bool silent_unlock) //�
 		if(g_running_lock_blocker != NULL) {
 			lv_obj_remove_flag(g_running_lock_blocker, LV_OBJ_FLAG_HIDDEN);
 		}
-		lv_group_remove_all_objs(g_group_running);
-		lv_group_add_obj(g_group_running, g_running_child_lock_btn); /* 童锁：长按 3s 解锁 */
-		if(g_running_btn_power != NULL) {
-			lv_group_add_obj(g_group_running, g_running_btn_power);   /* 电源：童锁开启时仍可操作 */
-		}
-		lv_group_focus_obj(g_running_child_lock_btn);
 		if(g_running_lock_blocker != NULL) {
 			lv_obj_move_foreground(g_running_lock_blocker);
 		}
@@ -4525,19 +4368,6 @@ static void running_child_lock_apply_locked(bool locked, bool silent_unlock) //�
 		if(g_running_lock_blocker != NULL) {
 			lv_obj_add_flag(g_running_lock_blocker, LV_OBJ_FLAG_HIDDEN);
 		}
-		if(g_running_btn_back != NULL) {
-			lv_group_remove_all_objs(g_group_running);
-			lv_group_add_obj(g_group_running, g_running_btn_back);
-			if(g_running_btn_runpause != NULL) {
-				lv_group_add_obj(g_group_running, g_running_btn_runpause);
-			}
-			if(g_running_btn_power != NULL) {
-				lv_group_add_obj(g_group_running, g_running_btn_power);
-			}
-			lv_group_add_obj(g_group_running, g_running_child_lock_btn);
-		}
-		ui_set_encoder_group(g_group_running);
-		lv_group_focus_obj(g_running_child_lock_btn);              /* 解锁后焦点留在童锁，不跳到返回/启停 */
 	}
 }
 
@@ -4562,17 +4392,13 @@ static void cb_running_child_lock_long(lv_event_t * e)  //童锁按钮长按
 	else {
 		running_child_lock_apply_locked(false, false);
 	}
-	lv_group_focus_obj(g_running_child_lock_btn);                  /* 长按触发后焦点保持在童锁 */
 }
 
-/* 童锁按钮松开：避免 LONG_PRESSED 后焦点被 LVGL 移到其它控件 */
+/* 童锁按钮松开（编码器焦点已禁用，无需回焦） */
 
 static void cb_running_child_lock_released(lv_event_t * e)
 {
-	if(lv_event_get_code(e) != LV_EVENT_RELEASED) return;
-	if(lv_scr_act() != g_scr_running) return;
-	if(g_running_child_lock_btn == NULL || g_group_running == NULL) return;
-	lv_group_focus_obj(g_running_child_lock_btn);
+	(void)e;
 }
 
 
@@ -4649,7 +4475,6 @@ static void build_home(void)
 				lv_obj_add_event_cb(card, wheel_pointer_cb, LV_EVENT_PRESSED, NULL);                            //卡片按下事件
 				lv_obj_add_event_cb(card, wheel_pointer_cb, LV_EVENT_PRESSING, NULL);                           //卡片拖动事件
 				lv_obj_add_event_cb(card, wheel_pointer_cb, LV_EVENT_RELEASED, NULL);                           //卡片释放事件
-				lv_obj_add_event_cb(card, mode_card_click, LV_EVENT_CLICKED, (void *)(uintptr_t)(unsigned)i);   //卡片点击事件
 
 				lv_obj_t * img = lv_image_create(card);
 				g_mode_card_imgs[i] = img;
@@ -4676,6 +4501,7 @@ static void build_home(void)
 		lv_obj_set_style_layout(dots, LV_LAYOUT_NONE, LV_PART_MAIN);                       //指示条状态点区域布局为无布局
 		lv_obj_set_scroll_dir(dots, LV_DIR_NONE);                                          //指示条状态点区域滚动方向为无滚动
 		lv_obj_set_scrollbar_mode(dots, LV_SCROLLBAR_MODE_OFF);                            //指示条状态点区域滚动条模式为无滚动条
+		lv_obj_remove_flag(dots, LV_OBJ_FLAG_SCROLLABLE);
 		for(int i = 0; i < TOTAL_PROGRAMS; i++) {
 				lv_obj_t * d = lv_obj_create(dots);
 				g_mode_dots[i] = d;
@@ -4685,6 +4511,9 @@ static void build_home(void)
 				lv_obj_set_style_bg_color(d, lv_color_hex(i == g_wheel_sel ? COL_TEXT : COL_DIM), LV_PART_MAIN);
 				lv_obj_set_style_bg_opa(d, LV_OPA_COVER, LV_PART_MAIN);
 				lv_obj_set_style_border_width(d, 0, LV_PART_MAIN);
+				lv_obj_set_style_pad_all(d, 0, LV_PART_MAIN);
+				lv_obj_remove_flag(d, LV_OBJ_FLAG_SCROLLABLE);
+				lv_obj_set_scrollbar_mode(d, LV_SCROLLBAR_MODE_OFF);
 				lv_obj_add_flag(d, LV_OBJ_FLAG_CLICKABLE);
 				lv_obj_add_event_cb(d, cb_home_prog_dot_focus, LV_EVENT_ALL, (void *)(intptr_t)i);
 		}
@@ -5461,7 +5290,6 @@ static void build_running(void)
 		/* 默认解锁态：40% 透明度 */
 		lv_obj_set_style_image_opa(lock_img, LV_OPA_40, LV_PART_MAIN);
 		lv_obj_center(lock_img);
-		ui_encoder_group_add(g_group_running, child_lock);
 
 		/* O3 图标：跟随童锁右侧 */
 		g_running_o3_img = lv_image_create(root);
@@ -5981,14 +5809,8 @@ static void ui_encoder_group_restore_for_active_screen(void)
 {
 	lv_obj_t * scr = lv_screen_active();                                   //当前底层 screen
 	if(scr == NULL) return;
-	if(scr == g_scr_off) ui_set_encoder_group(g_group_off);
-	else if(scr == g_scr_home) ui_set_encoder_group(g_group_home);
-	else if(scr == g_scr_running) ui_set_encoder_group(g_group_running);
-	else if(scr == g_scr_end) ui_set_encoder_group(g_group_end);
-	else if(scr == g_scr_pay) ui_set_encoder_group(g_group_pay);
-	else if(scr == g_scr_pay_done) ui_set_encoder_group(g_group_pay_done);
-	else if(scr == g_scr_admin) ui_set_encoder_group(g_group_admin);
-	else ui_set_encoder_group(g_ui_group);                                 //默认组
+	if(scr == g_scr_home) ui_set_encoder_group(g_group_home);
+	else ui_set_encoder_group(NULL);                                       //非主页清除编码器组
 }
 
 //隐藏报警弹层并恢复底层 encoder 组
@@ -6013,7 +5835,6 @@ static void alarm_overlay_show(void)
 
 	lv_obj_remove_flag(g_alarm_overlay, LV_OBJ_FLAG_HIDDEN);               //显示弹层
 	lv_obj_move_foreground(g_alarm_overlay);                               //压到 top layer 最前（光标之下）
-	ui_set_encoder_group(g_group_alarm);                                   //编码器切到报警按钮
 	g_alarm_overlay_open = true;                                           //标记打开
 	alarm_rotate_show_current();                                           //显示轮播首项/当前项
 	alarm_rotate_timer_start();                                            //启动 3 秒轮播
@@ -6247,12 +6068,11 @@ static void build_alarm_overlay(void)
 	lv_image_set_src(img, &back);
 	lv_obj_center(img);
 	lv_obj_add_event_cb(g_alarm_btn_back, cb_alarm_back, LV_EVENT_CLICKED, NULL);
-	ui_encoder_group_add(g_group_alarm, g_alarm_btn_back);
 
-	g_alarm_btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_alarm); //启停
+	g_alarm_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL); //启停
 	lv_obj_add_event_cb(g_alarm_btn_runpause, cb_alarm_runpause, LV_EVENT_CLICKED, NULL);
 
-	g_alarm_btn_power = add_encoder_top_btn(top, "电源", 180, g_group_alarm);    //电源
+	g_alarm_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);    //电源
 	lv_obj_add_event_cb(g_alarm_btn_power, cb_alarm_power, LV_EVENT_CLICKED, NULL);
 
 	g_alarm_img_bar = lv_image_create(g_alarm_overlay);                      //底栏 bar_01
@@ -7333,331 +7153,8 @@ static void admin_encoder_rebuild(void)
 {
     if(g_group_admin == NULL) return;
     lv_group_remove_all_objs(g_group_admin);
-    if(g_admin_btn_back != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_back);
-    if(g_admin_btn_runpause != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_runpause);
-    if(g_admin_btn_power != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_power);
-
-    lv_obj_t * focus_first = g_admin_btn_back;
-    switch(g_admin_view) {
-    case PASSWORD:
-        if(g_admin_ta_pwd != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_kb != NULL &&
-           g_admin_kb_ta == g_admin_ta_pwd) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        }
-        /* 首次进入不显示焦点框 */
-        break;
-    case MENU1:
-        for(int i = 0; i < 8; i++) {
-            if(g_admin_menu1_btns[i] != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_menu1_btns[i]);
-            }
-        }
-        /* 首次进入不显示焦点框 */
-        break;
-    case MENU2:
-        for(int i = 0; i < 8; i++) {
-            if(g_admin_menu2_btns[i] != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_menu2_btns[i]);
-            }
-        }
-        focus_first = (g_admin_menu2_btns[0] != NULL) ? g_admin_menu2_btns[0] : g_admin_btn_back;
-        break;
-    case MACHINE_ID:
-        if(g_admin_ta_machine_id != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_machine_id);
-        if(g_admin_btn_machine_confirm != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_machine_confirm);
-        if(g_admin_btn_machine_cancel != NULL) ui_encoder_group_add(g_group_admin, g_admin_btn_machine_cancel);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_kb != NULL &&
-           g_admin_kb_ta == g_admin_ta_machine_id) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        } else {
-            focus_first = (g_admin_ta_machine_id != NULL) ? g_admin_ta_machine_id : g_admin_btn_back;
-        }
-        break;
-    case PROGRAM_SETTINGS:
-        /* LIST/DETAIL 主体不进编码器；仅状态栏返回/启停/电源 */
-        lv_group_set_editing(g_group_admin, false);
-        focus_first = g_admin_btn_back;
-        break;
-    case SCREEN_BRIGHTNESS:
-        /* 焦点顺序：返回 → 启停 → 电源 → 常亮开关（滑条仅触摸，不进编码器） */
-        if(g_admin_sw_run_always_on != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_run_always_on);
-        }
-        focus_first = (g_admin_sw_run_always_on != NULL) ?
-            g_admin_sw_run_always_on : g_admin_btn_back;
-        break;
-    case VENDOR_SERIAL:
-        if(g_admin_ta_vendor_serial != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_ta_vendor_serial);
-        }
-        if(g_admin_kb != NULL) {
-            admin_encoder_group_add_kb(g_group_admin);
-        }
-        if(admin_kb_is_visible() && g_admin_kb != NULL &&
-           g_admin_kb_ta == g_admin_ta_vendor_serial) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        } else {
-            focus_first = (g_admin_ta_vendor_serial != NULL) ? g_admin_ta_vendor_serial : g_admin_btn_back;
-        }
-        break;
-    case VENDOR_MENU:
-        if(g_admin_btn_vendor_self_check != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_vendor_self_check);
-        }
-        if(g_admin_btn_vendor_self_learn != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_vendor_self_learn);
-        }
-        focus_first = (g_admin_btn_vendor_self_check != NULL) ?
-            g_admin_btn_vendor_self_check : g_admin_btn_back;
-        break;
-    case SOUND_CONTROL:
-        /* 焦点：返回 → 启停 → 电源 → 两开关（滑条仅触摸，不进编码器） */
-        if(g_admin_sw_touch_sound != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_touch_sound);
-        }
-        if(g_admin_sw_voice_broadcast != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_voice_broadcast);
-        }
-        focus_first = (g_admin_sw_touch_sound != NULL) ?
-            g_admin_sw_touch_sound : g_admin_btn_back;
-        break;
-    case DORMANCY_STANDBY:
-        if(g_admin_dormancy_tp_active) {
-            /* 时间选择子页：4 个数字滚动条 → 确定 → 取消 */
-            for(int i = 0; i < 4; i++) {
-                if(g_admin_dormancy_tp_digit_rollers[i] != NULL)
-                    ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_digit_rollers[i]);
-            }
-            if(g_admin_dormancy_tp_btn_ok != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_btn_ok);
-            if(g_admin_dormancy_tp_btn_cancel != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_dormancy_tp_btn_cancel);
-            focus_first = (g_admin_dormancy_tp_digit_rollers[0] != NULL) ?
-                g_admin_dormancy_tp_digit_rollers[0] : g_admin_btn_back;
-        } else {
-            if(g_admin_dormancy_sw_time != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_dormancy_sw_time);
-            }
-            if(g_admin_dormancy_sw_no_sleep != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_dormancy_sw_no_sleep);
-            }
-            focus_first = (g_admin_dormancy_sw_time != NULL) ? g_admin_dormancy_sw_time : g_admin_btn_back;
-        }
-        break;
-    case LANGUAGE_SETTINGS:
-        if(g_admin_btn_lang_zh != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_lang_zh);
-        }
-        if(g_admin_btn_lang_en != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_lang_en);
-        }
-        if(ui_lang_get() == UI_LANG_EN && g_admin_btn_lang_en != NULL) {
-            focus_first = g_admin_btn_lang_en;
-        }
-        else if(g_admin_btn_lang_zh != NULL) {
-            focus_first = g_admin_btn_lang_zh;
-        }
-        break;
-    case FACTORY_RESET:
-        if(g_admin_factory_phase == ADMIN_FACTORY_PHASE_PROMPT) {
-            if(g_admin_btn_factory_ok != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_btn_factory_ok);
-            }
-            if(g_admin_btn_factory_cancel != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_btn_factory_cancel);
-            }
-            focus_first = (g_admin_btn_factory_ok != NULL) ? g_admin_btn_factory_ok : g_admin_btn_back;
-        }
-        else {
-            focus_first = g_admin_btn_back;
-        }
-        break;
-    case CONTACT_US:
-        focus_first = g_admin_btn_back;
-        break;
-    case AUTO_DISPENSE:
-        if(g_admin_sw_auto_softener != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_auto_softener);
-        }
-        if(g_admin_sw_auto_detergent != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_auto_detergent);
-        }
-        focus_first = (g_admin_sw_auto_softener != NULL) ? g_admin_sw_auto_softener : g_admin_btn_back;
-        break;
-    case OZONE:
-        if(g_admin_sw_ozone != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_ozone);
-            focus_first = g_admin_sw_ozone;
-        }
-        break;
-    case FRESH_AIR_CARE:
-        if(g_admin_sw_fresh_air != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_fresh_air);
-            focus_first = g_admin_sw_fresh_air;
-        }
-        break;
-    case SYSTEM_UPGRADE:
-        if(g_admin_system_upgrade_phase == ADMIN_SYSTEM_UPGRADE_PHASE_PROMPT) {
-            if(g_admin_btn_system_upgrade_ok != NULL) {
-                ui_encoder_group_add(g_group_admin, g_admin_btn_system_upgrade_ok);
-            }
-            focus_first = (g_admin_btn_system_upgrade_ok != NULL) ?
-                g_admin_btn_system_upgrade_ok : g_admin_btn_back;
-        }
-        else {
-            focus_first = g_admin_btn_back;
-        }
-        break;
-    case PAYMENT_SETTINGS:
-        if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_TIMEOUT && g_admin_payment_tp_active) {
-            for(int i = 0; i < 4; i++) {
-                if(g_admin_payment_tp_digit_rollers[i] != NULL)
-                    ui_encoder_group_add(g_group_admin, g_admin_payment_tp_digit_rollers[i]);
-            }
-            if(g_admin_payment_tp_btn_ok != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_payment_tp_btn_ok);
-            if(g_admin_payment_tp_btn_cancel != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_payment_tp_btn_cancel);
-            focus_first = (g_admin_payment_tp_digit_rollers[0] != NULL) ?
-                g_admin_payment_tp_digit_rollers[0] : g_admin_btn_back;
-        }
-        else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_METHOD) {
-            if(g_admin_sw_payment_wechat != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_wechat);
-            if(g_admin_sw_payment_alipay != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_alipay);
-            focus_first = (g_admin_sw_payment_wechat != NULL) ?
-                g_admin_sw_payment_wechat : g_admin_btn_back;
-        }
-        else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDERS ||
-                g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDER_SUMMARY ||
-                g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDER_DETAIL) {
-            /* 订单列表/摘要/详情仅支持触控点选，不进编码器焦点组 */
-            focus_first = g_admin_btn_back;
-        }
-        else {
-            if(g_admin_sw_payment_method != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_method);
-            if(g_admin_sw_payment_timeout != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_timeout);
-            if(g_admin_sw_payment_order != NULL)
-                ui_encoder_group_add(g_group_admin, g_admin_sw_payment_order);
-            focus_first = (g_admin_sw_payment_method != NULL) ?
-                g_admin_sw_payment_method : g_admin_btn_back;
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
-        break;
-    case DATA_SETTINGS: {
-        unsigned di;
-
-        if(g_admin_data_page == ADMIN_DATA_PAGE_LIST) {
-            for(di = 0; di < 7; di++) {
-                if(g_admin_cb_data_upload[di] != NULL) {
-                    ui_encoder_group_add(g_group_admin, g_admin_cb_data_upload[di]);
-                }
-            }
-            focus_first = (g_admin_cb_data_upload[0] != NULL) ?
-                g_admin_cb_data_upload[0] : g_admin_btn_back;
-        }
-        else {
-            for(di = 0; di < 5; di++) {
-                if(g_admin_cb_data_strategy[di] != NULL) {
-                    ui_encoder_group_add(g_group_admin, g_admin_cb_data_strategy[di]);
-                }
-            }
-            focus_first = (g_admin_cb_data_strategy[0] != NULL) ?
-                g_admin_cb_data_strategy[0] : g_admin_btn_back;
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
-        break;
-    }
-    case NETWORK_SETTINGS:
-        if(g_admin_btn_network_wifi != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_network_wifi);
-        }
-        if(g_admin_btn_network_4g != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_btn_network_4g);
-        }
-        focus_first = (g_admin_btn_network_wifi != NULL) ?
-            g_admin_btn_network_wifi : g_admin_btn_back;
-        break;
-    case WIFI_SETTINGS:
-        if(g_admin_wifi_phase == ADMIN_WIFI_PHASE_PROMPT && g_admin_sw_wifi != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_wifi);
-            focus_first = g_admin_sw_wifi;
-        }
-        else {
-            focus_first = g_admin_btn_back;
-        }
-        break;
-    case SETTINGS_4G:
-        if(g_admin_4g_phase == ADMIN_4G_PHASE_PROMPT && g_admin_sw_4g != NULL) {
-            ui_encoder_group_add(g_group_admin, g_admin_sw_4g);
-            focus_first = g_admin_sw_4g;
-        }
-        else {
-            focus_first = g_admin_btn_back;
-        }
-        break;
-    case PASSWORD_CHANGE_OLD:
-        if(g_admin_pwd_chg_result != NULL && !lv_obj_has_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN)) {
-            focus_first = g_admin_btn_back;
-            break;
-        }
-        if(g_admin_ta_pwd_chg_old != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_old);
-        if(g_admin_ta_pwd_chg_new1 != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_new1);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_kb != NULL) {
-            lv_obj_t * kb_ta = g_admin_kb_ta;
-            if(kb_ta == g_admin_ta_pwd_chg_old || kb_ta == g_admin_ta_pwd_chg_new1) {
-                lv_group_set_editing(g_group_admin, true);
-                focus_first = g_admin_kb;
-            }
-        }
-        if(focus_first == g_admin_btn_back) {
-            focus_first = (g_admin_pwd_chg_page1_step == 1 && g_admin_ta_pwd_chg_new1 != NULL) ?
-                g_admin_ta_pwd_chg_new1 : g_admin_ta_pwd_chg_old;
-            if(focus_first == NULL) focus_first = g_admin_btn_back;
-        }
-        break;
-    case PASSWORD_CHANGE_NEW:
-        if(g_admin_pwd_chg_result != NULL && !lv_obj_has_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN)) {
-            focus_first = g_admin_btn_back;
-            break;
-        }
-        if(g_admin_ta_pwd_chg_new2 != NULL) ui_encoder_group_add(g_group_admin, g_admin_ta_pwd_chg_new2);
-        if(g_admin_kb != NULL) admin_encoder_group_add_kb(g_group_admin);
-        if(admin_kb_is_visible() && g_admin_kb != NULL && g_admin_kb_ta == g_admin_ta_pwd_chg_new2) {
-            lv_group_set_editing(g_group_admin, true);
-            focus_first = g_admin_kb;
-        } else {
-            focus_first = (g_admin_ta_pwd_chg_new2 != NULL) ? g_admin_ta_pwd_chg_new2 : g_admin_btn_back;
-        }
-        break;
-    default:
-        break;
-    }
-    if(focus_first != NULL) {
-        lv_group_focus_obj(focus_first);
-        /* lv_group_focus_obj 经 POINTER indev 派发 FOCUSED 时可能无 FOCUS_KEY，补态以显示描边/内框 */
-        if(lv_group_get_focused(g_group_admin) == focus_first) {
-            lv_obj_add_state(focus_first, LV_STATE_FOCUS_KEY);
-        }
-        if(focus_first == g_admin_kb && g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_kb_encoder_select_first(g_admin_kb);
-        }
-    }
 }
+
 
 /* 切换管理员子面板显示、键盘绑定并重建编码器组 */
 
@@ -11071,11 +10568,7 @@ static void admin_menu_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id)
 static void admin_group_edge_cb(lv_group_t * group, bool forward)
 {
     (void)group;
-    if(!forward || g_admin_view != MENU1 || g_group_admin == NULL) return;
-    lv_obj_t * focused = lv_group_get_focused(g_group_admin);
-    if(focused == g_admin_menu1_btns[7]) {
-        admin_panel_show(MENU2);
-    }
+    (void)forward;
 }
 
 /* menu1 左滑进入 menu2；menu2 右滑回到 menu1 */
@@ -11104,18 +10597,6 @@ static void cb_admin_menu_gesture(lv_event_t * e)
 static void admin_group_focus_cb(lv_group_t * group)
 {
     (void)group;
-    if(g_group_admin == NULL) return;
-    lv_obj_t * focused = lv_group_get_focused(g_group_admin);
-    if(g_admin_view == MENU2 && focused == g_admin_btn_power &&
-       s_admin_group_prev_focus == g_admin_menu2_btns[0]) {
-        admin_panel_show(MENU1);
-        if(g_admin_menu1_btns[7] != NULL) {
-            lv_group_focus_obj(g_admin_menu1_btns[7]);
-        }
-        s_admin_group_prev_focus = g_admin_menu1_btns[7];
-        return;
-    }
-    s_admin_group_prev_focus = focused;
 }
 
 /* 按当前管理员子页重建编码器 focus 顺序与初始焦点 */
@@ -14765,7 +14246,7 @@ static void ui_admin_resume_unlocked(void)
 {
 	if(g_scr_admin == NULL) return;
 	lv_screen_load(g_scr_admin);
-	ui_set_encoder_group(g_group_admin);
+	ui_set_encoder_group(NULL);
 	ui_idle_on_screen_changed(g_scr_admin);
 }
 
@@ -15018,19 +14499,6 @@ static void build_selfcheck(void)
 	lv_obj_set_style_text_align(g_selfcheck_lbl_done_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 	ui_set_obj_font(g_selfcheck_lbl_done_title, s_font_sc_50);
 	ui_lang_bind_label(g_selfcheck_lbl_done_title, STR_SELF_CHECK_DONE);
-
-	if(g_selfcheck_btn_back != NULL) {
-		ui_encoder_group_add(g_group_selfcheck, g_selfcheck_btn_back);
-	}
-	if(g_selfcheck_btn_runpause != NULL) {
-		ui_encoder_group_add(g_group_selfcheck, g_selfcheck_btn_runpause);
-	}
-	if(g_selfcheck_btn_power != NULL) {
-		ui_encoder_group_add(g_group_selfcheck, g_selfcheck_btn_power);
-	}
-	if(g_selfcheck_btn_back != NULL) {
-		lv_group_focus_obj(g_selfcheck_btn_back);
-	}
 }
 
 /* ========== 循环程序（商用洗：程序 Tab + 完成次数） ========== */
@@ -15326,14 +14794,6 @@ static void cycle_encoder_group_build(void)
 {
 	if(g_group_cycle == NULL) return;
 	lv_group_remove_all_objs(g_group_cycle);
-	if(g_cycle_btn_back != NULL) ui_encoder_group_add(g_group_cycle, g_cycle_btn_back);
-	if(g_cycle_btn_runpause != NULL) ui_encoder_group_add(g_group_cycle, g_cycle_btn_runpause);
-	if(g_cycle_btn_power != NULL) ui_encoder_group_add(g_group_cycle, g_cycle_btn_power);
-	for(int i = 0; i < TOTAL_PROGRAMS; i++) {
-		if(g_cycle_prog_btns[i] != NULL) ui_encoder_group_add(g_group_cycle, g_cycle_prog_btns[i]);
-	}
-	lv_group_set_wrap(g_group_cycle, false);
-	if(g_cycle_btn_back != NULL) lv_group_focus_obj(g_cycle_btn_back);
 }
 
 static void build_cycle(void)
@@ -15424,11 +14884,10 @@ static void build_off(void)
 		lv_image_set_src(img, &back);
 		lv_obj_center(img);
 		lv_obj_add_event_cb(btn_back, cb_off_wake, LV_EVENT_CLICKED, NULL);
-		ui_encoder_group_add(g_group_off, btn_back);
 
-		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_off);
+		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
 		lv_obj_add_event_cb(btn_runpause, cb_off_wake, LV_EVENT_CLICKED, NULL);
-		g_off_btn_power = add_encoder_top_btn(top, "电源", 180, g_group_off);
+		g_off_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);
 		lv_obj_add_event_cb(g_off_btn_power, cb_off_wake, LV_EVENT_CLICKED, NULL);
 		lv_obj_add_event_cb(g_off_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
@@ -15554,8 +15013,6 @@ void ui_init(void)
 		lv_group_set_wrap(g_group_admin, false);
 		lv_group_set_wrap(g_group_selfcheck, false);
 		lv_group_set_wrap(g_group_cycle, false);
-		lv_group_set_edge_cb(g_group_admin, admin_group_edge_cb);
-		lv_group_set_focus_cb(g_group_admin, admin_group_focus_cb);
 
 		build_off();                                       /* 待机页（无业务 label） */
 		build_home();                                      /* 主页：含全部底部文字 label */
