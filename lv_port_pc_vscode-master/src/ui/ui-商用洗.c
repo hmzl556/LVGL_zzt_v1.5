@@ -3039,7 +3039,6 @@ static void ui_fsm_runpause_apply_running_page(void);
 static void cb_power_long(lv_event_t * event);
 static void cb_runpause(lv_event_t * event);
 static void cb_runpause_long(lv_event_t * event);
-static void cb_home_power_alarm_sim(lv_event_t * e);  //PC：主页电源键仿真报警
 
 static void cb_power_long(lv_event_t* event)
 {
@@ -3168,7 +3167,7 @@ static lv_obj_t * make_text_btn(lv_obj_t * parent, const char * txt, lv_coord_t 
 	ui_set_obj_font(l, s_font_sc_20);
 	lv_obj_center(l);//文本居中
 	return b;
-}//创建文本按钮
+}
 
 //创建橙色填充按钮
 static lv_obj_t * make_orange_fill_btn(lv_obj_t * parent, const char * txt, lv_coord_t w, lv_coord_t h)  //创建橙色实心圆角按钮
@@ -3184,7 +3183,7 @@ static lv_obj_t * make_orange_fill_btn(lv_obj_t * parent, const char * txt, lv_c
 	lv_obj_set_style_text_color(l, lv_color_hex(COL_TEXT), LV_PART_MAIN);     //文本颜色 COL_TEXT
 	lv_obj_center(l);
 	return b;
-}//创建橙色填充按钮
+}
 
 //创建橙色描边按钮
 static lv_obj_t * make_orange_outline_btn(lv_obj_t * parent, const char * txt, lv_coord_t w, lv_coord_t h)  //创建橙色描边圆角按钮
@@ -3201,7 +3200,7 @@ static lv_obj_t * make_orange_outline_btn(lv_obj_t * parent, const char * txt, l
 	lv_obj_set_style_text_color(l, lv_color_hex(COL_ORANGE), LV_PART_MAIN);   //文本颜色 COL_ORANGE
 	lv_obj_center(l);
 	return b;
-}//创建橙色描边按钮
+}
 
 /* 定时器回调：每秒更新各页顶部时钟 label（HH:MM，非 i18n） */
 static void cb_clock(lv_timer_t * t)
@@ -4101,7 +4100,6 @@ static void build_home(void)
 		lv_obj_add_event_cb(g_home_btn_runpause, cb_home_runpause, LV_EVENT_ALL, g_scr_running);
 		lv_obj_add_event_cb(g_home_btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, g_scr_running);
 		g_home_btn_power = add_top_text_btn(top, "电源", 180); /* 固定中文：电源 */
-		lv_obj_add_event_cb(g_home_btn_power, cb_home_power_alarm_sim, LV_EVENT_CLICKED, NULL); /* PC：切换 E1 仿真 */
 		lv_obj_add_event_cb(g_home_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, g_scr_running);
 
 		/* --- 轮播区：5 张程序卡片，每张含图片 + 程序名 label --- */
@@ -5155,8 +5153,6 @@ static alarm_panel_t g_alarm_rotate_cur_panel;    //当前显示的 panel
 static bool g_alarm_user_dismissed;               //用户手动返回后暂不再自动弹出
 static bool g_alarm_overlay_open;               //弹层是否处于显示状态（含 encoder 切换）
 
-static uint8_t g_home_power_sim_step;             //PC：电源键循环仿真步进
-
 static const char * const g_alarm_fault_codes[UI_ALARM_FAULT_COUNT] = {
 	"E1", "E2", "E3", "E4", "E5", "E6", "E7",
 	"E8", "E9", "E10", "E11", "E12", "E13", "E14", "E15"
@@ -5535,26 +5531,6 @@ static void cb_alarm_power(lv_event_t * e)
 {
 	(void)e;                                                               //未使用
 	cb_power_long(e);                                                      //与长按电源相同逻辑
-}
-
-//PC 仿真：主页电源键短按循环触发 E1 / 缺液，便于验证轮播
-static void cb_home_power_alarm_sim(lv_event_t * e)
-{
-	(void)e;                                                               //未使用
-	switch(g_home_power_sim_step % 3u) {                                   //三步循环
-	case 0u:
-		g_sim_fault_e[0] = !g_sim_fault_e[0];                              //切换 E1
-		break;
-	case 1u:
-		g_fluid_detergent_pct = ui_is_detergent_low() ? 50u : 10u;         //切换洗涤剂缺液
-		break;
-	default:
-		g_sim_fault_e[0] = false;                                          //清除 E1
-		g_fluid_detergent_pct = 50u;                                       //清除缺液
-		break;
-	}
-	g_home_power_sim_step++;                                               //步进+1
-	g_alarm_user_dismissed = false;                                          //允许再次弹出
 }
 
 //每帧：边沿检测 → 重建队列 → 控制弹层显隐与轮播刷新
