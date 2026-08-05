@@ -1990,16 +1990,7 @@ static const ui_str_id_t g_dormancy_label_ids[DORMANCY_ROLLER_CNT] = {
 #define ADMIN_PWD_DEFAULT  "888888"  /* 进管理员 / 密码修改原密码默认值 */
 
 static lv_group_t* g_ui_group;
-static lv_group_t* g_group_off;
 static lv_group_t* g_group_home;
-static lv_group_t* g_group_running;
-static lv_group_t* g_group_end;
-static lv_group_t* g_group_pay;
-static lv_group_t* g_group_pay_done;
-static lv_group_t* g_group_alarm;
-static lv_group_t* g_group_admin;
-static lv_group_t* g_group_selfcheck;
-static lv_group_t* g_group_cycle;
 
 typedef enum {
     PASSWORD,			//密码页面
@@ -2525,14 +2516,12 @@ static void program_format_time_label(uint32_t sec, char * buf, size_t buf_sz); 
 static void program_format_price_home(int32_t price, char * buf, size_t buf_sz);  //格式化为首页价格标签
 static void program_format_price_pay(int32_t price, char * buf, size_t buf_sz);  //格式化为支付页价格标签
 static void pay_sync_price_label(void);
-static void admin_ta_begin_edit(lv_obj_t * ta);  //弹出数字键盘并进入编码器按键编辑
-static void cb_admin_ta_key_enter(lv_event_t * e);  //编码器 Enter：进入编辑，避免误触发 READY 校验
-static void cb_admin_ta_kb_focus(lv_event_t * e);  //密码/机器 ID 输入框：弹出键盘并进入逐键选择
-static void admin_panel_show(admin_view_t view);  //切换管理员子面板显示并重建编码器焦点
+static void admin_ta_begin_edit(lv_obj_t * ta);  //弹出数字键盘
+static void cb_admin_ta_kb_focus(lv_event_t * e);  //密码/机器 ID 输入框：弹出键盘
+static void admin_panel_show(admin_view_t view);  //切换管理员子面板显示
 static void admin_dormancy_show_time_picker(void);  //待机时间选择子页
 static void admin_dormancy_hide_time_picker(void);  //隐藏时间选择子页
 static void admin_session_reset(void);  //退出管理员：清除解锁状态并回到密码页
-static void admin_encoder_rebuild(void);  //按当前管理员子页重建编码器 focus 顺序
 static void cb_admin_menu_gesture(lv_event_t * e);  //menu1 左滑→menu2，menu2 右滑→menu1
 static void admin_password_try(void);  //校验管理员密码并进入菜单
 static bool admin_machine_id_apply(void);  //校验并保存 6 位机器 ID
@@ -2625,7 +2614,6 @@ static void admin_pwd_chg_hide_result(void);  //隐藏结果页，恢复输入�
 static void admin_pwd_chg_back_to_menu2(void);  //离开密码修改：回 menu2
 static void cb_admin_pwd_chg_result_click(lv_event_t * e);  //结果页点击：失败回页1 / 成功回 menu2
 static void cb_admin_open_password_change(lv_event_t * e);  //menu2「密码修改」入口
-static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号（数据设置复用）
 static void admin_payment_set_page(admin_payment_page_t page);  //支付设置：首页/方式/超时/订单页切换
 static void admin_payment_show_time_picker(void);  //支付超时时间选择子页
 static void admin_payment_hide_time_picker(void);  //隐藏支付超时时间选择，回首页
@@ -2648,7 +2636,6 @@ static void style_obj_encoder_focus_outline_color(lv_obj_t * obj, uint32_t color
 static void style_obj_encoder_focus_outline(lv_obj_t * obj);  //为控件设置编码器焦点描边（默认白 50%）
 static void ui_encoder_group_add(lv_group_t * group, lv_obj_t * obj);  //控件创建后立即加入编码器 group
 static void admin_kb_font_init(void);  //初始化管理员数字键盘字体（中文 + Montserrat 回退）
-static bool admin_kb_is_visible(void);  //判断管理员数字键盘是否处于显示状态
 static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 VALUE_CHANGED
 static void cb_admin_brightness_slider_size_changed(lv_event_t * e);  //布局尺寸变化时重算蓝条宽度
 static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
@@ -2665,7 +2652,6 @@ static void cycle_finish_current_run(void);
 static void cycle_enter_fault_display(void);
 static void cycle_abort_run(void);
 static void cycle_wash_sync_prog_pick_ui(void);
-static void cycle_encoder_group_build(void);
 static void cycle_run_count_label_sync(void);
 static void cycle_fault_overlay_create(lv_obj_t * parent, lv_obj_t ** panel_out, lv_obj_t ** lbl_out);
 static void cycle_fault_blink_stop(void);
@@ -2711,7 +2697,6 @@ static void cb_admin_data_strategy_changed(lv_event_t * e);
 static void cb_admin_data_upload_switch_changed(lv_event_t * e);
 static void admin_data_open_strategy(int item_idx);
 static void ui_idle_apply_dormancy_period(void);  //按 g_ui_dormancy_timeout_ms 刷新空闲定时器周期
-static const char * ui_dormancy_timeout_label(uint32_t ms);  //毫秒待机时长 → 界面显示文案（与待机 roller 选项一致）
 static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon);  //创建管理员菜单按钮（admin_button_box底+图标+文字）
 static lv_obj_t * admin_menu_btn_get_label(lv_obj_t * btn);  //管理员菜单按钮内文字 label
 static void admin_menu_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);  //菜单按钮 label 绑定 i18n
@@ -2984,8 +2969,8 @@ static lv_obj_t * make_orange_outline_btn(lv_obj_t * parent, const char * txt, l
 static void cb_clock(lv_timer_t * t);  //定时器回调：每秒更新各界面顶部时钟标签
 static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out);  //创建顶部右侧状态栏（4G / WiFi / 时间）
 static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
-    lv_obj_t * back_target, lv_group_t * encoder_group, lv_obj_t ** back_btn_out);  //创建顶部栏：可选返回键 + 状态栏
-static lv_obj_t * add_encoder_top_btn(lv_obj_t * top, const char * txt, lv_coord_t x, lv_group_t * group);  //在顶部栏添加编码器可聚焦按钮
+    lv_obj_t * back_target, lv_obj_t ** back_btn_out);  //创建顶部栏：可选返回键 + 状态栏
+static lv_obj_t * add_top_text_btn(lv_obj_t * top, const char * txt, lv_coord_t x);  //在顶部栏添加启停/电源类文本按钮
 static void carousel_size_cb(lv_event_t * e);  //轮播区尺寸变化时重新布局
 static lv_coord_t carousel_slot_center_x(int slot);  //计算槽位相对轮播中心的水平偏移
 static void carousel_wrap_relayout(void);  //轮播区整体布局：卡片位置/缩放/透明度与指示点
@@ -3309,7 +3294,7 @@ static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out)  //
 
 /* 顶部栏：可选返回 + 4G / WiFi / 时间（启停、电源由各界面单独添加） */
 static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
-	lv_obj_t * back_target, lv_group_t * encoder_group, lv_obj_t ** back_btn_out)  //创建顶部栏
+	lv_obj_t * back_target, lv_obj_t ** back_btn_out)  //创建顶部栏
 {
 	lv_obj_t * top = lv_obj_create(parent);
 	lv_obj_set_size(top, LV_PCT(100), LV_PCT(10));
@@ -3331,7 +3316,6 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
 		lv_image_set_src(img, &back);
 		lv_obj_center(img);
 		lv_obj_add_event_cb(imgbtn_back, cb_load_screen, LV_EVENT_CLICKED, back_target);
-		(void)encoder_group;
 		if(back_btn_out != NULL) {
 			*back_btn_out = imgbtn_back;
 		}
@@ -3341,13 +3325,12 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
 	return top;
 }
 
-//在顶部栏添加编码器可聚焦的启停/电源类文本按钮
-static lv_obj_t * add_encoder_top_btn(lv_obj_t * top, const char * txt, lv_coord_t x, lv_group_t * group)  //在顶部栏添加启停/电源类文本按钮（不再加入编码器 group）
+/* 在顶部栏添加启停/电源类文本按钮（触摸，不进编码器 group） */
+static lv_obj_t * add_top_text_btn(lv_obj_t * top, const char * txt, lv_coord_t x)
 {
 	lv_obj_t * btn = make_text_btn(top, txt, 80, 32);  //创建透明背景文本按钮
 	lv_obj_align(btn, LV_ALIGN_LEFT_MID, x, 0);
 	lv_obj_remove_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-	(void)group;
 	return btn;
 }
 
@@ -3690,13 +3673,6 @@ static void ui_encoder_group_add(lv_group_t * group, lv_obj_t * obj)
 	lv_group_add_obj(group, obj);
 }
 
-// 判断管理员数字键盘是否处于显示状态
-static bool admin_kb_is_visible(void)
-{
-	if(g_admin_kb == NULL) return false;
-	return !lv_obj_has_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-}
-
 /* 弹出键盘并绑定输入框 */
 static void admin_ta_begin_edit(lv_obj_t * ta)
 {
@@ -3705,36 +3681,7 @@ static void admin_ta_begin_edit(lv_obj_t * ta)
 	lv_obj_remove_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
 }
 
-/* 编码器在密码输入框上按 Enter：仅进入键盘编辑，勿触发单行 textarea 的 READY 校验 */
-static void cb_admin_ta_key_enter(lv_event_t * e)
-{
-	if(lv_event_get_code(e) != LV_EVENT_KEY) return;
-	if(lv_event_get_key(e) != LV_KEY_ENTER) return;
-
-	lv_obj_t * ta = lv_event_get_target_obj(e);
-	if(g_admin_view != PASSWORD && g_admin_view != PASSWORD_CHANGE_OLD &&
-	   g_admin_view != PASSWORD_CHANGE_NEW && g_admin_view != VENDOR_SERIAL) return;
-
-	if(g_group_admin != NULL && lv_group_get_editing(g_group_admin) &&
-	   admin_kb_is_visible() && g_admin_kb != NULL &&
-	   lv_group_get_focused(g_group_admin) == g_admin_kb) {
-		return;
-	}
-
-	if(g_admin_view == PASSWORD_CHANGE_OLD && ta != NULL) {
-		if(ta == g_admin_ta_pwd_chg_old) {
-			g_admin_pwd_chg_page1_step = 0;
-		}
-		else if(ta == g_admin_ta_pwd_chg_new1) {
-			g_admin_pwd_chg_page1_step = 1;
-		}
-	}
-
-	admin_ta_begin_edit(ta);
-	lv_event_stop_processing(e);
-}
-
-// 密码/机器 ID 输入框：弹出键盘并进入按键逐键选择（与程序设置页一致）
+// 密码/机器 ID 输入框：触摸点击弹出键盘
 static void cb_admin_ta_kb_focus(lv_event_t * e)
 {
 	lv_obj_t * ta = lv_event_get_target_obj(e);
@@ -4149,11 +4096,11 @@ static void build_home(void)
 		lv_obj_set_style_radius(root, 0, LV_PART_MAIN);             /* 无圆角 */
 
 		/* --- 顶部栏：时钟；文本按钮「启停」「电源」（不参与中/英切换） --- */
-		lv_obj_t * top = create_top_bar(root, &g_lbl_clock, NULL, NULL, NULL);
-		g_home_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL); /* 固定中文：启停 */
+		lv_obj_t * top = create_top_bar(root, &g_lbl_clock, NULL, NULL);
+		g_home_btn_runpause = add_top_text_btn(top, "启停", 100); /* 固定中文：启停 */
 		lv_obj_add_event_cb(g_home_btn_runpause, cb_home_runpause, LV_EVENT_ALL, g_scr_running);
 		lv_obj_add_event_cb(g_home_btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, g_scr_running);
-		g_home_btn_power = add_encoder_top_btn(top, "电源", 180, NULL); /* 固定中文：电源 */
+		g_home_btn_power = add_top_text_btn(top, "电源", 180); /* 固定中文：电源 */
 		lv_obj_add_event_cb(g_home_btn_power, cb_home_power_alarm_sim, LV_EVENT_CLICKED, NULL); /* PC：切换 E1 仿真 */
 		lv_obj_add_event_cb(g_home_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, g_scr_running);
 
@@ -4963,13 +4910,12 @@ static void build_running(void)
 		lv_obj_move_background(bg);                        /* 背景置底 */
 
 		/* 顶部栏：返回、时钟；「启停」「电源」固定中文 */
-		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_running, g_scr_home, g_group_running,
-			&g_running_btn_back);
-		g_running_btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_running);
+		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_running, g_scr_home, &g_running_btn_back);
+		g_running_btn_runpause = add_top_text_btn(top, "启停", 100);
 		lv_obj_add_event_cb(g_running_btn_runpause, cb_running_runpause, LV_EVENT_CLICKED, NULL);
 		//lv_obj_add_event_cb(g_running_btn_runpause, cb_runpause, LV_EVENT_CLICKED, NULL);
 		lv_obj_add_event_cb(g_running_btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, NULL);
-		g_running_btn_power = add_encoder_top_btn(top, "电源", 180, g_group_running);
+		g_running_btn_power = add_top_text_btn(top, "电源", 180);
 		lv_obj_add_event_cb(g_running_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, g_scr_off);
 
 		/* 中间横排：程序名 + 倒计时 */
@@ -5108,12 +5054,12 @@ static void build_end(void)
 		lv_obj_set_style_radius(root, 0, LV_PART_MAIN);
 		lv_obj_set_style_layout(root, LV_LAYOUT_NONE, LV_PART_MAIN);
 
-		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_end, g_scr_home, g_group_end, NULL);
-		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_end);
+		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_end, g_scr_home, NULL);
+		lv_obj_t * btn_runpause = add_top_text_btn(top, "启停", 100);
 		lv_obj_add_event_cb(btn_runpause, cb_load_screen, LV_EVENT_CLICKED, g_scr_home);
 		lv_obj_add_event_cb(btn_runpause, cb_runpause, LV_EVENT_CLICKED, g_scr_home);
 		lv_obj_add_event_cb(btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, g_scr_home);
-		lv_obj_t * btn_power = add_encoder_top_btn(top, "电源", 180, g_group_end);
+		lv_obj_t * btn_power = add_top_text_btn(top, "电源", 180);
 		lv_obj_add_event_cb(btn_power, cb_load_screen, LV_EVENT_CLICKED, g_scr_home);
 		lv_obj_add_event_cb(btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
@@ -5778,7 +5724,7 @@ static void build_alarm_overlay(void)
 	lv_obj_add_flag(g_alarm_overlay, LV_OBJ_FLAG_HIDDEN);                  //默认隐藏
 	lv_obj_add_flag(g_alarm_overlay, LV_OBJ_FLAG_CLICKABLE);               //拦截点击
 
-	lv_obj_t * top = create_top_bar(g_alarm_overlay, &g_lbl_clock_alarm, NULL, NULL, NULL); //顶栏+状态栏
+	lv_obj_t * top = create_top_bar(g_alarm_overlay, &g_lbl_clock_alarm, NULL, NULL); //顶栏+状态栏
 
 	LV_IMAGE_DECLARE(back);
 	g_alarm_btn_back = lv_button_create(top);
@@ -5792,10 +5738,10 @@ static void build_alarm_overlay(void)
 	lv_obj_center(img);
 	lv_obj_add_event_cb(g_alarm_btn_back, cb_alarm_back, LV_EVENT_CLICKED, NULL);
 
-	g_alarm_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL); //启停
+	g_alarm_btn_runpause = add_top_text_btn(top, "启停", 100); //启停
 	lv_obj_add_event_cb(g_alarm_btn_runpause, cb_alarm_runpause, LV_EVENT_CLICKED, NULL);
 
-	g_alarm_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);    //电源
+	g_alarm_btn_power = add_top_text_btn(top, "电源", 180);    //电源
 	lv_obj_add_event_cb(g_alarm_btn_power, cb_alarm_power, LV_EVENT_CLICKED, NULL);
 
 	g_alarm_img_bar = lv_image_create(g_alarm_overlay);                      //底栏 bar_01
@@ -6514,7 +6460,6 @@ static void program_admin_show_list(void)
 	if(g_admin_prog_detail != NULL) lv_obj_add_flag(g_admin_prog_detail, LV_OBJ_FLAG_HIDDEN);
 	if(g_admin_img_prog_title_box != NULL) lv_obj_remove_flag(g_admin_img_prog_title_box, LV_OBJ_FLAG_HIDDEN);
 	if(g_admin_lbl_prog_title != NULL) lv_obj_remove_flag(g_admin_lbl_prog_title, LV_OBJ_FLAG_HIDDEN);
-	admin_encoder_rebuild();
 }
 
 /* 显示程序详情 */
@@ -6527,7 +6472,6 @@ static void program_admin_show_detail(void)
 	if(g_admin_img_prog_title_box != NULL) lv_obj_add_flag(g_admin_img_prog_title_box, LV_OBJ_FLAG_HIDDEN);
 	if(g_admin_lbl_prog_title != NULL) lv_obj_add_flag(g_admin_lbl_prog_title, LV_OBJ_FLAG_HIDDEN);
 	program_admin_ui_load_fields();
-	admin_encoder_rebuild();
 }
 
 /* 选择程序回调 */
@@ -6570,10 +6514,6 @@ static void cb_admin_open_program_settings(lv_event_t * e)
 static void program_admin_back_to_menu1(void)
 {
 	/* 未点确定：草稿作废，避免脏数据进主页/MCU */
-	program_admin_discard_drafts();
-	if(g_group_admin != NULL) {
-		lv_group_set_editing(g_group_admin, false);
-	}
 	admin_panel_show(MENU1);
 }
 
@@ -6885,15 +6825,7 @@ static void admin_machine_id_label_update(void)
     /* 当前 ID 直接显示在 textarea 中，由 admin_panel_show 填充 */
 }
 
-/* menu1 第 8 钮编码器右转：进入 menu2 */
-static void admin_encoder_rebuild(void)
-{
-    if(g_group_admin == NULL) return;
-    lv_group_remove_all_objs(g_group_admin);
-}
-
-
-/* 切换管理员子面板显示、键盘绑定并重建编码器组 */
+/* 切换管理员子面板显示、键盘绑定 */
 static void admin_panel_show(admin_view_t view)
 {
     if(!g_admin_unlocked && view != PASSWORD) {
@@ -6979,9 +6911,6 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == PROGRAM_SETTINGS && g_admin_panel_program != NULL) {
         lv_obj_remove_flag(g_admin_panel_program, LV_OBJ_FLAG_HIDDEN);
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
@@ -6995,9 +6924,6 @@ static void admin_panel_show(admin_view_t view)
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_brightness_sync_ui();
     }
@@ -7024,9 +6950,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_sound_sync_ui();
     }
     else if(view == DORMANCY_STANDBY && g_admin_panel_dormancy != NULL) {
@@ -7039,9 +6962,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_dormancy_sync_switches();
     }
     else if(view == LANGUAGE_SETTINGS && g_admin_panel_lang != NULL) {
@@ -7049,9 +6969,6 @@ static void admin_panel_show(admin_view_t view)
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_lang_sync_btn_ui();
     }
@@ -7061,9 +6978,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_factory_reset_ui_enter();
     }
     else if(view == CONTACT_US && g_admin_panel_contact != NULL) {
@@ -7072,18 +6986,12 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
     }
     else if(view == AUTO_DISPENSE && g_admin_panel_auto_dispense != NULL) {
         lv_obj_remove_flag(g_admin_panel_auto_dispense, LV_OBJ_FLAG_HIDDEN);
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_auto_dispense_sync_btn_ui();
     }
@@ -7093,9 +7001,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_ozone_sync_btn_ui();
     }
     else if(view == FRESH_AIR_CARE && g_admin_panel_fresh_air_care != NULL) {
@@ -7103,9 +7008,6 @@ static void admin_panel_show(admin_view_t view)
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_fresh_air_care_sync_btn_ui();
     }
@@ -7115,9 +7017,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_system_upgrade_ui_enter();
     }
     else if(view == PAYMENT_SETTINGS && g_admin_panel_payment != NULL) {
@@ -7125,9 +7024,6 @@ static void admin_panel_show(admin_view_t view)
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
         admin_payment_sync_list_ui();
@@ -7149,9 +7045,6 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
         admin_data_sync_upload_items_ui();
         admin_data_sync_strategy_ui();
     }
@@ -7161,18 +7054,12 @@ static void admin_panel_show(admin_view_t view)
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
         }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
     }
     else if(view == WIFI_SETTINGS && g_admin_panel_wifi != NULL) {
         lv_obj_remove_flag(g_admin_panel_wifi, LV_OBJ_FLAG_HIDDEN);
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_wifi_ui_enter();
     }
@@ -7181,9 +7068,6 @@ static void admin_panel_show(admin_view_t view)
         if(g_admin_kb != NULL) {
             g_admin_kb_ta = NULL;
             lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-        }
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
         }
         admin_4g_ui_enter();
     }
@@ -7208,7 +7092,6 @@ static void admin_panel_show(admin_view_t view)
         }
     }
 
-    admin_encoder_rebuild();
 }
 
 /* 错误提示遮罩：点击任意处关闭，回到输入页 */
@@ -7410,20 +7293,14 @@ static void cb_admin_back(lv_event_t * e)
         }
         else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDER_DETAIL) {
             admin_payment_set_page(ADMIN_PAYMENT_PAGE_ORDER_SUMMARY);
-            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-            admin_encoder_rebuild();
         }
         else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDER_SUMMARY) {
             admin_payment_set_page(ADMIN_PAYMENT_PAGE_ORDERS);
-            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-            admin_encoder_rebuild();
         }
         else if(g_admin_payment_page == ADMIN_PAYMENT_PAGE_ORDERS ||
                 g_admin_payment_page == ADMIN_PAYMENT_PAGE_METHOD) {
             admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
             admin_payment_sync_list_ui();
-            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-            admin_encoder_rebuild();
         }
         else {
             admin_payment_back_to_menu2();
@@ -7518,27 +7395,6 @@ static bool ui_dormancy_inactive_should_off(void)
 	return lv_display_get_inactive_time(NULL) >= g_ui_dormancy_timeout_ms;
 }
 
-static const char * ui_dormancy_timeout_label(uint32_t ms)
-{
-    uint32_t i;
-    for(i = 0; i < DORMANCY_ROLLER_CNT; i++) {
-        if(g_dormancy_timeout_ms_tbl[i] == ms) {
-            return ui_translation(g_dormancy_label_ids[i]);
-        }
-    }
-    return ui_translation(STR_DORM_5MIN);
-}
-
-/* 已保存的待机毫秒值 → roller 选项下标 */
-
-static uint32_t ui_dormancy_roller_index_from_ms(uint32_t ms)
-{
-    for(uint32_t i = 0; i < DORMANCY_ROLLER_CNT; i++) {
-        if(g_dormancy_timeout_ms_tbl[i] == ms) return i;
-    }
-    return DORMANCY_ROLLER_DEFAULT_IDX;
-}
-
 /* 进入待机时间页时：按 g_ui_dormancy_timeout_ms / g_ui_dormancy_no_sleep 同步两个独立开关 */
 
 static void admin_dormancy_sync_switches(void)
@@ -7565,9 +7421,6 @@ static void admin_dormancy_sync_switches(void)
 
 static void admin_dormancy_back_to_menu1(void)
 {
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU1);
 }
 
@@ -7665,8 +7518,6 @@ static void admin_dormancy_show_time_picker(void)
     lv_obj_remove_flag(g_admin_dormancy_tp_wrap, LV_OBJ_FLAG_HIDDEN);
     g_admin_dormancy_tp_active = true;
 
-    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-    admin_encoder_rebuild();
 }
 
 /* 隐藏时间选择子页，回到开关页 */
@@ -7684,10 +7535,6 @@ static void admin_dormancy_hide_time_picker(void)
 
     g_admin_dormancy_tp_active = false;
 
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 确定：应用选中时间（MM:SS） */
@@ -8123,9 +7970,6 @@ static void cb_admin_brightness_slider_changed(lv_event_t * e)
 
 static void admin_brightness_back_to_menu2(void)
 {
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU2);
 }
 
@@ -8340,9 +8184,6 @@ static void cb_admin_open_sound(lv_event_t * e)
 
 static void admin_sound_back_to_menu2(void)
 {
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU2);
 }
 
@@ -8366,7 +8207,6 @@ static void cb_admin_open_cycle(lv_event_t * e)
     g_cycle_prog_sel = 0;
     cycle_wash_sync_prog_pick_ui();
     cycle_run_count_label_sync();
-    cycle_encoder_group_build();
     ui_screen_load(g_scr_cycle);
 }
 
@@ -8529,10 +8369,6 @@ static void admin_factory_set_phase(admin_factory_phase_t phase)
         }
     }
 
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 进入恢复默认页：停止定时器并复位为确认前态 */
@@ -8548,9 +8384,6 @@ static void admin_factory_reset_ui_enter(void)
 static void admin_factory_back_to_menu2(void)
 {
     admin_factory_timer_stop();
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU2);
 }
 
@@ -8878,10 +8711,6 @@ static void admin_system_upgrade_set_phase(admin_system_upgrade_phase_t phase)
         }
     }
 
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 进入系统升级页：停止定时器并复位为确认前态 */
@@ -8897,9 +8726,6 @@ static void admin_system_upgrade_ui_enter(void)
 static void admin_system_upgrade_back_to_menu2(void)
 {
     admin_system_upgrade_timer_stop();
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU2);
 }
 
@@ -9018,10 +8844,6 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
         else lv_obj_remove_flag(g_admin_4g_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 语言切换时刷新依赖选项文案的 roller（支付超时已改为数字瓦片，此处预留） */
@@ -9122,9 +8944,6 @@ static void admin_4g_ui_enter(void)
 static void admin_4g_back_to_network(void)
 {
     admin_4g_timer_stop();
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(NETWORK_SETTINGS);
 }
 
@@ -9225,9 +9044,6 @@ static void cb_admin_open_4g_settings(lv_event_t * e)
 /* 离开网络设置页：回 menu1 */
 static void admin_network_back_to_menu1(void)
 {
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(MENU1);
 }
 
@@ -9235,9 +9051,6 @@ static void admin_network_back_to_menu1(void)
 static void admin_wifi_back_to_network(void)
 {
     admin_wifi_timer_stop();
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
     admin_panel_show(NETWORK_SETTINGS);
 }
 
@@ -9323,10 +9136,6 @@ static void admin_wifi_set_phase(admin_wifi_phase_t phase)
         else lv_obj_remove_flag(g_admin_wifi_set_box_wrap, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 进入 WIFI 设置页：停止定时器、复位为说明态并同步开关 */
@@ -9431,29 +9240,6 @@ static void admin_wifi_apply_switch_layout(void)
 
     lv_obj_set_pos(g_admin_sw_wifi, 1200, 150);
     lv_obj_invalidate(g_admin_sw_wifi);
-}
-
-/* 支付设置页：复选框统一样式（未选空心橙框，已选橙色对号） */
-static void admin_payment_style_checkbox(lv_obj_t * cb)
-{
-    if(cb == NULL) return;
-    ui_set_obj_font(cb, s_font_sc_30);
-    lv_obj_set_style_text_color(cb, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-
-    /* 未选中：透明底 + 橙色边框 */
-    lv_obj_set_style_border_color(cb, lv_color_hex(COL_ORANGE), LV_PART_INDICATOR);
-    lv_obj_set_style_border_width(cb, 2, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_opa(cb, LV_OPA_TRANSP, LV_PART_INDICATOR);
-    lv_obj_set_style_radius(cb, 4, LV_PART_INDICATOR);
-
-    /* 已选中：透明底 + 橙色边框 + 橙色对号 */
-    lv_obj_set_style_border_color(cb, lv_color_hex(COL_ORANGE), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_border_width(cb, 2, LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_opa(cb, LV_OPA_TRANSP, LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_image_src(cb, LV_SYMBOL_OK, LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_text_color(cb, lv_color_hex(COL_ORANGE), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_text_font(cb, &lv_font_montserrat_30, LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_pad_all(cb, 2, LV_PART_INDICATOR | LV_STATE_CHECKED);
 }
 
 /* 支付设置：首页 / 支付方式 / 超时选择 / 订单列表 / 摘要 / 详情 */
@@ -9573,8 +9359,6 @@ static void admin_payment_show_time_picker(void)
     admin_payment_set_page(ADMIN_PAYMENT_PAGE_TIMEOUT);
     g_admin_payment_tp_active = true;
 
-    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-    admin_encoder_rebuild();
 }
 
 static void admin_payment_hide_time_picker(void)
@@ -9582,8 +9366,6 @@ static void admin_payment_hide_time_picker(void)
     if(g_admin_payment_tp_wrap == NULL) return;
     admin_payment_set_page(ADMIN_PAYMENT_PAGE_LIST);
     admin_payment_sync_list_ui();
-    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-    admin_encoder_rebuild();
 }
 
 static void cb_admin_payment_tp_confirm(lv_event_t * e)
@@ -9775,8 +9557,6 @@ static void admin_payment_show_order_summary(int idx)
     g_admin_payment_order_sel = idx;
     admin_payment_sync_order_summary_ui(idx);
     admin_payment_set_page(ADMIN_PAYMENT_PAGE_ORDER_SUMMARY);
-    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-    admin_encoder_rebuild();
 }
 
 static void admin_payment_show_order_detail(int idx)
@@ -9785,8 +9565,6 @@ static void admin_payment_show_order_detail(int idx)
     g_admin_payment_order_sel = idx;
     admin_payment_sync_order_detail_ui(idx);
     admin_payment_set_page(ADMIN_PAYMENT_PAGE_ORDER_DETAIL);
-    if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-    admin_encoder_rebuild();
 }
 
 static void cb_admin_payment_order_row_clicked(lv_event_t * e)
@@ -9828,8 +9606,6 @@ static void cb_admin_payment_list_sw_changed(lv_event_t * e)
         if(on) {
             admin_payment_set_page(ADMIN_PAYMENT_PAGE_METHOD);
             admin_payment_sync_method_ui();
-            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-            admin_encoder_rebuild();
         }
     }
     else if(sw == g_admin_sw_payment_timeout) {
@@ -9841,8 +9617,6 @@ static void cb_admin_payment_list_sw_changed(lv_event_t * e)
         g_ui_payment_order_enabled = on;
         if(on) {
             admin_payment_set_page(ADMIN_PAYMENT_PAGE_ORDERS);
-            if(g_group_admin != NULL) lv_group_set_editing(g_group_admin, false);
-            admin_encoder_rebuild();
         }
     }
 }
@@ -9985,10 +9759,6 @@ static void admin_data_open_strategy(int item_idx)
     g_admin_data_strategy_item = item_idx;
     admin_data_set_page(ADMIN_DATA_PAGE_STRATEGY);
     admin_data_sync_strategy_ui();
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-    admin_encoder_rebuild();
 }
 
 /* 数据设置页：策略项 VALUE_CHANGED 互斥回调（只允许一项开启；写入当前上传项） */
@@ -10070,10 +9840,6 @@ static void admin_data_back_to_menu1(void)
     if(g_admin_data_page == ADMIN_DATA_PAGE_STRATEGY) {
         admin_data_set_page(ADMIN_DATA_PAGE_LIST);
         admin_data_sync_upload_items_ui();
-        if(g_group_admin != NULL) {
-            lv_group_set_editing(g_group_admin, false);
-        }
-        admin_encoder_rebuild();
         return;
     }
     admin_panel_show(MENU1);
@@ -10172,10 +9938,6 @@ static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id)
         g_admin_kb_ta = NULL;
         lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
     }
-    if(g_group_admin != NULL) {
-        lv_group_set_editing(g_group_admin, false);
-    }
-
     if(g_admin_view == PASSWORD_CHANGE_OLD) {
         if(g_admin_img_pwd_chg_old_title_box != NULL)
             lv_obj_add_flag(g_admin_img_pwd_chg_old_title_box, LV_OBJ_FLAG_HIDDEN);
@@ -10202,7 +9964,6 @@ static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id)
     }
     lv_obj_remove_flag(g_admin_pwd_chg_result, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(g_admin_pwd_chg_result);
-    admin_encoder_rebuild();
 }
 
 /* 结果页点击：失败回页1；成功回 menu2 */
@@ -10234,8 +9995,6 @@ static void admin_pwd_chg_page1_on_ready(void)
         if(told == NULL || lv_strlen(told) != 6) return;
         g_admin_pwd_chg_page1_step = 1;
         if(g_admin_kb != NULL) g_admin_kb_ta = g_admin_ta_pwd_chg_new1;
-        if(g_group_admin != NULL) lv_group_focus_obj(g_admin_ta_pwd_chg_new1);
-        admin_encoder_rebuild();
         return;
     }
 
@@ -10322,7 +10081,7 @@ static void build_admin(void)
     lv_obj_set_style_radius(root, 0, LV_PART_MAIN);
     lv_obj_set_style_layout(root, LV_LAYOUT_NONE, LV_PART_MAIN);
 
-    lv_obj_t * top = create_top_bar(root, &g_lbl_clock_admin, NULL, NULL, NULL);
+    lv_obj_t * top = create_top_bar(root, &g_lbl_clock_admin, NULL, NULL);
 
     LV_IMAGE_DECLARE(back);
     g_admin_btn_back = lv_button_create(top);
@@ -10336,8 +10095,8 @@ static void build_admin(void)
     lv_obj_center(img_back);
     lv_obj_add_event_cb(g_admin_btn_back, cb_admin_back, LV_EVENT_CLICKED, NULL);
 
-    g_admin_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
-    g_admin_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);
+    g_admin_btn_runpause = add_top_text_btn(top, "启停", 100);
+    g_admin_btn_power = add_top_text_btn(top, "电源", 180);
     lv_obj_add_event_cb(g_admin_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
     const lv_coord_t body_y = 60;
@@ -10399,7 +10158,6 @@ static void build_admin(void)
         lv_obj_set_style_text_align(g_admin_ta_pwd, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
         lv_obj_set_style_text_letter_space(g_admin_ta_pwd, 8, LV_PART_MAIN);  //数字间距，越大越宽
         lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-        lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
         lv_obj_add_event_cb(g_admin_ta_pwd, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
     }
 
@@ -12840,7 +12598,6 @@ static void build_admin(void)
     lv_obj_set_style_border_width(g_admin_ta_pwd_chg_old, 0, LV_PART_MAIN);
     lv_obj_set_style_text_align(g_admin_ta_pwd_chg_old, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_old, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
     lv_obj_t * pwd_row_new1 = lv_obj_create(g_admin_pwd_chg_old_content);
@@ -12884,7 +12641,6 @@ static void build_admin(void)
     lv_obj_set_style_border_width(g_admin_ta_pwd_chg_new1, 0, LV_PART_MAIN);
     lv_obj_set_style_text_align(g_admin_ta_pwd_chg_new1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new1, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
     /* 密码修改页2：title_box + 再次输入新密码 */
@@ -12956,7 +12712,6 @@ static void build_admin(void)
     lv_obj_set_style_border_width(g_admin_ta_pwd_chg_new2, 0, LV_PART_MAIN);
     lv_obj_set_style_text_align(g_admin_ta_pwd_chg_new2, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_pwd_chg_new2, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
     /* 结果页：与 WIFI 配网成功/失败同区域（body_h/body_y，露出顶部状态栏）与元素位置 */
@@ -13040,7 +12795,6 @@ static void build_admin(void)
     lv_obj_set_style_text_letter_space(g_admin_ta_machine_id, 8, LV_PART_MAIN);  //数字间距，越大越宽
     lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_ready, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(g_admin_ta_machine_id, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
 
     /* 右侧按钮 */
     const lv_coord_t mid_btn_w = 110;
@@ -13120,7 +12874,6 @@ static void build_admin(void)
     lv_textarea_set_accepted_chars(g_admin_ta_vendor_serial, "0123456789");
     lv_obj_set_style_text_font(g_admin_ta_vendor_serial, s_font_sc_30, LV_PART_MAIN);
     lv_obj_add_event_cb(g_admin_ta_vendor_serial, cb_admin_ta_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(g_admin_ta_vendor_serial, cb_admin_ta_key_enter, LV_EVENT_KEY | LV_EVENT_PREPROCESS, NULL);
     lv_obj_add_event_cb(g_admin_ta_vendor_serial, cb_admin_ta_kb_focus, LV_EVENT_ALL, NULL);
 
     /* 厂商维护：功能选择 */
@@ -13245,15 +12998,15 @@ static void build_pay(void)
 		lv_obj_set_style_radius(root, 0, LV_PART_MAIN);
 		lv_obj_set_style_layout(root, LV_LAYOUT_NONE, LV_PART_MAIN);
 
-		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_pay, g_scr_home, g_group_pay, &g_pay_btn_back);
-		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_pay);
+		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_pay, g_scr_home, &g_pay_btn_back);
+		lv_obj_t * btn_runpause = add_top_text_btn(top, "启停", 100);
 #if UI_DEBUG_PAY_SKIP_TO_DONE
 		lv_obj_add_event_cb(btn_runpause, cb_pay_debug_skip_to_done, LV_EVENT_CLICKED, NULL);
 #else
 		lv_obj_add_event_cb(btn_runpause, cb_runpause, LV_EVENT_CLICKED, g_scr_home);
 #endif
 		lv_obj_add_event_cb(btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, g_scr_home);
-		lv_obj_t * btn_power = add_encoder_top_btn(top, "电源", 180, g_group_pay);
+		lv_obj_t * btn_power = add_top_text_btn(top, "电源", 180);
 		lv_obj_add_event_cb(btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
 		lv_obj_t * center = lv_obj_create(root);           /* 纵向：二维码 → 金额 → 提示 */
@@ -13384,11 +13137,11 @@ static void build_pay_done(void)
 		lv_obj_set_style_radius(root, 0, LV_PART_MAIN);
 		lv_obj_set_style_layout(root, LV_LAYOUT_NONE, LV_PART_MAIN);
 
-		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_pay_done, g_scr_home, g_group_pay_done, NULL);
-		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_pay_done);
+		lv_obj_t * top = create_top_bar(root, &g_lbl_clock_pay_done, g_scr_home, NULL);
+		lv_obj_t * btn_runpause = add_top_text_btn(top, "启停", 100);
 		lv_obj_add_event_cb(btn_runpause, cb_runpause, LV_EVENT_CLICKED, NULL);
 		lv_obj_add_event_cb(btn_runpause, cb_runpause_long, LV_EVENT_LONG_PRESSED, NULL);
-		lv_obj_t * btn_power = add_encoder_top_btn(top, "电源", 180, g_group_pay_done);
+		lv_obj_t * btn_power = add_top_text_btn(top, "电源", 180);
 		lv_obj_add_event_cb(btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
 		lv_obj_t * center = lv_obj_create(root);
@@ -13851,7 +13604,7 @@ static void build_selfcheck(void)
 
 	const lv_coord_t body_y = (lv_coord_t)(UI_FIXED_H * 10 / 100);
 
-	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_selfcheck, NULL, NULL, NULL);
+	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_selfcheck, NULL, NULL);
 
 	LV_IMAGE_DECLARE(back);
 	g_selfcheck_btn_back = lv_button_create(top);
@@ -13865,9 +13618,9 @@ static void build_selfcheck(void)
 	lv_obj_center(img);
 	lv_obj_add_event_cb(g_selfcheck_btn_back, cb_selfcheck_back, LV_EVENT_CLICKED, NULL);
 
-	g_selfcheck_btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
+	g_selfcheck_btn_runpause = add_top_text_btn(top, "启停", 100);
 	lv_obj_add_event_cb(g_selfcheck_btn_runpause, cb_selfcheck_runpause, LV_EVENT_CLICKED, NULL);
-	g_selfcheck_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);
+	g_selfcheck_btn_power = add_top_text_btn(top, "电源", 180);
 
 	lv_obj_t * lbl_title = lv_label_create(root);
 	ui_lang_bind_label(lbl_title, STR_SELF_CHECK_TITLE);
@@ -14333,12 +14086,6 @@ static void cycle_wash_build_program_panel(lv_obj_t * panel, lv_coord_t panel_h)
 	cycle_wash_sync_prog_pick_ui();
 }
 
-static void cycle_encoder_group_build(void)
-{
-	if(g_group_cycle == NULL) return;
-	lv_group_remove_all_objs(g_group_cycle);
-}
-
 static void build_cycle(void)
 {
 	lv_obj_t * root = lv_obj_create(g_scr_cycle);
@@ -14353,7 +14100,7 @@ static void build_cycle(void)
 	const lv_coord_t body_y = (lv_coord_t)(UI_FIXED_H * 10 / 100);
 	const lv_coord_t panel_h = (lv_coord_t)(UI_FIXED_H * 72 / 100);
 
-	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_cycle, NULL, NULL, NULL);
+	lv_obj_t * top = create_top_bar(root, &g_lbl_clock_cycle, NULL, NULL);
 
 	LV_IMAGE_DECLARE(back);
 	g_cycle_btn_back = lv_button_create(top);
@@ -14367,9 +14114,9 @@ static void build_cycle(void)
 	lv_obj_center(img);
 	lv_obj_add_event_cb(g_cycle_btn_back, cb_cycle_back, LV_EVENT_CLICKED, NULL);
 
-	g_cycle_btn_runpause = add_encoder_top_btn(top, "启停", 100, g_group_cycle);
+	g_cycle_btn_runpause = add_top_text_btn(top, "启停", 100);
 	lv_obj_add_event_cb(g_cycle_btn_runpause, cb_cycle_runpause, LV_EVENT_CLICKED, NULL);
-	g_cycle_btn_power = add_encoder_top_btn(top, "电源", 180, g_group_cycle);
+	g_cycle_btn_power = add_top_text_btn(top, "电源", 180);
 	lv_obj_add_event_cb(g_cycle_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
 	lv_obj_t * lbl_title = lv_label_create(root);
@@ -14384,7 +14131,6 @@ static void build_cycle(void)
 	cycle_wash_build_program_panel(g_cycle_panel_program, panel_h);
 
 	cycle_fault_overlay_create(root, &g_cycle_panel_fault, &g_cycle_lbl_fault_alt);
-	cycle_encoder_group_build();
 }
 
 void ui_cycle_run_complete(void)
@@ -14414,7 +14160,7 @@ static void build_off(void)
 		lv_obj_add_event_cb(row, cb_off_wake, LV_EVENT_CLICKED, NULL);
 
 		/* 顶栏：左上返回/启停/电源（点击均唤醒），右上 4G/WiFi/时间 */
-		lv_obj_t * top = create_top_bar(row, &g_lbl_clock_off, NULL, g_group_off, NULL);
+		lv_obj_t * top = create_top_bar(row, &g_lbl_clock_off, NULL, NULL);
 
 		LV_IMAGE_DECLARE(back);
 		lv_obj_t * btn_back = lv_button_create(top);
@@ -14428,9 +14174,9 @@ static void build_off(void)
 		lv_obj_center(img);
 		lv_obj_add_event_cb(btn_back, cb_off_wake, LV_EVENT_CLICKED, NULL);
 
-		lv_obj_t * btn_runpause = add_encoder_top_btn(top, "启停", 100, NULL);
+		lv_obj_t * btn_runpause = add_top_text_btn(top, "启停", 100);
 		lv_obj_add_event_cb(btn_runpause, cb_off_wake, LV_EVENT_CLICKED, NULL);
-		g_off_btn_power = add_encoder_top_btn(top, "电源", 180, NULL);
+		g_off_btn_power = add_top_text_btn(top, "电源", 180);
 		lv_obj_add_event_cb(g_off_btn_power, cb_off_wake, LV_EVENT_CLICKED, NULL);
 		lv_obj_add_event_cb(g_off_btn_power, cb_power_long, LV_EVENT_LONG_PRESSED, NULL);
 
@@ -14536,26 +14282,8 @@ void ui_init(void)
 		create_screens();                                  /* 创建全部 lv_screen（含报警页） */
 		ui_apply_indev_long_press_ms(CHILD_LOCK_LONG_PRESS_MS);
 
-		g_group_off = lv_group_create();                   /* 各页面独立 focus 组 */
-		g_group_home = lv_group_create();
-		g_group_running = lv_group_create();
-		g_group_end = lv_group_create();
-		g_group_pay = lv_group_create();
-		g_group_pay_done = lv_group_create();
-		g_group_alarm = lv_group_create();
-		g_group_admin = lv_group_create();
-		g_group_selfcheck = lv_group_create();
-		g_group_cycle = lv_group_create();
-		lv_group_set_wrap(g_group_off, false);
+		g_group_home = lv_group_create();                   /* 仅主页编码器 focus 组 */
 		lv_group_set_wrap(g_group_home, false);
-		lv_group_set_wrap(g_group_running, false);
-		lv_group_set_wrap(g_group_end, false);
-		lv_group_set_wrap(g_group_pay, false);
-		lv_group_set_wrap(g_group_pay_done, false);
-		lv_group_set_wrap(g_group_alarm, false);
-		lv_group_set_wrap(g_group_admin, false);
-		lv_group_set_wrap(g_group_selfcheck, false);
-		lv_group_set_wrap(g_group_cycle, false);
 
 		build_off();                                       /* 待机页（无业务 label） */
 		build_home();                                      /* 主页：含全部底部文字 label */
