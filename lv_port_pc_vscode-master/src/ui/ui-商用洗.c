@@ -1833,7 +1833,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_AUTO_DOSE_MED]          = "Medium",
         [STR_AUTO_DOSE_LARGE]        = "High",
         [STR_AUTO_DOSE_AUTO]         = "Auto",
-        [STR_OZONE_LINE1]            = "Use the top-right switch to enable ozone; the O3 icon stays on during wash",
+        [STR_OZONE_LINE1]            = "Use the top-right switch to enable ozone, the O3 icon stays on during wash",
         [STR_OZONE_LINE2]            = "and improves wash quality and hygiene",
         [STR_FRESH_AIR_LINE1]        = "Use the top-right switch to enable fresh air care",
         [STR_FRESH_AIR_LINE2]        = "to release moisture and keep clothes dry",
@@ -1901,7 +1901,6 @@ static void ui_lang_set(ui_lang_t lang);	//设置界面语言并刷新文案（�
 static const char * ui_translation(ui_str_id_t id);	//按当前语言取字符串；id 非法时返回空串
 static void ui_lang_bind_label(lv_obj_t * lbl, ui_str_id_t id);	//将 label 登记到绑定表，并立即设置对应语言的文案
 static void ui_lang_apply_all(void);	//切换语言后刷新：已绑定标签 + 轮播名 + 运行页程序名 + 主页底部参数
-static void ui_lang_refresh_rollers(void);	//待机/支付 roller 选项随语言切换
 static void program_admin_refresh_i18n(void);	//程序设置页字段名与程序 Tab 文案
 static void admin_refresh_visible_status_text(void);	//恢复出厂/升级/4G 等动态状态文案
 static void orange_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id);	//橙色按钮内 label 绑定 i18n
@@ -1978,8 +1977,6 @@ static const char * ui_program_name_get(int32_t idx)
 #define COL_ORANGE          0xFF8C42  //按钮颜色-橙
 #define COL_DIM             0x888888  //非选中状态颜色-灰
 #define COL_SETTING_HINT    0xC6C4C4  //设置页说明小字灰（待机时间/屏幕亮度等）
-#define COL_CHILD_LOCK_RED  0xD03030  //童锁激活：圆形按钮填充色
-#define COL_CHILD_LOCK_WHITE 0xF5F5F5 //童锁未激活：白按钮填充色
 #define CHILD_LOCK_LONG_PRESS_MS 3000u	//童锁长按 3 秒
 
 #define UI_DORMANCY_TIMEOUT_DEFAULT_MS  300000u /* 空闲无操作进待机，默认 5 分钟 */
@@ -2077,7 +2074,6 @@ typedef enum {
 
 #define CYCLE_FAULT_CODE_MAX  15u
 #define CYCLE_FAULT_BLINK_MS  500u
-#define CYCLE_PROG_FIELD_CNT  6u
 
 typedef enum {
     ADMIN_FACTORY_PHASE_PROMPT,
@@ -2203,7 +2199,6 @@ static int32_t g_cycle_prog_sel;
 static lv_obj_t * g_cycle_prog_btns[TOTAL_PROGRAMS];
 static lv_obj_t * g_cycle_lbl_run_count;
 
-static lv_obj_t * s_admin_group_prev_focus;     /* 编码器 focus_cb：检测 menu2 第1钮左转 */
 /* 程序设置子页控件 */
 static lv_obj_t * g_admin_panel_program;
 static lv_obj_t * g_admin_panel_brightness;
@@ -2480,14 +2475,7 @@ static admin_view_t g_admin_view = PASSWORD;
 static bool g_admin_unlocked;
 static uint32_t g_machine_id = 1u;             /* 默认机器 ID，界面显示 000001 */
 static char g_admin_pwd[ADMIN_PWD_LEN] = ADMIN_PWD_DEFAULT;  /* 管理员 6 位密码，可修改 */
-static lv_style_t s_admin_menu_frame_style;   /* 外环：顶蓝底黑渐变，模拟渐变描边 */
-static lv_style_t s_admin_menu_inner_style;   /* 内层：按钮深蓝渐变底 */
-static bool s_admin_menu_style_inited;
-static lv_style_t s_brightness_slider_frame_style;  /* 亮度滑条外框：左黑右蓝水平渐变描边 */
-static lv_style_t s_brightness_slider_inner_style;  /* 亮度滑条内层：纯黑底 */
-static bool s_brightness_slider_style_inited;
 static lv_grad_dsc_t s_bright_page_fill_grad;       /* 亮度页整轨四段固定渐变（样式存指针，须常驻） */
-#define ADMIN_MENU_BORDER_W 2
 /* admin_button_box 画布 584×168，可见描边约 201×168；点击区与可见底图对齐 */
 #define ADMIN_MENU_BTN_W 210
 #define ADMIN_MENU_BTN_H 168
@@ -2512,28 +2500,46 @@ static lv_grad_dsc_t s_bright_page_fill_grad;       /* 亮度页整轨四段固�
 #define BRIGHT_GRIP_LINE_GAP    3         /* 横线间距（线与线之间空隙） */
 static lv_font_t s_font_admin_kb;              /* SC_30 副本 + Montserrat 回退（图标键）键盘使用图标 */
 static const lv_font_t * s_font_admin_kb_ptr;
-static bool s_admin_kb_encoder_inited;
 
-static void admin_kb_font_init(void);  //初始化管理员数字键盘字体（中文 + Montserrat 回退）
-static bool admin_kb_is_visible(void);  //判断管理员数字键盘是否处于显示状态
-static void admin_kb_encoder_style_init(void);  //为键盘内部按键设置编码器焦点描边并注册事件
-static void admin_kb_encoder_enter(void);  //编码器进入键盘按键编辑：聚焦并选中首键
-static void cb_admin_kb_encoder(lv_event_t * e);  //管理员键盘编码器：旋转逐步切换按键
-static void admin_kb_close(void);  //收起管理员数字键盘并恢复焦点
-static void cb_admin_kb_cancel(lv_event_t * e);  //键盘 CANCEL：小键盘图标关闭键盘
+static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 VALUE_CHANGED
+static void cb_admin_brightness_slider_size_changed(lv_event_t * e);  //布局尺寸变化时重算蓝条宽度
+static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
+static void cb_admin_open_sound(lv_event_t * e);  //菜单「声音控制」入口
+static void admin_vendor_serial_back_to_menu1(void);
+static void cb_admin_payment_tp_cancel(lv_event_t * e);
+static void create_screens(void);  //创建全部屏幕对象并设固定分辨率
+static void ui_set_encoder_group(lv_group_t * group);  //将编码器/键盘输入设备绑定到指定 focus group
+static void ui_screen_load(lv_obj_t * scr);  //屏幕加载包装：清童锁/倒计时，切换 group 与页面逻辑
+static void ui_idle_reset(void);  //重置空闲计时（有输入时调用）
+static void ui_idle_poll_pointer(void);  //检测鼠标移动并重置空闲计时
+static void cb_idle_timeout(lv_timer_t * t);  //空闲超时：进入待机页
+static void cb_indev_activity(lv_event_t * e);  //输入设备活动：重置空闲计时
+static void ui_idle_indev_hook(void);  //为鼠标/编码器注册活动监听
+static void ui_idle_init(void);  //创建空闲计时器并注册输入监听
+static void cb_off_wake(lv_event_t * e);  //待机页任意按钮：恢复待机前界面（首屏待机则进主页）
+static void ui_apply_indev_long_press_ms(uint16_t ms);  //统一设置指针/编码器长按判定时间
+static void running_child_lock_on_enter(void);  //童锁激活时的进入钩子（预留扩展）
+static void running_child_lock_on_exit(void);  //童锁解除时的退出钩子（预留扩展）
+static void running_child_lock_align_btn(void);  //将童锁按钮对齐到运行页中间栏右侧
+static void running_child_lock_apply_locked(bool locked, bool silent_unlock);  //应用童锁锁定/解锁 UI 与 group
+static void running_child_lock_remote_clear_if_leaving_running(lv_obj_t * target_scr);  //离开运行页时静默解除童锁
+static void cb_running_child_lock_long(lv_event_t * e);  //童锁按钮长按：切换童锁开/关
+static void cb_running_child_lock_released(lv_event_t * e);  //童锁松开：焦点回到童锁按钮
+static void build_home(void);  //构建主页：顶部栏、程序轮播、底部参数栏
+static void program_format_time_label(uint32_t sec, char * buf, size_t buf_sz);  //格式化为首页时间标签文本
+static void program_format_price_home(int32_t price, char * buf, size_t buf_sz);  //格式化为首页价格标签
+static void program_format_price_pay(int32_t price, char * buf, size_t buf_sz);  //格式化为支付页价格标签
+static void pay_sync_price_label(void);
+static void pay_sync_pay_ui(void);
 static void admin_ta_begin_edit(lv_obj_t * ta);  //弹出数字键盘并进入编码器按键编辑
 static void cb_admin_ta_key_enter(lv_event_t * e);  //编码器 Enter：进入编辑，避免误触发 READY 校验
 static void cb_admin_ta_kb_focus(lv_event_t * e);  //密码/机器 ID 输入框：弹出键盘并进入逐键选择
-static void admin_encoder_group_add_kb(lv_group_t * group);  //将管理员键盘加入编码器 group（无外层描边）
 static void admin_panel_show(admin_view_t view);  //切换管理员子面板显示并重建编码器焦点
 static void admin_dormancy_show_time_picker(void);  //待机时间选择子页
 static void admin_dormancy_hide_time_picker(void);  //隐藏时间选择子页
 static void admin_session_reset(void);  //退出管理员：清除解锁状态并回到密码页
 static void admin_encoder_rebuild(void);  //按当前管理员子页重建编码器 focus 顺序
-static void admin_group_edge_cb(lv_group_t * group, bool forward);  //menu1 第8钮右转进入 menu2
 static void cb_admin_menu_gesture(lv_event_t * e);  //menu1 左滑→menu2，menu2 右滑→menu1
-static void admin_group_focus_cb(lv_group_t * group);  //menu2 第1钮左转回到 menu1 第8钮
-static void admin_machine_id_label_update(void);  //刷新机器 ID「当前 ID」标签
 static void admin_password_try(void);  //校验管理员密码并进入菜单
 static bool admin_machine_id_apply(void);  //校验并保存 6 位机器 ID
 static void admin_machine_id_back_to_menu1(void);  //离开机器 ID 页：清空输入并回 menu1
@@ -2557,11 +2563,98 @@ static void cb_admin_brightness_slider_draw_grip(lv_event_t * e);  //亮度样�
 static void cb_admin_brightness_slider_ext_draw_size(lv_event_t * e);  //亮度样式滑条扩展绘制区
 static void admin_bright_style_slider_build(lv_obj_t * area, lv_obj_t ** out_fill, lv_obj_t ** out_fill_grad,
                                            lv_obj_t ** out_slider, lv_event_cb_t value_changed_cb);
-static void cb_admin_brightness_slider_changed(lv_event_t * e);  //亮度滑条 VALUE_CHANGED
-static void cb_admin_brightness_slider_size_changed(lv_event_t * e);  //布局尺寸变化时重算蓝条宽度
-static void cb_admin_open_vendor_maint(lv_event_t * e);  //菜单「厂商维护」入口（暂关闭）
-static void cb_admin_open_sound(lv_event_t * e);  //菜单「声音控制」入口
-static void admin_vendor_serial_back_to_menu1(void);
+static void cb_admin_sound_volume_slider_changed(lv_event_t * e);  //音量滑条 VALUE_CHANGED
+static void cb_admin_sound_touch_sound_volume_slider_changed(lv_event_t * e);  //触控声音滑条 VALUE_CHANGED
+static void cb_admin_open_dormancy_standby(lv_event_t * e);  //菜单「待机时间」入口
+static void admin_lang_btn_set_selected(lv_obj_t * btn, bool selected);  //语言页按钮：填充/描边
+static void admin_lang_sync_btn_ui(void);  //语言页按钮与 g_ui_lang 对齐
+static void admin_lang_back_to_menu2(void);  //离开语言设置页：回 menu2
+static void cb_admin_open_language_settings(lv_event_t * e);  //菜单「语言设置」入口
+static void cb_admin_lang_zh(lv_event_t * e);  //语言页「中文」
+static void cb_admin_lang_en(lv_event_t * e);  //语言页「英文」
+static void admin_factory_set_phase(admin_factory_phase_t phase);  //恢复默认子页：切换确认/恢复中/完成 UI
+static void admin_factory_reset_ui_enter(void);  //进入恢复默认页：复位为确认前态
+static void admin_factory_back_to_menu2(void);  //离开恢复默认页：回 menu2
+static void admin_factory_run_restore(void);  //执行出厂恢复：程序/待机/机器 ID 等
+static void admin_factory_timer_stop(void);  //停止恢复默认页 2s 完成态定时器
+static void cb_admin_factory_cancel(lv_event_t * e);  //恢复默认「取消」：回菜单
+static void cb_admin_factory_ok(lv_event_t * e);  //恢复默认「确定」：写回出厂数据
+static void cb_admin_factory_timer(lv_timer_t * t);  //2s 定时器：恢复中 → 完成态
+static void cb_admin_open_factory_reset(lv_event_t * e);  //菜单「恢复默认」入口
+static void admin_contact_back_to_menu2(void);  //离开联系我们页：回 menu2
+static void cb_admin_open_contact_us(lv_event_t * e);  //菜单「联系我们」入口
+static void admin_auto_dispense_back_to_menu1(void);  //离开自投功能页：回 menu1
+static void cb_admin_open_auto_dispense(lv_event_t * e);  //菜单「自投功能」入口
+static void cb_admin_auto_dispense_sw_changed(lv_event_t * e);  //柔顺剂/洗衣液开关
+static void cb_admin_auto_dose_btn_clicked(lv_event_t * e);  //用量按钮：开时互斥选中，关时无响应
+static void admin_ozone_apply_switch_layout(void);  //臭氧开关布局（与 WIFI 完全一致）
+static void admin_ozone_back_to_menu1(void);  //离开臭氧功能页：回 menu1
+static void cb_admin_open_ozone(lv_event_t * e);  //菜单「臭氧功能」入口
+static void cb_admin_ozone_sw_changed(lv_event_t * e);  //臭氧开关
+static void admin_fresh_air_apply_switch_layout(void);  //新风开关布局（与 WIFI 完全一致）
+static void admin_fresh_air_care_back_to_menu1(void);  //离开新风护理页：回 menu1
+static void cb_admin_open_fresh_air_care(lv_event_t * e);  //菜单「新风护理」入口
+static void cb_admin_fresh_air_sw_changed(lv_event_t * e);  //新风护理开关
+static void admin_system_upgrade_set_phase(admin_system_upgrade_phase_t phase);  //系统升级子页：切换确认/升级中/完成 UI
+static void admin_system_upgrade_ui_enter(void);  //进入系统升级页：复位为确认前态
+static void admin_system_upgrade_back_to_menu2(void);  //离开系统升级页：回 menu2
+static void admin_system_upgrade_timer_stop(void);  //停止系统升级页 2s 完成态定时器
+static void cb_admin_system_upgrade_ok(lv_event_t * e);  //系统升级「确认」：进入升级中 UI
+static void cb_admin_system_upgrade_timer(lv_timer_t * t);  //2s 定时器：升级中 → 完成态
+static void cb_admin_open_system_upgrade(lv_event_t * e);  //菜单「系统升级」入口
+static void admin_4g_set_phase(admin_4g_phase_t phase);  //4G 设置子页：切换说明/配网中/成功 UI
+static void admin_4g_ui_enter(void);  //进入 4G 设置页：复位为说明态并同步开关
+static void admin_4g_back_to_network(void);  //离开 4G 设置页：回网络设置
+static void admin_4g_timer_stop(void);  //停止 4G 配网 2s 完成态定时器
+static void admin_4g_start_provisioning(void);  //4G 开关 OFF→ON：进入配网中并启动 2s 定时器
+static void cb_admin_4g_switch_changed(lv_event_t * e);  //4G 开关切换：更新状态或触发配网流程
+static void cb_admin_4g_timer(lv_timer_t * t);  //2s 定时器：配网中 → 成功态
+static void cb_admin_4g_result_click(lv_event_t * e);  //4G 结果页点击：成功→网络设置；失败→4G 说明页且开关关
+static void cb_admin_open_network_settings(lv_event_t * e);  //menu1「网络设置」入口
+static void cb_admin_open_wifi_settings(lv_event_t * e);  //网络设置「WIFI设置」入口
+static void cb_admin_open_4g_settings(lv_event_t * e);  //网络设置「4G设置」入口
+static void admin_network_back_to_menu1(void);  //离开网络设置页：回 menu1
+static void admin_wifi_back_to_network(void);  //离开 WIFI 设置页：回网络设置
+static void admin_wifi_set_phase(admin_wifi_phase_t phase);  //WIFI 设置子页：切换说明/连接中/成功/失败 UI
+static void admin_wifi_ui_enter(void);  //进入 WIFI 设置页：复位为说明态并同步开关
+static void admin_wifi_timer_stop(void);  //停止 WIFI 连接 2s 完成态定时器
+static void admin_wifi_start_provisioning(void);  //WIFI 开关 OFF→ON：进入连接中并启动 2s 定时器
+static void cb_admin_wifi_switch_changed(lv_event_t * e);  //WIFI 开关切换：更新状态或触发连接流程
+static void cb_admin_wifi_timer(lv_timer_t * t);  //2s 定时器：连接中 → 成功/失败态
+static void cb_admin_wifi_result_click(lv_event_t * e);  //WIFI 结果页点击：成功→网络设置；失败→WIFI 说明页且开关关
+static void admin_wifi_apply_switch_layout(void);  //WIFI 设置页：刷新 WIFI 开关布局
+static void admin_pwd_chg_enter(void);  //密码修改入口：进入页1（原密码+新密码）
+static void admin_pwd_chg_page1_on_ready(void);  //页1 键盘 OK：切框或校验并进页2/失败页
+static void admin_pwd_chg_page2_on_ready(void);  //页2 键盘 OK：比对二次新密码 → 成功/失败页
+static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id);  //配网成功/失败布局的结果页
+static void admin_pwd_chg_hide_result(void);  //隐藏结果页，恢复输入区
+static void admin_pwd_chg_back_to_menu2(void);  //离开密码修改：回 menu2
+static void cb_admin_pwd_chg_result_click(lv_event_t * e);  //结果页点击：失败回页1 / 成功回 menu2
+static void cb_admin_open_password_change(lv_event_t * e);  //menu2「密码修改」入口
+static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号（数据设置复用）
+static void admin_payment_set_page(admin_payment_page_t page);  //支付设置：首页/方式/超时/订单页切换
+static void admin_payment_show_time_picker(void);  //支付超时时间选择子页
+static void admin_payment_hide_time_picker(void);  //隐藏支付超时时间选择，回首页
+static void admin_payment_show_order_detail(int idx);  //订单详情页
+static void admin_payment_show_order_summary(int idx);  //订单摘要中间页
+static void admin_payment_sync_order_detail_ui(int idx);  //按订单索引刷新详情文案
+static void admin_payment_sync_order_summary_ui(int idx);  //按订单索引刷新摘要文案
+static void admin_payment_order_summary_btns_layout(void);  //摘要页「开发票/订单详情」按文字宽度右对齐
+static void cb_admin_payment_list_sw_changed(lv_event_t * e);  //支付设置首页三项开关
+static void cb_admin_payment_order_row_clicked(lv_event_t * e);  //订单列表项点击 → 摘要页
+static void cb_admin_payment_order_invoice(lv_event_t * e);  //摘要页「开发票」（暂无业务）
+static void cb_admin_payment_order_detail_btn(lv_event_t * e);  //摘要页「订单详情」→ 详情页
+static void cb_admin_payment_alipay_changed(lv_event_t * e);  //支付方式：支付宝开关
+static void cb_admin_payment_wechat_changed(lv_event_t * e);  //支付方式：微信开关
+static void cb_admin_payment_tp_confirm(lv_event_t * e);
+static void cb_load_screen(lv_event_t * e);  //通用界面加载事件回调，根据 user_data 切换屏幕
+static void ui_layout_init(void);  //初始化轮播区布局参数（卡片尺寸、间距、拖动灵敏度）
+static void style_screen_base(lv_obj_t * scr);  //设置屏幕基础样式（黑底、无边框）
+static void style_obj_encoder_focus_outline_color(lv_obj_t * obj, uint32_t color_hex, lv_opa_t opa);  //为控件设置指定颜色的编码器焦点描边
+static void style_obj_encoder_focus_outline(lv_obj_t * obj);  //为控件设置编码器焦点描边（默认白 50%）
+static void ui_encoder_group_add(lv_group_t * group, lv_obj_t * obj);  //控件创建后立即加入编码器 group
+static void admin_kb_font_init(void);  //初始化管理员数字键盘字体（中文 + Montserrat 回退）
+static bool admin_kb_is_visible(void);  //判断管理员数字键盘是否处于显示状态
 static void admin_vendor_menu_back_to_menu1(void);
 static void admin_vendor_serial_try(void);
 static void cb_admin_open_selfcheck(lv_event_t * e);
@@ -2600,106 +2693,6 @@ static void cb_admin_sound_voice_broadcast_switch_changed(lv_event_t * e);  //�
 static void admin_sound_volume_slider_sync_bar(int32_t v);  //同步音量下层 bar
 static void admin_sound_touch_sound_volume_slider_sync_bar(int32_t v);  //同步触控声音下层 bar
 static void cb_admin_sound_slider_size_changed(lv_event_t * e);  //声音滑条尺寸变化时重算填充
-static void admin_sound_volume_slider_sync_focus_frame(void);  //同步音量滑条编码器白色焦点框
-static void admin_sound_touch_sound_volume_slider_sync_focus_frame(void);  //同步触控声音滑条焦点框
-static void cb_admin_sound_volume_slider_focus_frame(lv_event_t * e);  //音量滑条获焦/失焦时刷新焦点框
-static void cb_admin_sound_touch_sound_volume_slider_focus_frame(lv_event_t * e);  //触控声音滑条获焦/失焦
-static void cb_admin_sound_volume_slider_changed(lv_event_t * e);  //音量滑条 VALUE_CHANGED
-static void cb_admin_sound_touch_sound_volume_slider_changed(lv_event_t * e);  //触控声音滑条 VALUE_CHANGED
-static void cb_admin_sound_volume_slider_encoder(lv_event_t * e);  //音量滑条编码器短按切换编辑/导航
-static void cb_admin_sound_touch_sound_volume_slider_encoder(lv_event_t * e);  //触控声音滑条编码器短按
-static void cb_admin_sound_volume_slider_key(lv_event_t * e);  //音量滑条编码器编辑态左右旋转步进调值
-static void cb_admin_sound_touch_sound_volume_slider_key(lv_event_t * e);  //触控声音滑条编码器编辑态调值
-static void admin_sound_volume_slider_exit_edit(lv_obj_t * slider);  //音量滑条退出编码器编辑态
-static void admin_sound_touch_sound_volume_slider_exit_edit(lv_obj_t * slider);  //触控声音滑条退出编辑态
-static void admin_gradient_slider_fill_inner(lv_obj_t * frame, lv_obj_t ** out_bar, lv_obj_t ** out_slider,
-                                             lv_obj_t ** out_focus);  //渐变滑条内层 bar/slider/focus
-static void cb_admin_open_dormancy_standby(lv_event_t * e);  //菜单「待机时间」入口
-static void cb_admin_dormancy_sw_changed(lv_event_t * e);  //待机时间开关：时间设置/不息屏互斥
-static void admin_lang_btn_set_selected(lv_obj_t * btn, bool selected);  //语言页按钮：填充/描边
-static void admin_lang_sync_btn_ui(void);  //语言页按钮与 g_ui_lang 对齐
-static void admin_lang_back_to_menu2(void);  //离开语言设置页：回 menu2
-static void cb_admin_open_language_settings(lv_event_t * e);  //菜单「语言设置」入口
-static void cb_admin_lang_zh(lv_event_t * e);  //语言页「中文」
-static void cb_admin_lang_en(lv_event_t * e);  //语言页「英文」
-static void admin_factory_set_phase(admin_factory_phase_t phase);  //恢复默认子页：切换确认/恢复中/完成 UI
-static void admin_factory_reset_ui_enter(void);  //进入恢复默认页：复位为确认前态
-static void admin_factory_back_to_menu2(void);  //离开恢复默认页：回 menu2
-static void admin_factory_run_restore(void);  //执行出厂恢复：程序/待机/机器 ID 等
-static void admin_factory_timer_stop(void);  //停止恢复默认页 2s 完成态定时器
-static void cb_admin_factory_cancel(lv_event_t * e);  //恢复默认「取消」：回菜单
-static void cb_admin_factory_ok(lv_event_t * e);  //恢复默认「确定」：写回出厂数据
-static void cb_admin_factory_timer(lv_timer_t * t);  //2s 定时器：恢复中 → 完成态
-static void cb_admin_open_factory_reset(lv_event_t * e);  //菜单「恢复默认」入口
-static void admin_contact_back_to_menu2(void);  //离开联系我们页：回 menu2
-static void cb_admin_open_contact_us(lv_event_t * e);  //菜单「联系我们」入口
-static void admin_auto_dispense_back_to_menu1(void);  //离开自投功能页：回 menu1
-static void cb_admin_open_auto_dispense(lv_event_t * e);  //菜单「自投功能」入口
-static void cb_admin_auto_dispense_sw_changed(lv_event_t * e);  //柔顺剂/洗衣液开关
-static void cb_admin_auto_dose_btn_clicked(lv_event_t * e);  //用量按钮：开时互斥选中，关时无响应
-static void admin_ozone_sync_btn_ui(void);  //臭氧功能页：刷新开关与 ui_ozone_get 一致
-static void admin_ozone_apply_switch_layout(void);  //臭氧开关布局（与 WIFI 完全一致）
-static void admin_ozone_back_to_menu1(void);  //离开臭氧功能页：回 menu1
-static void cb_admin_open_ozone(lv_event_t * e);  //菜单「臭氧功能」入口
-static void cb_admin_ozone_sw_changed(lv_event_t * e);  //臭氧开关
-static void admin_fresh_air_care_sync_btn_ui(void);  //新风护理页：刷新开关与 ui_fresh_air_care_get 一致
-static void admin_fresh_air_apply_switch_layout(void);  //新风开关布局（与 WIFI 完全一致）
-static void admin_fresh_air_care_back_to_menu1(void);  //离开新风护理页：回 menu1
-static void cb_admin_open_fresh_air_care(lv_event_t * e);  //菜单「新风护理」入口
-static void cb_admin_fresh_air_sw_changed(lv_event_t * e);  //新风护理开关
-static void admin_system_upgrade_set_phase(admin_system_upgrade_phase_t phase);  //系统升级子页：切换确认/升级中/完成 UI
-static void admin_system_upgrade_ui_enter(void);  //进入系统升级页：复位为确认前态
-static void admin_system_upgrade_back_to_menu2(void);  //离开系统升级页：回 menu2
-static void admin_system_upgrade_timer_stop(void);  //停止系统升级页 2s 完成态定时器
-static void cb_admin_system_upgrade_ok(lv_event_t * e);  //系统升级「确认」：进入升级中 UI
-static void cb_admin_system_upgrade_timer(lv_timer_t * t);  //2s 定时器：升级中 → 完成态
-static void cb_admin_open_system_upgrade(lv_event_t * e);  //菜单「系统升级」入口
-static void admin_4g_set_phase(admin_4g_phase_t phase);  //4G 设置子页：切换说明/配网中/成功 UI
-static void admin_4g_ui_enter(void);  //进入 4G 设置页：复位为说明态并同步开关
-static void admin_4g_back_to_network(void);  //离开 4G 设置页：回网络设置
-static void admin_4g_timer_stop(void);  //停止 4G 配网 2s 完成态定时器
-static void admin_4g_start_provisioning(void);  //4G 开关 OFF→ON：进入配网中并启动 2s 定时器
-static void cb_admin_4g_switch_changed(lv_event_t * e);  //4G 开关切换：更新状态或触发配网流程
-static void cb_admin_4g_timer(lv_timer_t * t);  //2s 定时器：配网中 → 成功态
-static void cb_admin_4g_result_click(lv_event_t * e);  //4G 结果页点击：成功→网络设置；失败→4G 说明页且开关关
-static void cb_admin_open_network_settings(lv_event_t * e);  //menu1「网络设置」入口
-static void cb_admin_open_wifi_settings(lv_event_t * e);  //网络设置「WIFI设置」入口
-static void cb_admin_open_4g_settings(lv_event_t * e);  //网络设置「4G设置」入口
-static void admin_network_back_to_menu1(void);  //离开网络设置页：回 menu1
-static void admin_wifi_back_to_network(void);  //离开 WIFI 设置页：回网络设置
-static void admin_wifi_set_phase(admin_wifi_phase_t phase);  //WIFI 设置子页：切换说明/连接中/成功/失败 UI
-static void admin_wifi_ui_enter(void);  //进入 WIFI 设置页：复位为说明态并同步开关
-static void admin_wifi_timer_stop(void);  //停止 WIFI 连接 2s 完成态定时器
-static void admin_wifi_start_provisioning(void);  //WIFI 开关 OFF→ON：进入连接中并启动 2s 定时器
-static void cb_admin_wifi_switch_changed(lv_event_t * e);  //WIFI 开关切换：更新状态或触发连接流程
-static void cb_admin_wifi_timer(lv_timer_t * t);  //2s 定时器：连接中 → 成功/失败态
-static void cb_admin_wifi_result_click(lv_event_t * e);  //WIFI 结果页点击：成功→网络设置；失败→WIFI 说明页且开关关
-static void admin_wifi_apply_switch_layout(void);  //WIFI 设置页：刷新 WIFI 开关布局
-static void admin_wifi_sync_switch_ui(void);  //WIFI 设置页：刷新开关与状态一致
-static void admin_pwd_chg_enter(void);  //密码修改入口：进入页1（原密码+新密码）
-static void admin_pwd_chg_page1_on_ready(void);  //页1 键盘 OK：切框或校验并进页2/失败页
-static void admin_pwd_chg_page2_on_ready(void);  //页2 键盘 OK：比对二次新密码 → 成功/失败页
-static void admin_pwd_chg_show_result(bool ok, ui_str_id_t msg_id);  //配网成功/失败布局的结果页
-static void admin_pwd_chg_hide_result(void);  //隐藏结果页，恢复输入区
-static void admin_pwd_chg_back_to_menu2(void);  //离开密码修改：回 menu2
-static void cb_admin_pwd_chg_result_click(lv_event_t * e);  //结果页点击：失败回页1 / 成功回 menu2
-static void cb_admin_open_password_change(lv_event_t * e);  //menu2「密码修改」入口
-static void admin_payment_style_checkbox(lv_obj_t * cb);  //支付设置页：未选空心橙框，已选橙色对号（数据设置复用）
-static void admin_payment_set_page(admin_payment_page_t page);  //支付设置：首页/方式/超时/订单页切换
-static void admin_payment_show_time_picker(void);  //支付超时时间选择子页
-static void admin_payment_hide_time_picker(void);  //隐藏支付超时时间选择，回首页
-static void admin_payment_show_order_detail(int idx);  //订单详情页
-static void admin_payment_show_order_summary(int idx);  //订单摘要中间页
-static void admin_payment_sync_order_detail_ui(int idx);  //按订单索引刷新详情文案
-static void admin_payment_sync_order_summary_ui(int idx);  //按订单索引刷新摘要文案
-static void cb_admin_payment_list_sw_changed(lv_event_t * e);  //支付设置首页三项开关
-static void cb_admin_payment_order_row_clicked(lv_event_t * e);  //订单列表项点击 → 摘要页
-static void cb_admin_payment_order_invoice(lv_event_t * e);  //摘要页「开发票」（暂无业务）
-static void cb_admin_payment_order_detail_btn(lv_event_t * e);  //摘要页「订单详情」→ 详情页
-static void cb_admin_payment_alipay_changed(lv_event_t * e);  //支付方式：支付宝开关
-static void cb_admin_payment_wechat_changed(lv_event_t * e);  //支付方式：微信开关
-static void cb_admin_payment_tp_confirm(lv_event_t * e);
-static void cb_admin_payment_tp_cancel(lv_event_t * e);
 static void cb_admin_payment_tp_digit_roller_changed(lv_event_t * e);
 static void admin_payment_back_to_menu2(void);  //离开支付设置页：回 menu2（或子页回首页）
 static void cb_admin_open_payment_settings(lv_event_t * e);  //menu2「支付设置」入口
@@ -2709,9 +2702,7 @@ static void cb_admin_dormancy_sw_changed(lv_event_t * e);
 static void admin_data_back_to_menu1(void);  //离开数据设置页：回 menu1
 static void admin_data_set_page(admin_data_page_t page);
 static void cb_admin_open_data_settings(lv_event_t * e);
-static void brightness_slider_style_init(void);
 static void admin_4g_apply_switch_layout(void);
-static void admin_data_style_checkbox(lv_obj_t * cb);
 static void admin_data_style_switch(lv_obj_t * sw);
 static const ui_str_id_t g_data_upload_item_str_ids[7];
 static const ui_str_id_t g_data_strategy_str_ids[5];
@@ -2918,6 +2909,8 @@ typedef struct {
     int32_t price;           /* 默认金额；-1 表示无 */
 } ui_program_profile_t;
 
+static const ui_program_profile_t * program_profile_get(int32_t idx);  //获取指定程序索引的参数表项
+
 typedef struct {
     uint32_t wash_sec;       /* 洗涤阶段时长（秒）；0 表示无洗涤 */
     uint32_t rinse_sec;      /* 漂洗总时长（秒）= 单次漂洗 × 漂洗次数 */
@@ -2994,61 +2987,17 @@ static lv_obj_t * create_top_bar(lv_obj_t * parent, lv_obj_t ** clock_lbl_out,
     lv_obj_t * back_target, lv_group_t * encoder_group, lv_obj_t ** back_btn_out);  //创建顶部栏：可选返回键 + 状态栏
 static lv_obj_t * add_encoder_top_btn(lv_obj_t * top, const char * txt, lv_coord_t x, lv_group_t * group);  //在顶部栏添加编码器可聚焦按钮
 static void carousel_size_cb(lv_event_t * e);  //轮播区尺寸变化时重新布局
-static void carousel_update_card_images(void);  //按当前选中程序刷新 5 张可见卡片图与名称标签
 static lv_coord_t carousel_slot_center_x(int slot);  //计算槽位相对轮播中心的水平偏移
 static void carousel_wrap_relayout(void);  //轮播区整体布局：卡片位置/缩放/透明度与指示点
 static int32_t carousel_dot_preview_sel(void);  //拖动中指示点预览选中（不改 g_wheel_sel）
-static int32_t wheel_mod_total(int32_t v);  //程序索引在 0..TOTAL_PROGRAMS-1 内循环取模
 static void home_sync_encoder_focus_after_carousel_drag(void);  //触摸滑动改程序后对齐编码器焦点
 static void home_encoder_group_build(void);  //主页编码器：仅轮播（常驻 editing）
 static void cb_home_carousel_encoder(lv_event_t * e);  //轮播编码器：旋转选程序，短按进支付
 static void cb_home_runpause(lv_event_t * e);  //主页启停触摸点击
 static void cb_home_prog_dot_focus(lv_event_t * e);  //轮播指示点：触摸点击同步选中程序
 static void wheel_pointer_cb(lv_event_t * e);  //轮播区按下/拖动/释放：滑动切换程序
-static void home_enter_pay_screen_request(void);  //延迟进入支付页（含二维码），避免误进支付完成
-static void cb_load_screen(lv_event_t * e);  //通用界面加载事件回调，根据 user_data 切换屏幕
-static void ui_layout_init(void);  //初始化轮播区布局参数（卡片尺寸、间距、拖动灵敏度）
-static void style_screen_base(lv_obj_t * scr);  //设置屏幕基础样式（黑底、无边框）
-static void style_obj_encoder_focus_outline_color(lv_obj_t * obj, uint32_t color_hex, lv_opa_t opa);  //为控件设置指定颜色的编码器焦点描边
-static void style_obj_encoder_focus_outline(lv_obj_t * obj);  //为控件设置编码器焦点描边（默认白 50%）
-static void ui_encoder_group_add(lv_group_t * group, lv_obj_t * obj);  //控件创建后立即加入编码器 group
-static void style_prog_field_encoder_focus_inner(lv_obj_t * obj);  //程序设置：内贴橙框
-static void ui_encoder_group_add_prog_field(lv_group_t * group, lv_obj_t * obj);  //程序设置字段加入 group（内贴橙框）
-static void ui_encoder_group_add_no_outline(lv_group_t * group, lv_obj_t * obj);  //加入 group 但不显示焦点框
-static void style_brightness_slider_encoder_focus_inner(lv_obj_t * obj);
-static void ui_encoder_group_add_brightness_slider(lv_group_t * group, lv_obj_t * obj);
 
-static void create_screens(void);  //创建全部屏幕对象并设固定分辨率
-static void ui_set_encoder_group(lv_group_t * group);  //将编码器/键盘输入设备绑定到指定 focus group
-static void ui_screen_load(lv_obj_t * scr);  //屏幕加载包装：清童锁/倒计时，切换 group 与页面逻辑
-static void ui_idle_reset(void);  //重置空闲计时（有输入时调用）
-static void ui_idle_on_screen_changed(lv_obj_t * scr);  //进入/离开待机页时暂停或恢复空闲计时
-static void ui_idle_poll_pointer(void);  //检测鼠标移动并重置空闲计时
-static void cb_idle_timeout(lv_timer_t * t);  //空闲超时：进入待机页
-static void cb_indev_activity(lv_event_t * e);  //输入设备活动：重置空闲计时
-static void ui_idle_indev_hook(void);  //为鼠标/编码器注册活动监听
-static void ui_idle_init(void);  //创建空闲计时器并注册输入监听
-static void cb_off_wake(lv_event_t * e);  //待机页任意按钮：恢复待机前界面（首屏待机则进主页）
-static void ui_apply_indev_long_press_ms(uint16_t ms);  //统一设置指针/编码器长按判定时间
-static void ui_indev_set_encoder_long_press_ms(uint16_t ms);  //仅编码器长按阈值（轮播 800ms / 其它 3s）
-static void running_child_lock_on_enter(void);  //童锁激活时的进入钩子（预留扩展）
-static void running_child_lock_on_exit(void);  //童锁解除时的退出钩子（预留扩展）
-static void running_child_lock_align_btn(void);  //将童锁按钮对齐到运行页中间栏右侧
-static void running_child_lock_apply_locked(bool locked, bool silent_unlock);  //应用童锁锁定/解锁 UI 与 group
-static void running_child_lock_remote_clear_if_leaving_running(lv_obj_t * target_scr);  //离开运行页时静默解除童锁
-static void cb_running_child_lock_long(lv_event_t * e);  //童锁按钮长按：切换童锁开/关
-static void cb_running_child_lock_released(lv_event_t * e);  //童锁松开：焦点回到童锁按钮
-static void build_home(void);  //构建主页：顶部栏、程序轮播、底部参数栏
-static const ui_program_profile_t * program_profile_get(int32_t idx);  //获取指定程序索引的参数表项
-static void program_format_time_label(uint32_t sec, char * buf, size_t buf_sz);  //格式化为首页时间标签文本
-static void program_format_price_home(int32_t price, char * buf, size_t buf_sz);  //格式化为首页价格标签
-static void program_format_price_pay(int32_t price, char * buf, size_t buf_sz);  //格式化为支付页价格标签
-static void home_sync_program_labels(void);  //按当前选中程序刷新主页底部时间/温度/价格标签
-static void pay_sync_price_label(void);
-static void pay_sync_pay_ui(void);
-static void running_screen_sync_mode_name(void);  //运行页程序名标签与 g_wheel_sel 保持一致
 static uint32_t running_program_total_sec(int32_t idx);  //运行总时长（洗涤+漂洗×次数+脱水）
-static void running_status_sync_labels(void);  //按程序与剩余时间刷新运行页底部左右文案
 static void running_countdown_format(uint32_t sec, char * buf, size_t buf_sz);  //将剩余秒数格式化为 0:MM
 static void running_countdown_update_label(void);  //刷新运行页倒计时标签显示
 static void pay_done_timer_stop(void);  //停止支付完成页 2 秒自动跳转定时器
@@ -3069,7 +3018,6 @@ static void build_running(void);  //构建运行页：背景、顶部栏、程�
 static void build_end(void);  //构建洗涤结束页：返回、图标与提示文字
 static void build_admin(void);  //构建管理员页：密码/设置网格/机器ID子面板
 static void build_alarm_overlay(void);  //构建 lv_layer_top 报警弹层：E1–E15 + 缺液
-static void alarm_content_update(void);  //刷新轮播当前子页内容（缺液图/文案）
 static void alarm_fault_panel_relayout_content(uint8_t fault_idx);  //说明2 显隐 + 页脚电话/售后重排
 static void alarm_fault_panels_relayout_content(void);  //全部故障子页重排内容
 static void ui_alarm_poll(void);  //每帧检测报警并控制弹层显隐与轮播
@@ -3266,33 +3214,33 @@ static void cb_clock(lv_timer_t * t)
 {
 	(void)t;                                             /* 未使用定时器指针 */
 	static uint32_t s_clock_seconds = 10u * 3600u + 8u * 60u; /* 仿真时钟起点 10:08:00 */
-	uint32_t hour = (s_clock_seconds / 3600u) % 24u;   /* 小时 0..23 */
-	uint32_t minute = (s_clock_seconds / 60u) % 60u;   /* 分钟 0..59 */
-	uint32_t second = s_clock_seconds % 60u;           /* 秒 0..59 */
-	char buf[8];                                       /* 状态栏 HH:MM */
-	char buf_sec[12];                                  /* 待机居中 HH:MM:SS */
+	uint32_t hour = (s_clock_seconds / 3600u) % 24u;     /* 小时 0..23 */
+	uint32_t minute = (s_clock_seconds / 60u) % 60u;     /* 分钟 0..59 */
+	uint32_t second = s_clock_seconds % 60u;             /* 秒 0..59 */
+	char buf[8];                                         /* 状态栏 HH:MM */
+	char buf_sec[12];                                    /* 待机居中 HH:MM:SS */
 	snprintf(buf, sizeof(buf), "%02u:%02u", (unsigned)hour, (unsigned)minute);
 	snprintf(buf_sec, sizeof(buf_sec), "%02u:%02u:%02u",
 		(unsigned)hour, (unsigned)minute, (unsigned)second);
-	if(g_lbl_clock != NULL) {                            /* 主页顶部时钟 label */
+	if(g_lbl_clock != NULL) {                            /* 主页顶部时钟 */
 		lv_label_set_text(g_lbl_clock, buf);
 	}
-	if(g_lbl_clock_running != NULL) {                    /* 运行页时钟 label */
+	if(g_lbl_clock_running != NULL) {                    /* 运行页时钟 */
 		lv_label_set_text(g_lbl_clock_running, buf);
 	}
-	if(g_lbl_clock_end != NULL) {                        /* 结束页时钟 label */
+	if(g_lbl_clock_end != NULL) {                        /* 结束页时钟 */
 		lv_label_set_text(g_lbl_clock_end, buf);
 	}
-	if(g_lbl_clock_pay != NULL) {                        /* 支付页时钟 label */
+	if(g_lbl_clock_pay != NULL) {                        /* 支付页时钟 */
 		lv_label_set_text(g_lbl_clock_pay, buf);
 	}
-	if(g_lbl_clock_pay_done != NULL) {                   /* 支付完成页时钟 label */
+	if(g_lbl_clock_pay_done != NULL) {                   /* 支付完成页时钟 */
 		lv_label_set_text(g_lbl_clock_pay_done, buf);
 	}
-	if(g_lbl_clock_alarm != NULL) {                      /* 报警页时钟 label */
+	if(g_lbl_clock_alarm != NULL) {                      /* 报警页时钟 */
 		lv_label_set_text(g_lbl_clock_alarm, buf);
 	}
-	if(g_lbl_clock_off != NULL) {                        /* 待机页右上角时钟 label */
+	if(g_lbl_clock_off != NULL) {                        /* 待机页右上角时钟 */
 		lv_label_set_text(g_lbl_clock_off, buf);
 	}
 	if(g_lbl_clock_off_center != NULL) {                 /* 待机页居中大字时钟（含秒） */
@@ -3322,19 +3270,19 @@ static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out)  //
 	lv_obj_set_style_pad_all(status, 0, LV_PART_MAIN);
 	lv_obj_set_style_radius(status, 0, LV_PART_MAIN);
 
-	lv_obj_t * t4g = lv_label_create(status);
+	lv_obj_t * t4g = lv_label_create(status);//4G标签
 	lv_label_set_text(t4g, "4G");
-	lv_obj_align(t4g, LV_ALIGN_BOTTOM_LEFT, LV_PCT(25), -10);
+	lv_obj_align(t4g, LV_ALIGN_BOTTOM_LEFT, LV_PCT(25), -3);
 	lv_obj_set_style_text_color(t4g, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 	ui_set_obj_font(t4g, s_font_sc_27);
 
-	lv_obj_t * tw = lv_image_create(status);
+	lv_obj_t * tw = lv_image_create(status);//WiFi标签
 	lv_image_set_src(tw, &wifi_logo);
 	lv_obj_align(tw, LV_ALIGN_BOTTOM_LEFT, LV_PCT(47), -10);
 
-	lv_obj_t * clock = lv_label_create(status);
+	lv_obj_t * clock = lv_label_create(status);//时间标签
 	lv_label_set_text(clock, "10:08");
-	lv_obj_align(clock, LV_ALIGN_BOTTOM_RIGHT, 0, -10);
+	lv_obj_align(clock, LV_ALIGN_BOTTOM_RIGHT, 0, -3);
 	lv_obj_set_style_text_color(clock, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 	ui_set_obj_font(clock, s_font_sc_27);
 	if(clock_lbl_out != NULL) {
@@ -3346,7 +3294,7 @@ static void create_top_status_bar(lv_obj_t * top, lv_obj_t ** clock_lbl_out)  //
 		lv_timer_create(cb_clock, 1000, NULL);
 		s_clock_timer_started = true;
 	} else if(clock_lbl_out != NULL && *clock_lbl_out != NULL) {
-		cb_clock(NULL);  //鍒锋柊鏃堕挓
+		cb_clock(NULL);  //更新时间标签
 	}
 }
 
@@ -3740,289 +3688,12 @@ static void ui_encoder_group_add(lv_group_t * group, lv_obj_t * obj)
 	lv_group_add_obj(group, obj);
 }
 
-/* 内贴 border：FOCUS_KEY + FOCUSED 双态（rebuild 程序化 focus 可能仅有 FOCUSED） */
-static void ui_encoder_style_inner_border_focus_states(lv_obj_t * obj, uint32_t color_hex)
-{
-	if(obj == NULL) return;
-	lv_display_t * disp = lv_obj_get_display(obj);
-	lv_coord_t bw = 6;
-	if(disp != NULL) bw = (lv_coord_t)lv_display_dpx(disp, 6);
-	static const lv_state_t focus_states[] = { LV_STATE_FOCUS_KEY, LV_STATE_FOCUSED };
-	for(size_t i = 0; i < sizeof(focus_states) / sizeof(focus_states[0]); i++) {
-		lv_state_t st = focus_states[i];
-		lv_obj_set_style_border_color(obj, lv_color_hex(color_hex), LV_PART_MAIN | st);
-		lv_obj_set_style_border_width(obj, bw, LV_PART_MAIN | st);
-		lv_obj_set_style_border_opa(obj, LV_OPA_COVER, LV_PART_MAIN | st);
-		lv_obj_set_style_radius(obj, 4, LV_PART_MAIN | st);
-	}
-}
-
-/* 程序设置 textarea/roller：获焦时在白框内侧显示橙色 border（不用外扩 outline） */
-static void style_prog_field_encoder_focus_inner(lv_obj_t * obj)
-{
-	if(obj == NULL) return;
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUSED);
-
-	lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-	ui_encoder_style_inner_border_focus_states(obj, COL_ORANGE);
-}
-
-static void ui_encoder_group_add_prog_field(lv_group_t * group, lv_obj_t * obj)
-{
-	if(group == NULL || obj == NULL) return;
-	lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-	style_prog_field_encoder_focus_inner(obj);
-	lv_group_add_obj(group, obj);
-}
-
-/* 屏幕亮度滑条：获焦时内侧白色 border（尺寸同程序设置字段，颜色 COL_TEXT） */
-static void style_brightness_slider_encoder_focus_inner(lv_obj_t * obj)
-{
-	if(obj == NULL) return;
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUSED);
-
-	lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-	ui_encoder_style_inner_border_focus_states(obj, COL_TEXT);
-}
-
-static void ui_encoder_group_add_brightness_slider(lv_group_t * group, lv_obj_t * obj)
-{
-	if(group == NULL || obj == NULL) return;
-	/* 声音页复用：滑条本体不加描边（焦点框另画） */
-	lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
-	lv_group_add_obj(group, obj);
-}
-
-/* 亮度滑条：外框左黑右蓝渐变描边，内层纯黑底 */
-static void brightness_slider_style_init(void)
-{
-	if(s_brightness_slider_style_inited) return;
-
-	lv_style_init(&s_brightness_slider_frame_style);
-	lv_style_set_radius(&s_brightness_slider_frame_style, 8);
-	lv_style_set_bg_opa(&s_brightness_slider_frame_style, LV_OPA_COVER);
-	lv_style_set_bg_color(&s_brightness_slider_frame_style, lv_color_hex(BRIGHTNESS_SLIDER_BLACK));
-	lv_style_set_bg_grad_color(&s_brightness_slider_frame_style, lv_color_hex(BRIGHTNESS_SLIDER_BLUE));
-	lv_style_set_bg_grad_dir(&s_brightness_slider_frame_style, LV_GRAD_DIR_HOR);
-	lv_style_set_border_width(&s_brightness_slider_frame_style, 0);
-	lv_style_set_pad_all(&s_brightness_slider_frame_style, ADMIN_MENU_BORDER_W);
-	lv_style_set_shadow_width(&s_brightness_slider_frame_style, 0);
-
-	lv_style_init(&s_brightness_slider_inner_style);
-	lv_style_set_radius(&s_brightness_slider_inner_style, 6);
-	lv_style_set_bg_opa(&s_brightness_slider_inner_style, LV_OPA_COVER);
-	lv_style_set_bg_color(&s_brightness_slider_inner_style, lv_color_hex(BRIGHTNESS_SLIDER_BLACK));
-	lv_style_set_bg_grad_color(&s_brightness_slider_inner_style, lv_color_hex(BRIGHTNESS_SLIDER_BLACK));
-	lv_style_set_bg_grad_dir(&s_brightness_slider_inner_style, LV_GRAD_DIR_NONE);
-	lv_style_set_border_width(&s_brightness_slider_inner_style, 0);
-	lv_style_set_pad_all(&s_brightness_slider_inner_style, 0);
-
-	s_brightness_slider_style_inited = true;
-}
-
-/* 在已创建的渐变外框 frame 内填充 bar / 透明 slider / 编码器焦点层 */
-static void admin_gradient_slider_fill_inner(lv_obj_t * frame, lv_obj_t ** out_bar, lv_obj_t ** out_slider,
-                                             lv_obj_t ** out_focus)
-{
-	if(frame == NULL) return;
-
-	lv_obj_t * inner = lv_obj_create(frame);
-	lv_obj_remove_style_all(inner);
-	lv_obj_add_style(inner, &s_brightness_slider_inner_style, LV_PART_MAIN);
-	lv_obj_set_size(inner, LV_PCT(100), LV_PCT(100));
-	lv_obj_clear_flag(inner, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-	lv_obj_t * bar = lv_bar_create(inner);
-	lv_obj_set_size(bar, LV_PCT(100), LV_PCT(100));
-	lv_bar_set_range(bar, 0, 100);
-	lv_obj_set_style_bg_opa(bar, LV_OPA_TRANSP, LV_PART_MAIN);
-	lv_obj_set_style_border_width(bar, 0, LV_PART_MAIN);
-	lv_obj_set_style_radius(bar, 4, LV_PART_MAIN);
-	lv_obj_set_style_pad_all(bar, 2, LV_PART_MAIN);
-	lv_obj_set_style_bg_color(bar, lv_color_hex(BRIGHTNESS_SLIDER_BLACK), LV_PART_INDICATOR);
-	lv_obj_set_style_bg_grad_color(bar, lv_color_hex(BRIGHTNESS_SLIDER_BLUE), LV_PART_INDICATOR);
-	lv_obj_set_style_bg_grad_dir(bar, LV_GRAD_DIR_HOR, LV_PART_INDICATOR);
-	lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
-	lv_obj_set_style_radius(bar, 2, LV_PART_INDICATOR);
-	lv_obj_remove_flag(bar, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-	lv_obj_t * slider = lv_slider_create(inner);
-	lv_obj_set_size(slider, LV_PCT(100), LV_PCT(100));
-	lv_slider_set_range(slider, 0, 100);
-	lv_obj_set_style_bg_opa(slider, LV_OPA_TRANSP, LV_PART_MAIN);
-	lv_obj_set_style_border_width(slider, 0, LV_PART_MAIN);
-	lv_obj_set_style_radius(slider, 4, LV_PART_MAIN);
-	lv_obj_set_style_pad_all(slider, 2, LV_PART_MAIN);
-	lv_obj_set_style_bg_opa(slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
-	lv_obj_set_style_bg_opa(slider, LV_OPA_TRANSP, LV_PART_KNOB);
-	lv_obj_set_style_border_opa(slider, LV_OPA_TRANSP, LV_PART_KNOB);
-	lv_obj_set_style_shadow_opa(slider, LV_OPA_TRANSP, LV_PART_KNOB);
-	lv_obj_set_style_width(slider, 0, LV_PART_KNOB);
-	lv_obj_set_style_height(slider, 0, LV_PART_KNOB);
-	lv_obj_set_style_pad_all(slider, 0, LV_PART_KNOB);
-
-	lv_obj_t * focus = lv_obj_create(inner);
-	lv_obj_remove_style_all(focus);
-	lv_obj_set_size(focus, LV_PCT(100), LV_PCT(100));
-	style_brightness_slider_encoder_focus_inner(focus);
-	lv_obj_remove_flag(focus, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-	lv_obj_add_flag(focus, LV_OBJ_FLAG_EVENT_BUBBLE);
-	lv_obj_move_foreground(focus);
-
-	if(out_bar != NULL) *out_bar = bar;
-	if(out_slider != NULL) *out_slider = slider;
-	if(out_focus != NULL) *out_focus = focus;
-}
-
-/* 轮播卡片：编码器可选程序，但不显示焦点描边 */
-
-static void ui_encoder_group_add_no_outline(lv_group_t * group, lv_obj_t * obj)
-{
-	if(group == NULL || obj == NULL) return;
-	lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE);
-	lv_obj_set_style_outline_width(obj, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(obj, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-	lv_group_add_obj(group, obj);
-}
-
-// 将管理员键盘加入编码器 group：不加外层描边，焦点由内部按键呈现
-
-static void admin_encoder_group_add_kb(lv_group_t * group)
-{
-	(void)group;
-}
-
 // 判断管理员数字键盘是否处于显示状态
 
 static bool admin_kb_is_visible(void)
 {
 	if(g_admin_kb == NULL) return false;
 	return !lv_obj_has_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-}
-
-// 统计数字键盘 map 中的按钮总数（不含换行）
-
-static uint32_t admin_kb_btn_count(const lv_obj_t * kb)
-{
-	uint32_t cnt = 0;
-	const char * const * map = lv_buttonmatrix_get_map(kb);
-	if(map == NULL) return 0;
-	for(uint32_t i = 0; map[i] != NULL && map[i][0] != '\0'; i++) {
-		if(lv_strcmp(map[i], "\n") != 0) cnt++;
-	}
-	return cnt;
-}
-
-// 编码器逐步切换键盘按键：1→2→3→… 顺序切换，到首尾停止不循环
-
-static void admin_kb_encoder_step(lv_obj_t * kb, int32_t delta)
-{
-	uint32_t cnt = admin_kb_btn_count(kb);
-	if(cnt == 0) return;
-
-	uint32_t cur = lv_keyboard_get_selected_button(kb);
-	if(cur == LV_BUTTONMATRIX_BUTTON_NONE) {
-		cur = (delta >= 0) ? 0 : (cnt - 1);
-	}
-	else if(delta > 0) {
-		if(cur + 1 >= cnt) return;
-		cur++;
-	}
-	else {
-		if(cur == 0) return;
-		cur--;
-	}
-
-	lv_buttonmatrix_set_selected_button(kb, cur);
-	lv_obj_invalidate(kb);
-}
-
-// 选中键盘首键「1」
-
-static void admin_kb_encoder_select_first(lv_obj_t * kb)
-{
-	if(kb == NULL) return;
-	lv_buttonmatrix_set_selected_button(kb, 0);
-	lv_obj_invalidate(kb);
-}
-
-// 管理员键盘编码器事件：聚焦时补选按键，旋转时按 map 顺序逐步切换
-
-static void cb_admin_kb_encoder(lv_event_t * e)
-{
-	(void)e;
-}
-
-// 为键盘内部按键设置编码器焦点描边，并注册编码器事件
-
-static void admin_kb_encoder_style_init(void)
-{
-	if(g_admin_kb == NULL || s_admin_kb_encoder_inited) return;
-
-	lv_display_t * disp = lv_obj_get_display(g_admin_kb);
-	lv_coord_t ow = 3;
-	if(disp != NULL) ow = (lv_coord_t)lv_display_dpx(disp, 3);
-
-	lv_obj_set_style_outline_color(g_admin_kb, lv_color_hex(COL_TEXT), LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_width(g_admin_kb, ow, LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_pad(g_admin_kb, ow, LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(g_admin_kb, LV_OPA_COVER, LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_color(g_admin_kb, lv_color_hex(COL_TEXT), LV_PART_ITEMS | LV_STATE_FOCUS_KEY | LV_STATE_CHECKED);
-	lv_obj_set_style_outline_width(g_admin_kb, ow, LV_PART_ITEMS | LV_STATE_FOCUS_KEY | LV_STATE_CHECKED);
-	lv_obj_set_style_outline_pad(g_admin_kb, ow, LV_PART_ITEMS | LV_STATE_FOCUS_KEY | LV_STATE_CHECKED);
-	lv_obj_set_style_outline_opa(g_admin_kb, LV_OPA_COVER, LV_PART_ITEMS | LV_STATE_FOCUS_KEY | LV_STATE_CHECKED);
-	lv_obj_set_style_outline_width(g_admin_kb, 0, LV_STATE_FOCUS_KEY);
-	lv_obj_set_style_outline_opa(g_admin_kb, LV_OPA_TRANSP, LV_STATE_FOCUS_KEY);
-
-	lv_obj_add_event_cb(g_admin_kb, cb_admin_kb_cancel, LV_EVENT_CANCEL, NULL);
-
-	s_admin_kb_encoder_inited = true;
-}
-
-// 编码器进入键盘按键编辑：聚焦键盘、开启编辑模式并选中首键
-
-static void admin_kb_encoder_enter(void)
-{
-}
-
-// 收起管理员数字键盘（点击小键盘图标触发 LV_EVENT_CANCEL）
-
-static void admin_kb_close(void)
-{
-	if(g_admin_kb == NULL || !admin_kb_is_visible()) return;
-
-	g_admin_kb_ta = NULL;
-	lv_obj_add_flag(g_admin_kb, LV_OBJ_FLAG_HIDDEN);
-
-	if(g_group_admin != NULL) {
-		lv_group_set_editing(g_group_admin, false);
-		if(g_admin_view == PASSWORD && g_admin_ta_pwd != NULL) {
-			lv_group_focus_obj(g_admin_ta_pwd);
-		}
-		else if(g_admin_view == MACHINE_ID && g_admin_ta_machine_id != NULL) {
-			lv_group_focus_obj(g_admin_ta_machine_id);
-		}
-		else if(g_admin_view == VENDOR_SERIAL && g_admin_ta_vendor_serial != NULL) {
-			lv_group_focus_obj(g_admin_ta_vendor_serial);
-		}
-	}
-}
-
-// 键盘 CANCEL 回调：小键盘图标按下后由 LVGL 派发
-
-static void cb_admin_kb_cancel(lv_event_t * e)
-{
-	if(lv_event_get_code(e) != LV_EVENT_CANCEL) return;
-	admin_kb_close();
 }
 
 /* 弹出键盘并绑定输入框 */
@@ -4062,7 +3733,7 @@ static void cb_admin_ta_key_enter(lv_event_t * e)
 	lv_event_stop_processing(e);
 }
 
-// 密码/机器 ID 输入框：弹出键盘并进入按键逐键选择（与程序设置页一致）
+// 密码/机器 ID / 厂商序列号输入框：点击弹出数字键盘
 static void cb_admin_ta_kb_focus(lv_event_t * e)
 {
 	lv_obj_t * ta = lv_event_get_target_obj(e);
@@ -4080,11 +3751,7 @@ static void cb_admin_ta_kb_focus(lv_event_t * e)
 		}
 	}
 
-	if(code == LV_EVENT_FOCUSED) {
-		if(g_group_admin != NULL && lv_group_get_editing(g_group_admin) && admin_kb_is_visible()) {
-			admin_kb_encoder_enter();
-		}
-	} else if(code == LV_EVENT_CLICKED) {
+	if(code == LV_EVENT_CLICKED) {
 		admin_ta_begin_edit(ta);
 	}
 }
@@ -4346,18 +4013,6 @@ static void ui_apply_indev_long_press_ms(uint16_t ms)  //统一设置指针/编�
 	while((indev = lv_indev_get_next(indev)) != NULL) {
 		lv_indev_type_t t = lv_indev_get_type(indev);
 		if(t == LV_INDEV_TYPE_POINTER || t == LV_INDEV_TYPE_ENCODER) {
-			lv_indev_set_long_press_time(indev, ms);
-		}
-	}
-}
-
-/* 仅编码器：设置长按阈值（由 ui_apply_indev_long_press_ms 统一配置） */
-
-static void ui_indev_set_encoder_long_press_ms(uint16_t ms)
-{
-	lv_indev_t * indev = NULL;
-	while((indev = lv_indev_get_next(indev)) != NULL) {
-		if(lv_indev_get_type(indev) == LV_INDEV_TYPE_ENCODER) {
 			lv_indev_set_long_press_time(indev, ms);
 		}
 	}
@@ -5748,12 +5403,6 @@ static bool ui_alarm_rotate_rebuild(void)
 	}
 
 	return changed;                                                        //返回是否需刷新 UI
-}
-
-//是否存在任意活跃报警
-static bool ui_alarm_any_active(void)
-{
-	return g_alarm_rotate_count > 0u;                                      //队列非空
 }
 
 //隐藏全部故障/缺液子面板
@@ -7184,33 +6833,6 @@ static void program_admin_build_panel(lv_obj_t * root, lv_coord_t body_y, lv_coo
 	g_admin_prog_is_detail = false;
 }
 
-/* ---------- 管理员界面：子面板显示/隐藏、密码与机器 ID ---------- */
-
-static void admin_menu_style_init(void)
-{
-	if(s_admin_menu_style_inited) return;
-	/* 外层露出的 pad 环即为渐变边框（LVGL border 不支持纵向渐变） */
-	lv_style_init(&s_admin_menu_frame_style);
-	lv_style_set_radius(&s_admin_menu_frame_style, 8);
-	lv_style_set_bg_opa(&s_admin_menu_frame_style, LV_OPA_COVER);
-	lv_style_set_bg_color(&s_admin_menu_frame_style, lv_color_hex(0x2a7fff));
-	lv_style_set_bg_grad_color(&s_admin_menu_frame_style, lv_color_hex(0x000000));
-	lv_style_set_bg_grad_dir(&s_admin_menu_frame_style, LV_GRAD_DIR_VER);
-	lv_style_set_border_width(&s_admin_menu_frame_style, 0);
-	lv_style_set_pad_all(&s_admin_menu_frame_style, ADMIN_MENU_BORDER_W);
-	lv_style_set_shadow_width(&s_admin_menu_frame_style, 0);
-
-	lv_style_init(&s_admin_menu_inner_style);
-	lv_style_set_radius(&s_admin_menu_inner_style, 6);
-	lv_style_set_bg_opa(&s_admin_menu_inner_style, LV_OPA_COVER);
-	lv_style_set_bg_color(&s_admin_menu_inner_style, lv_color_hex(0x0a2a5a));
-	lv_style_set_bg_grad_color(&s_admin_menu_inner_style, lv_color_hex(0x000810));
-	lv_style_set_bg_grad_dir(&s_admin_menu_inner_style, LV_GRAD_DIR_VER);
-	lv_style_set_border_width(&s_admin_menu_inner_style, 0);
-	lv_style_set_pad_all(&s_admin_menu_inner_style, 0);
-	s_admin_menu_style_inited = true;
-}
-
 static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const lv_image_dsc_t * icon)
 {
 	lv_obj_t * b = lv_button_create(parent);
@@ -7251,12 +6873,7 @@ static lv_obj_t * make_admin_menu_btn(lv_obj_t * parent, const char * txt, const
 	return b;
 }
 
-static void admin_machine_id_label_update(void)
-{
-    /* 当前 ID 直接显示在 textarea 中，由 admin_panel_show 填充 */
-}
-
-/* menu1 第 8 钮编码器右转：进入 menu2 */
+/* 清空管理员编码器 focus group（触摸为主的页面重建前调用） */
 
 static void admin_encoder_rebuild(void)
 {
@@ -7335,7 +6952,6 @@ static void admin_panel_show(admin_view_t view)
     }
     else if(view == MACHINE_ID && g_admin_panel_machine_id != NULL) {
         lv_obj_remove_flag(g_admin_panel_machine_id, LV_OBJ_FLAG_HIDDEN);
-        admin_machine_id_label_update();
         if(g_admin_ta_machine_id != NULL) {
             char buf[8];
             if(g_machine_id > 0) {
@@ -7690,7 +7306,6 @@ static bool admin_machine_id_apply(void)
     if(val > 999999u) return false;
 
     g_machine_id = (uint32_t)val;
-    admin_machine_id_label_update();
     return true;
 }
 
@@ -7892,17 +7507,6 @@ static bool ui_dormancy_inactive_should_off(void)
 	if(g_ui_dormancy_timeout_ms == UI_DORMANCY_DISABLED_MS) return false;
 	if(ui_idle_screen_keeps_awake(lv_scr_act())) return false;
 	return lv_display_get_inactive_time(NULL) >= g_ui_dormancy_timeout_ms;
-}
-
-static void admin_prog_roller_exit_edit(lv_obj_t * roller)
-{
-    if(g_group_admin == NULL || roller == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != roller) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    uint32_t sel = lv_roller_get_selected(roller);
-    lv_roller_set_selected(roller, sel, LV_ANIM_OFF);
-    program_admin_ui_save_fields();
-    lv_group_set_editing(g_group_admin, false);
 }
 
 static const char * ui_dormancy_timeout_label(uint32_t ms)
@@ -8206,39 +7810,6 @@ static void admin_panel_style_switch(lv_obj_t * sw)
     lv_obj_set_style_radius(sw, LV_RADIUS_CIRCLE, LV_PART_KNOB);
     lv_obj_set_style_border_width(sw, 0, LV_PART_KNOB);
     lv_obj_set_style_bg_color(sw, lv_color_hex(COL_ORANGE), LV_PART_KNOB | LV_STATE_CHECKED);
-}
-
-/* 按宏刷新开关尺寸、样式及与标题垂直对齐（右上角 -400） */
-
-static void admin_panel_apply_switch_layout(lv_obj_t * sw, lv_obj_t * title_lbl)
-{
-    if(sw == NULL) return;
-
-    /* 必须先样式再 set_size：remove_style_all 会清掉 WIDTH/HEIGHT，若在 set_size 之后调用则尺寸失效 */
-    admin_panel_style_switch(sw);
-    lv_obj_set_size(sw, ADMIN_SW_SIZE_W, ADMIN_SW_SIZE_H);
-    lv_obj_refr_size(sw);
-
-    const lv_coord_t radius_cap = lv_obj_get_height(sw) / 2;
-    lv_obj_set_style_radius(sw, radius_cap, LV_PART_MAIN);
-    lv_obj_update_layout(sw);
-    lv_coord_t radius_ind = lv_obj_get_content_height(sw) / 2;
-    if(radius_ind < 0) {
-        radius_ind = 0;
-    }
-    lv_obj_set_style_radius(sw, radius_ind, LV_PART_INDICATOR);
-
-    admin_sw_apply_knob_pad(sw, ADMIN_SW_KNOB_SIZE, LV_PART_KNOB);
-
-    lv_obj_align(sw, LV_ALIGN_TOP_RIGHT, -400, 0);
-    if(title_lbl != NULL) {
-        lv_obj_update_layout(title_lbl);
-        lv_coord_t ty = lv_obj_get_y(title_lbl);
-        lv_coord_t th = lv_obj_get_height(title_lbl);
-        lv_coord_t sh = lv_obj_get_height(sw);
-        lv_obj_set_y(sw, ty + (th - sh) / 2);
-    }
-    lv_obj_invalidate(sw);
 }
 
 /* 屏幕亮度页：刷新常亮开关布局 */
@@ -8627,37 +8198,6 @@ static void cb_admin_sound_slider_size_changed(lv_event_t * e)
     }
 }
 
-/* 旧焦点框接口保留为空（滑条仅触摸，无编码器焦点框） */
-static void admin_sound_volume_slider_sync_focus_frame(void)
-{
-}
-
-static void admin_sound_touch_sound_volume_slider_sync_focus_frame(void)
-{
-}
-
-/* 音量滑条获焦/失焦：刷新上层白色焦点框 */
-static void cb_admin_sound_volume_slider_focus_frame(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code != LV_EVENT_FOCUSED && code != LV_EVENT_DEFOCUSED) return;
-    if(code == LV_EVENT_FOCUSED && g_admin_slider_sound_volume != NULL) {
-        lv_obj_add_state(g_admin_slider_sound_volume, LV_STATE_FOCUS_KEY);
-    }
-    admin_sound_volume_slider_sync_focus_frame();
-}
-
-/* 触控声音滑条获焦/失焦：刷新上层白色焦点框 */
-static void cb_admin_sound_touch_sound_volume_slider_focus_frame(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code != LV_EVENT_FOCUSED && code != LV_EVENT_DEFOCUSED) return;
-    if(code == LV_EVENT_FOCUSED && g_admin_slider_touch_sound_volume != NULL) {
-        lv_obj_add_state(g_admin_slider_touch_sound_volume, LV_STATE_FOCUS_KEY);
-    }
-    admin_sound_touch_sound_volume_slider_sync_focus_frame();
-}
-
 /* 声音控制页：按 ui_sound_volume_get 刷新音量滑条（不触发硬件回调） */
 static void admin_sound_sync_volume_slider_ui(void)
 {
@@ -8741,173 +8281,6 @@ static void cb_admin_sound_touch_sound_volume_slider_changed(lv_event_t * e)
     }
     ui_touch_sound_volume_set((uint8_t)snapped);
     admin_sound_touch_sound_volume_slider_sync_bar(snapped);
-}
-
-/*
- * 音量滑条退出编码器编辑态。
- * 短按第二次 / 失焦时调用；先对齐步进再 editing=false。
- */
-
-static void admin_sound_volume_slider_exit_edit(lv_obj_t * slider)
-{
-    if(g_group_admin == NULL || slider == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    int32_t snapped = admin_sound_snap_volume_slider(lv_slider_get_value(slider));
-    if(snapped != lv_slider_get_value(slider)) {
-        g_admin_sound_volume_ui_loading = true;
-        lv_slider_set_value(slider, snapped, LV_ANIM_OFF);
-        g_admin_sound_volume_ui_loading = false;
-    }
-    lv_group_set_editing(g_group_admin, false);
-}
-
-/* 触控声音滑条退出编码器编辑态（逻辑同音量滑条） */
-
-static void admin_sound_touch_sound_volume_slider_exit_edit(lv_obj_t * slider)
-{
-    if(g_group_admin == NULL || slider == NULL) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-    if(!lv_group_get_editing(g_group_admin)) return;
-    int32_t snapped = admin_sound_snap_touch_sound_volume_slider(lv_slider_get_value(slider));
-    if(snapped != lv_slider_get_value(slider)) {
-        g_admin_touch_sound_volume_ui_loading = true;
-        lv_slider_set_value(slider, snapped, LV_ANIM_OFF);
-        g_admin_touch_sound_volume_ui_loading = false;
-    }
-    lv_group_set_editing(g_group_admin, false);
-}
-
-/*
- * 音量滑条编码器编辑态：拦截 LV_KEY_LEFT/RIGHT，每次旋转按 UI_SOUND_VOLUME_STEP 调值。
- * 须在 LV_EVENT_PREPROCESS 注册，避免 LVGL 默认每次只 ±1。
- */
-
-static void cb_admin_sound_volume_slider_key(lv_event_t * e)
-{
-    if(lv_event_get_code(e) != LV_EVENT_KEY) return;
-    if(g_admin_view != SOUND_CONTROL) return;
-    if(g_group_admin == NULL || !lv_group_get_editing(g_group_admin)) return;
-
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    if(slider == NULL || slider != g_admin_slider_sound_volume) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-
-    uint32_t c = lv_event_get_key(e);
-    int32_t v = lv_slider_get_value(slider);
-    if(c == LV_KEY_RIGHT || c == LV_KEY_UP) {
-        v += UI_SOUND_VOLUME_STEP;
-    }
-    else if(c == LV_KEY_LEFT || c == LV_KEY_DOWN) {
-        v -= UI_SOUND_VOLUME_STEP;
-    }
-    else {
-        return;
-    }
-
-    v = admin_sound_snap_volume_slider(v);
-    g_admin_sound_volume_ui_loading = true;
-    lv_slider_set_value(slider, v, LV_ANIM_OFF);
-    g_admin_sound_volume_ui_loading = false;
-    ui_sound_volume_set((uint8_t)v);
-    admin_sound_volume_slider_sync_bar(v);
-    lv_event_stop_processing(e);
-}
-
-/*
- * 触控声音滑条编码器编辑态：拦截 LV_KEY_LEFT/RIGHT，每次旋转按 UI_TOUCH_SOUND_VOLUME_STEP 调值。
- */
-
-static void cb_admin_sound_touch_sound_volume_slider_key(lv_event_t * e)
-{
-    if(lv_event_get_code(e) != LV_EVENT_KEY) return;
-    if(g_admin_view != SOUND_CONTROL) return;
-    if(g_group_admin == NULL || !lv_group_get_editing(g_group_admin)) return;
-
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    if(slider == NULL || slider != g_admin_slider_touch_sound_volume) return;
-    if(lv_group_get_focused(g_group_admin) != slider) return;
-
-    uint32_t c = lv_event_get_key(e);
-    int32_t v = lv_slider_get_value(slider);
-    if(c == LV_KEY_RIGHT || c == LV_KEY_UP) {
-        v += UI_TOUCH_SOUND_VOLUME_STEP;
-    }
-    else if(c == LV_KEY_LEFT || c == LV_KEY_DOWN) {
-        v -= UI_TOUCH_SOUND_VOLUME_STEP;
-    }
-    else {
-        return;
-    }
-
-    v = admin_sound_snap_touch_sound_volume_slider(v);
-    g_admin_touch_sound_volume_ui_loading = true;
-    lv_slider_set_value(slider, v, LV_ANIM_OFF);
-    g_admin_touch_sound_volume_ui_loading = false;
-    ui_touch_sound_volume_set((uint8_t)v);
-    admin_sound_touch_sound_volume_slider_sync_bar(v);
-    lv_event_stop_processing(e);
-}
-
-/*
- * 音量滑条：编码器短按在编辑/导航间切换。
- * 导航态：旋转移动焦点；短按进入编辑。编辑态：旋转调值；再短按退回导航。
- */
-
-static void cb_admin_sound_volume_slider_encoder(lv_event_t * e)
-{
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
-    if(g_admin_view != SOUND_CONTROL) return;
-    if(slider == NULL || lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)) return;
-
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_sound_volume_slider_exit_edit(slider);
-        }
-        return;
-    }
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != slider) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_sound_volume_slider_exit_edit(slider);
-    }
-    else {
-        lv_group_set_editing(g_group_admin, true);
-    }
-    lv_event_stop_processing(e);
-}
-
-/* 触控声音滑条：编码器短按切换编辑/导航（逻辑同音量滑条） */
-
-static void cb_admin_sound_touch_sound_volume_slider_encoder(lv_event_t * e)
-{
-    lv_obj_t * slider = lv_event_get_target_obj(e);
-    lv_event_code_t code = lv_event_get_code(e);
-
-    if(g_admin_view != SOUND_CONTROL) return;
-    if(slider == NULL || lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)) return;
-
-    if(code == LV_EVENT_DEFOCUSED) {
-        if(g_group_admin != NULL && lv_group_get_editing(g_group_admin)) {
-            admin_sound_touch_sound_volume_slider_exit_edit(slider);
-        }
-        return;
-    }
-
-    if(code != LV_EVENT_CLICKED) return;
-    if(g_group_admin == NULL || lv_group_get_focused(g_group_admin) != slider) return;
-
-    if(lv_group_get_editing(g_group_admin)) {
-        admin_sound_touch_sound_volume_slider_exit_edit(slider);
-    }
-    else {
-        lv_group_set_editing(g_group_admin, true);
-    }
-    lv_event_stop_processing(e);
 }
 
 /* 厂商维护：出厂序列号页返回 menu1 */
@@ -9642,12 +9015,6 @@ static void admin_4g_set_phase(admin_4g_phase_t phase)
     admin_encoder_rebuild();
 }
 
-/* 语言切换时刷新依赖选项文案的 roller（支付超时已改为数字瓦片，此处预留） */
-
-static void ui_lang_refresh_rollers(void)
-{
-}
-
 /* 程序设置页：字段名与程序 Tab 文案 */
 
 static void program_admin_refresh_i18n(void)
@@ -9702,8 +9069,6 @@ static void ui_lang_apply_all(void)
             lv_label_set_text(g_lang_binds[i].lbl, ui_translation(g_lang_binds[i].id));
         }
     }
-    ui_lang_refresh_rollers();
-    admin_machine_id_label_update();
     program_admin_refresh_i18n();
     admin_payment_sync_list_ui();
     admin_payment_sync_method_ui();
@@ -10272,6 +9637,24 @@ static const admin_payment_order_demo_t g_admin_payment_order_demo[ADMIN_PAYMENT
       "2026-06-20 08:40", "2026-06-20 09:08" },
 };
 
+static void admin_payment_order_summary_btns_layout(void)
+{
+    if(g_admin_btn_order_detail == NULL || g_admin_btn_order_invoice == NULL) return;
+
+    const lv_coord_t sum_w = 960;
+    const lv_coord_t sum_x = (1117 - sum_w) / 2;
+    const lv_coord_t y = 325 + 20;
+    const lv_coord_t gap = 16;
+
+    lv_obj_update_layout(g_admin_btn_order_detail);
+    lv_obj_update_layout(g_admin_btn_order_invoice);
+
+    lv_coord_t dw = lv_obj_get_width(g_admin_btn_order_detail);
+    lv_coord_t iw = lv_obj_get_width(g_admin_btn_order_invoice);
+    lv_obj_set_pos(g_admin_btn_order_detail, sum_x + sum_w - dw, y);
+    lv_obj_set_pos(g_admin_btn_order_invoice, sum_x + sum_w - dw - gap - iw, y);
+}
+
 static void admin_payment_sync_order_summary_ui(int idx)
 {
     char buf[64];
@@ -10310,6 +9693,7 @@ static void admin_payment_sync_order_summary_ui(int idx)
         lv_snprintf(buf, sizeof(buf), ui_translation(STR_ORDER_TOTAL_FMT), o->price);
         lv_label_set_text(g_admin_lbl_order_sum_total, buf);
     }
+    admin_payment_order_summary_btns_layout();
 }
 
 static void admin_payment_sync_order_detail_ui(int idx)
@@ -10470,13 +9854,6 @@ static const ui_str_id_t g_data_strategy_str_ids[5] = {
     STR_DATA_REALTIME, STR_DATA_SCHEDULED, STR_DATA_WIFI_ONLY,
     STR_DATA_4G_ONLY, STR_DATA_FORBIDDEN
 };
-
-/* 数据设置页：复选框统一样式（含禁用态灰字） */
-static void admin_data_style_checkbox(lv_obj_t * cb)
-{
-    admin_payment_style_checkbox(cb);
-    lv_obj_set_style_text_color(cb, lv_color_hex(COL_DIM), LV_PART_MAIN | LV_STATE_DISABLED);
-}
 
 static void admin_data_style_switch(lv_obj_t * sw)
 {
@@ -10711,14 +10088,6 @@ static void admin_menu_btn_bind_i18n(lv_obj_t * btn, ui_str_id_t id)
     ui_lang_bind_label(lbl, id);
 }
 
-/* 创建管理员菜单渐变风格按钮（双层：外环渐变描边 + 内层渐变底） */
-
-static void admin_group_edge_cb(lv_group_t * group, bool forward)
-{
-    (void)group;
-    (void)forward;
-}
-
 /* menu1 左滑进入 menu2；menu2 右滑回到 menu1 */
 
 static void cb_admin_menu_gesture(lv_event_t * e)
@@ -10738,13 +10107,6 @@ static void cb_admin_menu_gesture(lv_event_t * e)
         lv_indev_wait_release(indev);
         admin_panel_show(MENU1);
     }
-}
-
-/* menu2 第 1 钮左转落到电源时：回到 menu1 第 8 钮 */
-
-static void admin_group_focus_cb(lv_group_t * group)
-{
-    (void)group;
 }
 
 /* 按当前管理员子页重建编码器 focus 顺序与初始焦点 */
@@ -12236,8 +11598,8 @@ static void build_admin(void)
             LV_EVENT_CLICKED, (void *)(intptr_t)(10 + i));
     }
 
-    /* 默认：柔顺剂关、洗衣液开（「自动」橙色），与设计稿一致 */
-    g_admin_auto_softener_on = false;
+    /* 默认：柔顺剂开、洗衣液开（用量「自动」橙色） */
+    g_admin_auto_softener_on = true;
     g_admin_auto_detergent_on = true;
     g_admin_auto_softener_dose = 3;
     g_admin_auto_detergent_dose = 3;
@@ -12693,9 +12055,8 @@ static void build_admin(void)
         const lv_coord_t sum_w = 960;
         const lv_coord_t sum_x = (1117 - sum_w) / 2;
         const lv_coord_t sum_y0 = 20;
-        const lv_coord_t sum_btn_w = 110;
         const lv_coord_t sum_btn_h = 36;
-        const lv_coord_t sum_btn_gap = 16;
+        const lv_coord_t sum_btn_pad_h = 16;
 
         /* 顶行：门店标题 + 状态徽章（同详情页） */
         lv_obj_t * sum_hdr = lv_obj_create(g_admin_payment_order_summary_view);
@@ -12778,11 +12139,10 @@ static void build_admin(void)
         ui_set_obj_font(g_admin_lbl_order_sum_total, s_font_sc_30);
 
         g_admin_btn_order_invoice = make_orange_outline_btn(g_admin_payment_order_summary_view,
-            ui_translation(STR_ORDER_INVOICE), sum_btn_w - 20, sum_btn_h);
+            ui_translation(STR_ORDER_INVOICE), LV_SIZE_CONTENT, sum_btn_h);
         lv_obj_set_style_radius(g_admin_btn_order_invoice, 18, LV_PART_MAIN);
         lv_obj_set_style_border_width(g_admin_btn_order_invoice, 2, LV_PART_MAIN);
-        lv_obj_set_pos(g_admin_btn_order_invoice,
-            sum_x + sum_w - sum_btn_w * 2 - sum_btn_gap + 20, 325 + sum_y0);
+        lv_obj_set_style_pad_hor(g_admin_btn_order_invoice, sum_btn_pad_h, LV_PART_MAIN);
         ui_set_obj_font(lv_obj_get_child(g_admin_btn_order_invoice, 0), s_font_sc_20);
         lv_obj_set_style_text_color(lv_obj_get_child(g_admin_btn_order_invoice, 0),
             lv_color_hex(COL_ORANGE), LV_PART_MAIN);
@@ -12790,15 +12150,16 @@ static void build_admin(void)
         lv_obj_add_event_cb(g_admin_btn_order_invoice, cb_admin_payment_order_invoice, LV_EVENT_CLICKED, NULL);
 
         g_admin_btn_order_detail = make_orange_outline_btn(g_admin_payment_order_summary_view,
-            ui_translation(STR_ORDER_DETAIL_BTN), sum_btn_w, sum_btn_h);
+            ui_translation(STR_ORDER_DETAIL_BTN), LV_SIZE_CONTENT, sum_btn_h);
         lv_obj_set_style_radius(g_admin_btn_order_detail, 18, LV_PART_MAIN);
         lv_obj_set_style_border_width(g_admin_btn_order_detail, 2, LV_PART_MAIN);
-        lv_obj_set_pos(g_admin_btn_order_detail, sum_x + sum_w - sum_btn_w, 325 + sum_y0);
+        lv_obj_set_style_pad_hor(g_admin_btn_order_detail, sum_btn_pad_h, LV_PART_MAIN);
         ui_set_obj_font(lv_obj_get_child(g_admin_btn_order_detail, 0), s_font_sc_20);
         lv_obj_set_style_text_color(lv_obj_get_child(g_admin_btn_order_detail, 0),
             lv_color_hex(COL_ORANGE), LV_PART_MAIN);
         orange_btn_bind_i18n(g_admin_btn_order_detail, STR_ORDER_DETAIL_BTN);
         lv_obj_add_event_cb(g_admin_btn_order_detail, cb_admin_payment_order_detail_btn, LV_EVENT_CLICKED, NULL);
+        admin_payment_order_summary_btns_layout();
     }
 
     /* 订单详情（图3：标题条 + washing_machine + 程序/金额/时间） */
@@ -14813,7 +14174,6 @@ void ui_cycle_mode_exit(void)
 	/* TODO: MCU — 退出寿命试验 */
 }
 
-static void cycle_start_run(void);
 
 static void cycle_on_run_finished(void)
 {
