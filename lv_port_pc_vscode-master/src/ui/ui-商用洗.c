@@ -3668,7 +3668,11 @@ static void cb_home_carousel_encoder(lv_event_t * e)
 		return;
 	}
 	if(code == LV_EVENT_CLICKED) {
-		/* 短按 = 启停：STANDBY 主页 → 支付 */
+		/* 仅编码器短按进支付；指针点击空白区不应命中本对象（已去 CLICKABLE） */
+		lv_indev_t * indev = lv_indev_get_act();
+		if(indev != NULL && lv_indev_get_type(indev) == LV_INDEV_TYPE_POINTER) {
+			return;
+		}
 		cb_runpause(e);
 		lv_event_stop_processing(e);
 		return;
@@ -4285,13 +4289,13 @@ static void build_home(void)
 		g_mode_carousel = mid;                                          //将轮播区赋值给全局变量 g_mode_carousel
 		lv_obj_add_event_cb(mid, carousel_size_cb, LV_EVENT_SIZE_CHANGED, NULL); //当轮播区尺寸变化时，调用 carousel_size_cb 函数
 
-		/* 编码器轮播焦点代理：透明铺满轮播区，不参与触摸（事件不穿透需放卡片下层） */
+		/* 编码器轮播焦点代理：铺满轮播区供编码器聚焦；不可点击，避免空白区触摸误进支付 */
 		g_home_carousel_enc = lv_obj_create(mid);
 		lv_obj_set_size(g_home_carousel_enc, LV_PCT(100), LV_PCT(100));
 		lv_obj_set_style_bg_opa(g_home_carousel_enc, LV_OPA_TRANSP, LV_PART_MAIN);
 		lv_obj_set_style_border_width(g_home_carousel_enc, 0, LV_PART_MAIN);
 		lv_obj_remove_flag(g_home_carousel_enc, LV_OBJ_FLAG_SCROLLABLE);
-		lv_obj_add_flag(g_home_carousel_enc, LV_OBJ_FLAG_CLICKABLE);
+		lv_obj_remove_flag(g_home_carousel_enc, LV_OBJ_FLAG_CLICKABLE);
 		lv_obj_add_event_cb(g_home_carousel_enc, cb_home_carousel_encoder, LV_EVENT_ALL, NULL);
 		lv_obj_move_background(g_home_carousel_enc);
 
