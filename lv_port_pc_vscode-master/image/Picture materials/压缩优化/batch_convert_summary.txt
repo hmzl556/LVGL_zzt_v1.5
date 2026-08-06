@@ -1,0 +1,108 @@
+Batch convert summary (regenerated inventory)
+out: F:\A_ZZT_Project\Xiaoya_Xiyiji\LVGL_zzt_v1.5\lv_port_pc_vscode-master\image\Picture materials\压缩优化
+
+## Monochrome_or_Few_Colors
+- format: I1 + RLE
+
+- auto_put_set.bin: c=1.8KB, bin=0.2KB
+- back.bin: c=1.6KB, bin=0.2KB
+- bright_logo.bin: c=1.5KB, bin=0.1KB
+- bright_set.bin: c=1.8KB, bin=0.2KB
+- data_set.bin: c=1.7KB, bin=0.2KB
+- default_set.bin: c=1.8KB, bin=0.2KB
+- delete.bin: c=2.0KB, bin=0.2KB
+- down_key.bin: c=2.3KB, bin=0.3KB
+- down_set_dark.bin: c=2.3KB, bin=0.3KB
+- enter.bin: c=1.8KB, bin=0.2KB
+- failure.bin: c=16.1KB, bin=2.9KB
+- fresh_air_set.bin: c=1.9KB, bin=0.2KB
+- id_set.bin: c=1.9KB, bin=0.2KB
+- language.bin: c=2.2KB, bin=0.3KB
+- language_set.bin: c=2.0KB, bin=0.2KB
+- manager.bin: c=2.2KB, bin=0.3KB
+- net_set.bin: c=1.9KB, bin=0.2KB
+- O3_logo.bin: c=1.5KB, bin=0.1KB
+- ozone_set.bin: c=1.9KB, bin=0.2KB
+- password_set.bin: c=1.8KB, bin=0.2KB
+- pay.bin: c=2.3KB, bin=0.3KB
+- pay_set.bin: c=1.8KB, bin=0.2KB
+- program_set.bin: c=2.0KB, bin=0.2KB
+- service_set.bin: c=1.8KB, bin=0.2KB
+- set_box.bin: c=35.2KB, bin=6.4KB
+- sound_logo.bin: c=1.7KB, bin=0.2KB
+- sound_set.bin: c=1.8KB, bin=0.2KB
+- standby_time_set.bin: c=2.3KB, bin=0.3KB
+- success.bin: c=16.1KB, bin=2.9KB
+- temperature.bin: c=1.6KB, bin=0.2KB
+- time.bin: c=2.2KB, bin=0.3KB
+- touch_sound_logo.bin: c=1.9KB, bin=0.2KB
+- up_key.bin: c=2.2KB, bin=0.3KB
+- up_set_dark.bin: c=2.3KB, bin=0.3KB
+- upgrade_set.bin: c=1.8KB, bin=0.2KB
+- wifi_logo.bin: c=1.6KB, bin=0.2KB
+
+## multicolour
+- format: RGB565A8 + LZ4
+
+- admin_button_box.bin: c=99.2KB, bin=18.3KB
+- alipay_logo.bin: c=3.9KB, bin=0.6KB
+- auto_put_btn_box.bin: c=12.8KB, bin=2.2KB
+- bar_01.bin: c=29.4KB, bin=5.3KB
+- child_lock_logo.bin: c=10.8KB, bin=1.9KB
+- detergent_logo.bin: c=12.9KB, bin=2.3KB
+- fault_logo.bin: c=19.6KB, bin=3.5KB
+- input_box.bin: c=28.5KB, bin=5.2KB
+- lack_of_roushunji.bin: c=150.9KB, bin=27.9KB
+- lack_of_xidiji.bin: c=145.8KB, bin=27.0KB
+- progrm_background.bin: c=339.9KB, bin=63.1KB
+- QR_code.bin: c=107.0KB, bin=19.8KB
+- softener_logo.bin: c=13.1KB, bin=2.3KB
+- time_set_box.bin: c=7.7KB, bin=1.3KB
+- title_bar.bin: c=4.3KB, bin=0.7KB
+- title_box.bin: c=6.9KB, bin=1.1KB
+- washing_machine.bin: c=79.6KB, bin=14.7KB
+- wechat_logo.bin: c=3.5KB, bin=0.5KB
+- yunxingbackground.bin: c=2287.6KB, bin=425.5KB
+
+## program
+- format: RGB565A8 + LZ4
+
+- program_pic/商用洗/img_01_dawu.bin: c=459.1KB, bin=85.3KB
+- program_pic/商用洗/img_02_dantuoshui.bin: c=266.8KB, bin=49.5KB
+- program_pic/商用洗/img_03_biaozhunxi.bin: c=224.2KB, bin=41.6KB
+- program_pic/商用洗/img_04_tongzijie.bin: c=310.8KB, bin=57.7KB
+- program_pic/商用洗/img_05_kuaixi.bin: c=196.5KB, bin=36.4KB
+- program_pic/商用烘/img_01_Low_Temp.bin: c=174.4KB, bin=32.3KB
+- program_pic/商用烘/img_02_Med_Temp.bin: c=519.2KB, bin=96.4KB
+- program_pic/商用烘/img_03_High_Temp.bin: c=438.7KB, bin=81.5KB
+- program_pic/商用烘/img_04_Cool_Air.bin: c=327.1KB, bin=60.7KB
+- program_pic/商用烘/img_05_Air_Clean.bin: c=464.3KB, bin=86.2KB
+- program_set_btn/bianzhunxi_set.bin: c=130.4KB, bin=24.1KB
+- program_set_btn/dawu_set.bin: c=169.4KB, bin=31.4KB
+- program_set_btn/dntuoshui_set.bin: c=148.8KB, bin=27.5KB
+- program_set_btn/kuaixi_set.bin: c=100.7KB, bin=18.6KB
+- program_set_btn/tongzijie_set.bin: c=144.7KB, bin=26.8KB
+
+## qr-codes
+- format: RGB565 + LZ4
+
+- 商用洗/微信/QR_WeChat_01_dawu.bin: c=194.0KB, bin=35.9KB
+- 商用洗/微信/QR_WeChat_02_dantuoshui.bin: c=200.6KB, bin=37.2KB
+- 商用洗/微信/QR_WeChat_03_biaozhunxi.bin: c=194.1KB, bin=36.0KB
+- 商用洗/微信/QR_WeChat_04_tongzijie.bin: c=191.0KB, bin=35.4KB
+- 商用洗/微信/QR_WeChat_05_kuaixi.bin: c=196.4KB, bin=36.4KB
+- 商用洗/支付宝/QR_Alipay_01_dawu.bin: c=96.0KB, bin=17.7KB
+- 商用洗/支付宝/QR_Alipay_02_dantuoshui.bin: c=93.8KB, bin=17.3KB
+- 商用洗/支付宝/QR_Alipay_03_biaozhunxi.bin: c=95.2KB, bin=17.6KB
+- 商用洗/支付宝/QR_Alipay_04_tongzijie.bin: c=97.6KB, bin=18.0KB
+- 商用洗/支付宝/QR_Alipay_05_kuaixi.bin: c=99.6KB, bin=18.4KB
+- 商用烘/微信/QR_WeChat_01_Low_Temp.bin: c=194.9KB, bin=36.1KB
+- 商用烘/微信/QR_WeChat_02_Med_Temp.bin: c=199.2KB, bin=36.9KB
+- 商用烘/微信/QR_WeChat_03_High_Temp.bin: c=192.3KB, bin=35.6KB
+- 商用烘/微信/QR_WeChat_04_Cool_Air.bin: c=190.8KB, bin=35.3KB
+- 商用烘/微信/QR_WeChat_05_Air_Clean.bin: c=190.5KB, bin=35.3KB
+- 商用烘/支付宝/QR_Alipay_01_Low_Temp.bin: c=95.6KB, bin=17.6KB
+- 商用烘/支付宝/QR_Alipay_02_Med_Temp.bin: c=95.6KB, bin=17.6KB
+- 商用烘/支付宝/QR_Alipay_03_High_Temp.bin: c=97.7KB, bin=18.0KB
+- 商用烘/支付宝/QR_Alipay_04_Cool_Air.bin: c=92.2KB, bin=17.0KB
+- 商用烘/支付宝/QR_Alipay_05_Air_Clean.bin: c=97.5KB, bin=18.0KB
