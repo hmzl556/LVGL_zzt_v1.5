@@ -31,10 +31,11 @@
 说明
 ----
 1. .bin 体积远小于 .c（C 数组是十六进制文本膨胀）。固件内嵌用 .c；运行时从文件系统加载用 .bin。
-2. 彩色类默认 RGB565A8 以保留透明。以下已改为纯 RGB565 + LZ4 并覆盖原产物：
-   QR_code、fault_logo、yunxingbackground、admin_button_box、auto_put_btn_box、
-   bar_01、input_box、time_set_box、title_bar。
-3. 本目录未自动替换 src/ui/image/ 下现用资源。
+2. 彩色类默认 RGB565A8 以保留透明。以下为纯 RGB565 + LZ4：
+   QR_code_xiaoya、fault_logo、yunxingbackground、admin_button_box、
+   bar_01、time_set_box、title_bar。
+   auto_put_btn_box、input_box 已改回 RGB565A8 + LZ4。
+3. 工程内 src/ui/image/ 对应文件已随转换替换。
 4. 使用压缩图需: LV_USE_RLE / LV_USE_LZ4_INTERNAL、LV_BIN_DECODER_RAM_LOAD=1；运行时解压约占接近未压缩位图的 RAM。
 5. 转换脚本: _batch_convert.py（I1 依赖 tools/pngquant/pngquant/pngquant.exe）。
 6. 详细逐文件尺寸见 batch_convert_summary.txt（重跑单色后可能只含最近一次类别；以本 readme 汇总为准）。
