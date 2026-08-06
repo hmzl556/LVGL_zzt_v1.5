@@ -1682,7 +1682,7 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_ALARM_E3_LINE1]  = "Check the faucet, open it fully, and straighten the inlet hose",
         [STR_ALARM_E3_LINE2]  = "Check the inlet filter and whether the inlet valve is open",
         [STR_ALARM_E4_TITLE]  = "Warning Water Level",
-        [STR_ALARM_E4_LINE1]  = "Close the inlet valve; the drain pump will start draining",
+        [STR_ALARM_E4_LINE1]  = "Close the inlet valve, the drain pump will start draining",
         [STR_ALARM_E4_LINE2]  = "The program will continue after 10 seconds",
         [STR_ALARM_E5_TITLE]  = "Motor Fault",
         [STR_ALARM_E5_LINE1]  = "Please check whether the motor wiring to the main board is normal",
@@ -2753,8 +2753,8 @@ static lv_obj_t * g_alarm_img_bar;          // 报警底栏 bar_01
 static lv_obj_t * g_alarm_btn_back;         // 报警顶栏返回
 static lv_obj_t * g_alarm_btn_runpause;     // 报警顶栏启停
 static lv_obj_t * g_alarm_btn_power;        // 报警顶栏电源
-#define PAY_DUAL_COL_GAP   140
-#define PAY_DUAL_HINT_W    450
+#define PAY_DUAL_COL_GAP   140              // 双支付列间距
+#define PAY_DUAL_HINT_W    450              // 双支付提示宽度
 static lv_obj_t * g_lbl_pay_price_alipay;
 static lv_obj_t * g_lbl_pay_price_wechat;
 static lv_obj_t * g_lbl_pay_hint_alipay_l1;
@@ -2786,9 +2786,14 @@ static bool g_running_countdown_paused;
 static bool g_running_blink_visible;
 static int32_t g_wheel_sel = MODE_IDX_DEFAULT; /* 0..TOTAL_PROGRAMS-1 */
 int32_t* get_g_wheel_sel(void) { return &g_wheel_sel; }
-static float g_wheel_turn = 0.f; /* fractional slot offset while dragging */
+static float g_wheel_turn = 0.f; /* fractional slot offset while dragging / animating */
 static lv_coord_t g_wheel_press_x;
 static bool g_wheel_dragging;
+static bool g_wheel_anim_active;            /* 轮播 turn 动画进行中 */
+static int32_t g_wheel_anim_commit_delta;   /* 动画结束后写入 g_wheel_sel 的步进 */
+#define WHEEL_TURN_ANIM_SCALE 1000         /* float turn ↔ anim int 换算 */
+#define WHEEL_ENC_ANIM_MS_PER_STEP 200u    /* 编码器每步动画时长 */
+#define WHEEL_SNAP_ANIM_MS 260u            /* 触摸松手吸附时长 */
 /* 运行页童锁 */
 static lv_obj_t * g_running_mid;                 /* 中间栏：童锁按钮对齐参考 */
 static lv_obj_t * g_running_btn_back;
@@ -2975,6 +2980,8 @@ static void carousel_size_cb(lv_event_t * e);  //轮播区尺寸变化时重新�
 static lv_coord_t carousel_slot_center_x(int slot);  //计算槽位相对轮播中心的水平偏移
 static void carousel_wrap_relayout(void);  //轮播区整体布局：卡片位置/缩放/透明度与指示点
 static int32_t carousel_dot_preview_sel(void);  //拖动中指示点预览选中（不改 g_wheel_sel）
+static void carousel_anim_stop(bool commit);  //停止轮播 turn 动画；commit=true 时提交选中
+static void carousel_anim_to_turn(float target_turn, int32_t commit_delta, uint32_t duration_ms);  //动画 g_wheel_turn 到目标并提交
 static void home_sync_encoder_focus_after_carousel_drag(void);  //触摸滑动改程序后对齐编码器焦点
 static void home_encoder_group_build(void);  //主页编码器：仅轮播（常驻 editing）
 static void cb_home_carousel_encoder(lv_event_t * e);  //轮播编码器：旋转选程序，短按进支付
@@ -3007,8 +3014,8 @@ static void running_countdown_reset_all(void);  //重置倒计时状态：清除
 static void running_countdown_pause(void);  //暂停倒计时并启动时间标签闪烁
 static void running_countdown_resume(void);  //恢复倒计时并停止闪烁
 static void cb_running_runpause(lv_event_t * e);  //运行页启停按钮：暂停/恢复倒计时
-static void cb_running_countdown(lv_timer_t * t);  //运行页每分钟倒计时回调，归零后跳转结束页
-static void running_countdown_arm(void);  //若剩余时间>0 则启动分钟倒计时定时器
+static void cb_running_countdown(lv_timer_t * t);  //运行页每秒倒计时回调（界面仍显示分钟），归零后跳转结束页
+static void running_countdown_arm(void);  //若剩余时间>0 则启动按秒倒计时定时器
 static void running_countdown_start(void);  //进入运行页时按程序时长初始化并开始倒计时
 static void running_live_params_sync(void);  //刷新运行页实时水位/温度 label
 static void build_running(void);  //构建运行页：背景、顶部栏、程序名/倒计时、童锁
@@ -3341,34 +3348,51 @@ static void carousel_size_cb(lv_event_t * e)  //轮播区尺寸变化时重新�
 	carousel_wrap_relayout();  //重排轮播布局
 }
 
-/* 按当前选中程序刷新 5 张可见卡片图与名称标签（槽位 i 显示 g_wheel_sel + (i - center)） */
+/* 卡片固定绑定程序下标：slot i ↔ 程序 i（线性条带，两端不循环、不隐藏） */
 static void carousel_update_card_images(void)
 {
-	for(int i = 0; i < CAROUSEL_VISIBLE_SLOTS; i++) {    /* 遍历 5 个可见槽位 */
-		int32_t prog_idx = wheel_mod_total(g_wheel_sel + (int32_t)(i - CAROUSEL_CENTER_SLOT)); /* 该槽对应程序下标 */
+	for(int i = 0; i < CAROUSEL_VISIBLE_SLOTS; i++) {
+		if(g_mode_cards[i] == NULL) continue;
+		if(i >= TOTAL_PROGRAMS) {
+			lv_obj_add_flag(g_mode_cards[i], LV_OBJ_FLAG_HIDDEN);
+			continue;
+		}
+		lv_obj_remove_flag(g_mode_cards[i], LV_OBJ_FLAG_HIDDEN);
 		if(g_mode_card_imgs[i] != NULL) {
-			lv_image_set_src(g_mode_card_imgs[i], g_program_imgs[prog_idx]); /* 换程序图标 */
+			lv_image_set_src(g_mode_card_imgs[i], g_program_imgs[i]);
 		}
 		if(g_mode_card_labels[i] != NULL) {
-			lv_label_set_text(g_mode_card_labels[i], ui_program_name_get(prog_idx)); /* 换程序名文字（中/英） */
+			lv_label_set_text(g_mode_card_labels[i], ui_program_name_get(i));
 		}
 	}
 }
 
-/* 5 张卡片中心相对轮播区中心的 X 偏移：外侧两对更紧，靠近中心两对更疏 */
-static lv_coord_t carousel_slot_center_x(int slot)  //计算槽位相对轮播中心的水平偏移
+/* 相对焦点的水平偏移（选中在 0；|rel| 越大越靠边）。两端选中时一侧可到 ±4 */
+static lv_coord_t carousel_rel_offset_x(float rel)
 {
-	switch(slot) {
-		case 0: return -(s_mode_gap_inner + s_mode_gap_outer);
-		case 1: return -s_mode_gap_inner;
-		case 2: return 0;
-		case 3: return s_mode_gap_inner;
-		case 4: return s_mode_gap_inner + s_mode_gap_outer;
-		default: return 0;
+	/* 与原 5 槽间距接近：|rel|<=1 用 inner，1~2 再加 outer 比例，更远按 step 延续 */
+	float a = rel < 0.f ? -rel : rel;
+	float sign = rel < 0.f ? -1.f : 1.f;
+	float dist;
+	if(a <= 1.f) {
+		dist = a * (float)s_mode_gap_inner;
 	}
+	else if(a <= 2.f) {
+		dist = (float)s_mode_gap_inner + (a - 1.f) * (float)s_mode_gap_outer;
+	}
+	else {
+		dist = (float)(s_mode_gap_inner + s_mode_gap_outer) + (a - 2.f) * (float)s_mode_step_x;
+	}
+	return (lv_coord_t)(sign * dist);
 }
 
-//轮播区布局
+/* 5 张卡片中心相对轮播区中心的 X 偏移（兼容旧槽位公式，供其它逻辑参考） */
+static lv_coord_t carousel_slot_center_x(int slot)  //计算槽位相对轮播中心的水平偏移
+{
+	return carousel_rel_offset_x((float)(slot - CAROUSEL_CENTER_SLOT));
+}
+
+//轮播区布局：程序 i 固定在卡片 i；焦点 focus=sel-turn 居中，端点时一侧排出全部其余程序
 static void carousel_wrap_relayout(void)  //重排轮播布局
 {
 	if(g_mode_carousel == NULL) return;
@@ -3376,43 +3400,75 @@ static void carousel_wrap_relayout(void)  //重排轮播布局
 	lv_coord_t mh = lv_obj_get_height(g_mode_carousel);
 	if(mw < 16 || mh < 16) return;
 
-	carousel_update_card_images();  //按当前选中程序刷新 5 张可见卡片图
+	carousel_update_card_images();
 
 	lv_coord_t cx = mw / 2;
 	lv_coord_t cy = mh / 2;
-	/* 五个圆同一水平中线，相对区域垂直中心略向上 */
 	const lv_coord_t y = cy - s_mode_card_sz / 2 - s_mode_row_shift_up;
+
+	/* 焦点：turn 负（左滑/下一程序）→ focus 增大 */
+	float focus = (float)g_wheel_sel - g_wheel_turn;
+
+	/* 端点一侧排多张时略收间距，尽量留在屏内 */
+	float max_abs_rel = 0.f;
+	for(int i = 0; i < TOTAL_PROGRAMS && i < CAROUSEL_VISIBLE_SLOTS; i++) {
+		float ar = (float)i - focus;
+		if(ar < 0.f) ar = -ar;
+		if(ar > max_abs_rel) max_abs_rel = ar;
+	}
+	float space_scale = 1.f;
+	if(max_abs_rel > 2.05f) {
+		lv_coord_t budget = mw / 2 - s_mode_card_sz / 4;
+		if(budget < 80) budget = 80;
+		lv_coord_t need = carousel_rel_offset_x(max_abs_rel);
+		if(need < 0) need = -need;
+		if(need > budget && need > 0) {
+			space_scale = (float)budget / (float)need;
+			if(space_scale < 0.55f) space_scale = 0.55f;
+		}
+	}
+
+	int fg_i = -1;
+	float fg_af = 99.f;
 
 	for(int i = 0; i < CAROUSEL_VISIBLE_SLOTS; i++) {
 		if(g_mode_cards[i] == NULL) continue;
-		float x_rel = (float)(i - CAROUSEL_CENTER_SLOT) + g_wheel_turn;
+		if(i >= TOTAL_PROGRAMS) continue;
+		if(lv_obj_has_flag(g_mode_cards[i], LV_OBJ_FLAG_HIDDEN)) continue;
 
-		lv_coord_t x = cx + carousel_slot_center_x(i)  //计算槽位相对轮播中心的水平偏移
-			+ (lv_coord_t)(g_wheel_turn * (float)s_mode_step_x) - s_mode_card_sz / 2;
-		float af = x_rel < 0.f ? -x_rel : x_rel;
-		if(af > 2.5f) af = 2.5f;
+		float rel = (float)i - focus;
+		float af = rel < 0.f ? -rel : rel;
+		lv_coord_t x_off = (lv_coord_t)((float)carousel_rel_offset_x(rel) * space_scale);
+		lv_coord_t x = cx + x_off - s_mode_card_sz / 2;
 
 		lv_obj_set_pos(g_mode_cards[i], x, y);
 
-		float t = 1.0f - ((af > 2.0f) ? 2.0f : af) / 2.0f;
+		float af_vis = af;
+		if(af_vis > 2.5f) af_vis = 2.5f;
+		float t = 1.0f - ((af_vis > 2.0f) ? 2.0f : af_vis) / 2.0f;
 		int32_t scale = MODE_SCALE_MIN + (int32_t)((float)(MODE_SCALE_MAX - MODE_SCALE_MIN) * t);
 		lv_obj_set_style_transform_pivot_x(g_mode_cards[i], s_mode_card_sz / 2, LV_PART_MAIN);
 		lv_obj_set_style_transform_pivot_y(g_mode_cards[i], s_mode_card_sz / 2, LV_PART_MAIN);
 		lv_obj_set_style_transform_scale_x(g_mode_cards[i], scale, LV_PART_MAIN);
 		lv_obj_set_style_transform_scale_y(g_mode_cards[i], scale, LV_PART_MAIN);
 
-		// 调整透明度计算逻辑：中心(af=0)透明度约255，最两边(af=2)透明度约为 255 * 30% ≈ 76
 		lv_opa_t opa;
 		if(af <= 0.1f) opa = LV_OPA_COVER;
+		else if(af >= 2.5f) opa = (lv_opa_t)(LV_OPA_30);
 		else if(af >= 2.0f) opa = (lv_opa_t)(LV_OPA_30);
 		else {
 			opa = (lv_opa_t)(255 - (int)(af * (255 - 76) / 2.0f));
 		}
 		lv_obj_set_style_opa(g_mode_cards[i], opa, LV_PART_MAIN);
+
+		if(af < fg_af) {
+			fg_af = af;
+			fg_i = i;
+		}
 	}
 
-	if(g_mode_cards[CAROUSEL_CENTER_SLOT] != NULL) {
-		lv_obj_move_foreground(g_mode_cards[CAROUSEL_CENTER_SLOT]);
+	if(fg_i >= 0 && g_mode_cards[fg_i] != NULL) {
+		lv_obj_move_foreground(g_mode_cards[fg_i]);
 	}
 
 	/* 指示点随拖动预览高亮；正式选中仍是 g_wheel_sel（松手/编码器才改） */
@@ -3440,14 +3496,26 @@ static void carousel_wrap_relayout(void)  //重排轮播布局
 	}
 }
 
-/* 指示点预览选中：turn 负（左滑）→ 下一程序靠近中心 → 索引增大；不改 g_wheel_sel */
+/* 指示点预览选中：线性夹紧，两端不循环 */
 static int32_t carousel_dot_preview_sel(void)
 {
 	int step = (int)(g_wheel_turn >= 0.f ? (g_wheel_turn + 0.5f) : (g_wheel_turn - 0.5f));
-	return wheel_mod_total(g_wheel_sel - step);
+	/* turn 负（左滑）→ 下一程序 → 索引增大：preview = sel - step */
+	int32_t idx = g_wheel_sel - step;
+	if(idx < 0) idx = 0;
+	if(idx >= TOTAL_PROGRAMS) idx = TOTAL_PROGRAMS - 1;
+	return idx;
 }
 
-//程序索引在 0..TOTAL_PROGRAMS-1 范围内循环
+/* 程序索引夹紧到 0..TOTAL_PROGRAMS-1（主页轮播线性、不循环） */
+static int32_t wheel_clamp_sel(int32_t v)
+{
+	if(v < 0) return 0;
+	if(v >= TOTAL_PROGRAMS) return TOTAL_PROGRAMS - 1;
+	return v;
+}
+
+//程序索引在 0..TOTAL_PROGRAMS-1 范围内循环（非轮播场景仍可用）
 static int32_t wheel_mod_total(int32_t v)  //程序索引取模
 {
 	v %= TOTAL_PROGRAMS;
@@ -3455,6 +3523,71 @@ static int32_t wheel_mod_total(int32_t v)  //程序索引取模
 	return v;
 }
 
+/* ---------- 轮播 turn 动画：编码器连续过渡 / 触摸松手吸附 ---------- */
+
+static void carousel_anim_exec_cb(void * var, int32_t v)
+{
+	(void)var;
+	g_wheel_turn = (float)v / (float)WHEEL_TURN_ANIM_SCALE;
+	carousel_wrap_relayout();
+}
+
+static void carousel_anim_completed_cb(lv_anim_t * a)
+{
+	(void)a;
+	g_wheel_anim_active = false;
+	if(g_wheel_anim_commit_delta != 0) {
+		g_wheel_sel = wheel_clamp_sel(g_wheel_sel + g_wheel_anim_commit_delta);
+		g_wheel_anim_commit_delta = 0;
+	}
+	g_wheel_turn = 0.f;
+	carousel_wrap_relayout();
+	home_sync_program_labels();
+}
+
+static void carousel_anim_stop(bool commit)
+{
+	lv_anim_delete(&g_wheel_turn, carousel_anim_exec_cb);
+	g_wheel_anim_active = false;
+	if(commit && g_wheel_anim_commit_delta != 0) {
+		g_wheel_sel = wheel_clamp_sel(g_wheel_sel + g_wheel_anim_commit_delta);
+		g_wheel_anim_commit_delta = 0;
+		g_wheel_turn = 0.f;
+		carousel_wrap_relayout();
+		home_sync_program_labels();
+	}
+	else if(!commit) {
+		g_wheel_anim_commit_delta = 0;
+	}
+}
+
+/* target_turn：视觉偏移目标；commit_delta：到位后 g_wheel_sel 增量（下一程序为正） */
+static void carousel_anim_to_turn(float target_turn, int32_t commit_delta, uint32_t duration_ms)
+{
+	lv_anim_delete(&g_wheel_turn, carousel_anim_exec_cb);
+
+	g_wheel_anim_commit_delta = commit_delta;
+	g_wheel_anim_active = true;
+
+	int32_t start_v = (int32_t)(g_wheel_turn * (float)WHEEL_TURN_ANIM_SCALE);
+	int32_t end_v = (int32_t)(target_turn * (float)WHEEL_TURN_ANIM_SCALE);
+	if(start_v == end_v) {
+		carousel_anim_completed_cb(NULL);
+		return;
+	}
+	if(duration_ms < 80u) duration_ms = 80u;
+	if(duration_ms > 400u) duration_ms = 400u;
+
+	lv_anim_t a;
+	lv_anim_init(&a);
+	lv_anim_set_var(&a, &g_wheel_turn);
+	lv_anim_set_values(&a, start_v, end_v);
+	lv_anim_set_duration(&a, duration_ms);
+	lv_anim_set_exec_cb(&a, carousel_anim_exec_cb);
+	lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+	lv_anim_set_completed_cb(&a, carousel_anim_completed_cb);
+	lv_anim_start(&a);
+}
 
 // 触摸滑动改程序后，将编码器焦点保持在轮播并进入 editing
 static void home_sync_encoder_focus_after_carousel_drag(void)
@@ -3479,12 +3612,31 @@ static void home_encoder_group_build(void)
 	}
 }
 
+/* 编码器步进：动画 turn → -delta，到位后提交 sel；到头不再循环 */
 static void home_carousel_encoder_step(int32_t delta)
 {
-	g_wheel_sel = wheel_mod_total(g_wheel_sel + delta);
-	g_wheel_turn = 0.f;
-	carousel_wrap_relayout();
-	home_sync_program_labels();
+	if(delta == 0) return;
+	if(g_wheel_dragging) return;
+
+	int32_t new_commit = g_wheel_anim_commit_delta + delta;
+	/* 夹到合法选中范围，两端停住 */
+	int32_t min_c = -g_wheel_sel;
+	int32_t max_c = (TOTAL_PROGRAMS - 1) - g_wheel_sel;
+	if(new_commit < min_c) new_commit = min_c;
+	if(new_commit > max_c) new_commit = max_c;
+	if(new_commit == g_wheel_anim_commit_delta && new_commit == 0 && delta != 0) {
+		/* 已在端点且继续往外转：无动作 */
+		return;
+	}
+	if(new_commit == g_wheel_anim_commit_delta && g_wheel_anim_active) {
+		return;
+	}
+
+	float target = -(float)new_commit;
+	float dist = target - g_wheel_turn;
+	if(dist < 0.f) dist = -dist;
+	uint32_t ms = (uint32_t)(dist * (float)WHEEL_ENC_ANIM_MS_PER_STEP);
+	carousel_anim_to_turn(target, new_commit, ms);
 }
 
 /* 主页启停：触摸点击进支付（与编码器短按同一 FSM 路径） */
@@ -3533,18 +3685,21 @@ static void cb_home_carousel_encoder(lv_event_t * e)
 	}
 }
 
-/* 轮播指示点：仅触摸点击时同步选中程序（编码器走 g_home_carousel_enc） */
+/* 轮播指示点：触摸点击时带动画切到对应程序（线性，不绕环） */
 static void cb_home_prog_dot_focus(lv_event_t * e)
 {
 	if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 	int32_t idx = (int32_t)(intptr_t)lv_event_get_user_data(e);
 	if(idx < 0 || idx >= TOTAL_PROGRAMS) return;
-	if(g_wheel_sel != idx) {
-		g_wheel_sel = idx;
-		g_wheel_turn = 0.f;
-		carousel_wrap_relayout();
-		home_sync_program_labels();
-	}
+
+	carousel_anim_stop(true);
+	if(g_wheel_sel == idx) return;
+
+	int32_t delta = idx - g_wheel_sel;
+	float target = -(float)delta;
+	float dist = target < 0.f ? -target : target;
+	uint32_t ms = (uint32_t)(dist * (float)WHEEL_ENC_ANIM_MS_PER_STEP);
+	carousel_anim_to_turn(target, delta, ms);
 }
 
 //轮播区点击事件，处理轮播区的按下、拖动、释放等事件，实现卡片的滑动切换和点击判定
@@ -3558,16 +3713,25 @@ static void wheel_pointer_cb(lv_event_t * e)  //轮播区按下/拖动/释放
 	lv_indev_get_point(indev, &p);
 
 	if(code == LV_EVENT_PRESSED) {
+		/* 打断动画并提交，保证拖动从整数槽开始 */
+		carousel_anim_stop(true);
 		g_wheel_press_x = p.x;
 		g_wheel_dragging = true;
 		g_wheel_turn = 0.f;
+		carousel_wrap_relayout();
 		return;
 	}
 
 	if(code == LV_EVENT_PRESSING && g_wheel_dragging) {
 		lv_coord_t dx = p.x - g_wheel_press_x;
-		g_wheel_turn = (float)dx / (float)s_mode_step_x;
-		carousel_wrap_relayout();  //重排轮播布局
+		float turn = (float)dx / (float)s_mode_step_x;
+		/* 线性边界：不能拖出首/末程序 */
+		float max_pos = (float)g_wheel_sel;                         /* 右滑 → 更小索引 */
+		float max_neg = (float)((TOTAL_PROGRAMS - 1) - g_wheel_sel); /* 左滑 → 更大索引 */
+		if(turn > max_pos) turn = max_pos;
+		if(turn < -max_neg) turn = -max_neg;
+		g_wheel_turn = turn;
+		carousel_wrap_relayout();
 		return;
 	}
 
@@ -3576,23 +3740,26 @@ static void wheel_pointer_cb(lv_event_t * e)  //轮播区按下/拖动/释放
 		g_wheel_dragging = false;
 
 		if(LV_ABS(dx) < 14) {
-			g_wheel_turn = 0.f;
-			carousel_wrap_relayout();  //重排轮播布局
+			carousel_anim_to_turn(0.f, 0, WHEEL_SNAP_ANIM_MS / 2u);
 			return;
 		}
 
-		/* 左滑(dx<0)：索引前进；右滑：索引后退。|dx| 每满一格 s_mode_drag_snap_px 多切 1 个程序 */
 		int k;
 		if(dx < 0) k = (-dx) / s_mode_drag_snap_px;
 		else k = dx / s_mode_drag_snap_px;
 		if(k == 0) k = 1;
+		if(k > 3) k = 3;
 
 		int32_t delta = (dx < 0) ? k : -k;
-		g_wheel_sel = wheel_mod_total((int32_t)g_wheel_sel + delta);  //程序索引取模
-
-		g_wheel_turn = 0.f;
-		carousel_wrap_relayout();						//轮播区布局
-		home_sync_program_labels();  //刷新主页程序标签
+		int32_t next = wheel_clamp_sel(g_wheel_sel + delta);
+		delta = next - g_wheel_sel;
+		if(delta == 0) {
+			carousel_anim_to_turn(0.f, 0, WHEEL_SNAP_ANIM_MS / 2u);
+			home_sync_encoder_focus_after_carousel_drag();
+			return;
+		}
+		float target = -(float)delta;
+		carousel_anim_to_turn(target, delta, WHEEL_SNAP_ANIM_MS);
 		home_sync_encoder_focus_after_carousel_drag();
 	}
 }
@@ -4495,10 +4662,18 @@ static void running_status_sync_labels(void)
 	}
 }
 
-//将剩余秒数格式化为 0:MM（向上取整到分钟）
+/* 将剩余秒数格式化为 0:MM（只显示分钟，不显示秒）
+ * 向下取整：190s(3min+10s)→0:03；不足 1 分钟仍显示 0:01，直到归零 */
 static void running_countdown_format(uint32_t sec, char * buf, size_t buf_sz)
 {
-	uint32_t min = (sec == 0u) ? 0u : (sec + 59u) / 60u;
+	uint32_t min;
+	if(sec == 0u) {
+		min = 0u;
+	}
+	else {
+		min = sec / 60u;
+		if(min == 0u) min = 1u; /* 最后不足 1 分钟（含筒自洁末尾 10s）仍显示 1 分 */
+	}
 	snprintf(buf, buf_sz, "0:%02u", (unsigned)min);
 }
 
@@ -4664,7 +4839,7 @@ static void cb_running_runpause(lv_event_t * e)  //运行页启停按钮
 	ui_fsm_runpause_apply_running_page();
 }
 
-#define RUNNING_COUNTDOWN_PERIOD_MS  60000u  /* 运行页倒计时：每分钟递减 */
+#define RUNNING_COUNTDOWN_PERIOD_MS  1000u  /* 运行页倒计时：内部每秒递减，界面仍只显示分钟 */
 
 /* ---------- 运行页实时水位（频率表）+ 温度：数据 ---------- */
 #define RUNNING_WATER_PT_CNT     6u
@@ -4700,17 +4875,13 @@ static int16_t g_running_live_temp_c = 25;  /* 运行页实时温度 25为初始
 static int8_t g_running_freq_sim_dir = -1; /* -1 递减，+1 递增 */
 #endif
 
-//运行页每分钟倒计时回调，归零后跳转结束页
+/* 运行页每秒倒计时：内部走秒（含筒自洁末尾 10s）；界面仍为分钟 */
 static void cb_running_countdown(lv_timer_t * t)
 {
 	(void)t;
 	if(g_running_remain_sec == 0u) return;
 
-	if(g_running_remain_sec <= 60u) {
-		g_running_remain_sec = 0u;
-	} else {
-		g_running_remain_sec -= 60u;
-	}
+	g_running_remain_sec -= 1u;
 	running_countdown_update_label();
 
 	if(g_running_remain_sec == 0u) {
@@ -4757,7 +4928,7 @@ static void running_freq_sim_arm(void)
 }
 #endif
 
-//若剩余时间>0 则启动分钟倒计时定时器
+/* 若剩余时间>0 则启动按秒倒计时定时器 */
 static void running_countdown_arm(void)
 {
 	if(g_running_countdown_timer != NULL) return;
