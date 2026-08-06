@@ -4663,7 +4663,9 @@ static void running_status_sync_labels(void)
 }
 
 /* 将剩余秒数格式化为 0:MM（只显示分钟，不显示秒）
- * 向下取整：190s(3min+10s)→0:03；不足 1 分钟仍显示 0:01，直到归零 */
+ * 整分钟程序：向上取整（刚开始 180s→0:03）。
+ * 含秒余数（如筒自洁 3min+10s）：开头显示整分钟 0:03，多余秒归入最后一档 0:01，
+ * 使 0:03/0:02 约各走 60s，0:01 走 60s+余秒。 */
 static void running_countdown_format(uint32_t sec, char * buf, size_t buf_sz)
 {
 	uint32_t min;
@@ -4671,8 +4673,17 @@ static void running_countdown_format(uint32_t sec, char * buf, size_t buf_sz)
 		min = 0u;
 	}
 	else {
-		min = sec / 60u;
-		if(min == 0u) min = 1u; /* 最后不足 1 分钟（含筒自洁末尾 10s）仍显示 1 分 */
+		uint32_t total = running_program_total_sec(g_wheel_sel);
+		uint32_t extra = total % 60u;
+		if(extra == 0u) {
+			min = (sec + 59u) / 60u; /* 整分钟：向上取整 */
+		}
+		else if(sec <= 60u + extra) {
+			min = 1u; /* 最后一档：含末尾不足 1 分钟的秒数 */
+		}
+		else {
+			min = (sec - extra + 59u) / 60u;
+		}
 	}
 	snprintf(buf, buf_sz, "0:%02u", (unsigned)min);
 }
