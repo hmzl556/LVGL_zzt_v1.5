@@ -141,8 +141,7 @@ alipay_logo                 √
 washing_machine             √
 
 故障页
-缺铃
-缺框
+fault_logo                  √
 bar_01                      √
 
 缺液提示

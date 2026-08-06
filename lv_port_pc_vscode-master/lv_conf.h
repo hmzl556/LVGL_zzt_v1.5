@@ -983,7 +983,7 @@
 #define LV_USE_LIBWEBP 0
 
 /** GIF decoder library */
-#define LV_USE_GIF 1
+#define LV_USE_GIF 0
 #if LV_USE_GIF
     /** GIF decoder accelerate */
     #define LV_GIF_CACHE_DECODE_DATA 0

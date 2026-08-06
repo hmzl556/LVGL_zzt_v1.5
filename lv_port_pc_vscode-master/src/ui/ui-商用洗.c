@@ -5253,9 +5253,8 @@ static void build_end(void)
 		lv_obj_set_flex_flow(center, LV_FLEX_FLOW_COLUMN);
 		lv_obj_set_flex_align(center, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-		LV_IMAGE_DECLARE(end);                             /* 结束图标 */
-		lv_obj_t * img_end = lv_image_create(center);
-		lv_image_set_src(img_end, &end);
+		lv_obj_t * img_end = lv_image_create(center);       /* 结束图标：success */
+		lv_image_set_src(img_end, &success);
 
 		/* 主标题：中「洗涤完成」/ 英「Wash Complete」（STR_END_TITLE） */
 		g_lbl_end_title = lv_label_create(center);
@@ -13312,9 +13311,8 @@ static void build_pay_done(void)
 		lv_obj_set_flex_flow(center, LV_FLEX_FLOW_COLUMN);
 		lv_obj_set_flex_align(center, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-		LV_IMAGE_DECLARE(end);
-		lv_obj_t * img_done = lv_image_create(center);      /* 与结束页共用 end 图标 */
-		lv_image_set_src(img_done, &end);
+		lv_obj_t * img_done = lv_image_create(center);      /* 与结束页共用 success 图标 */
+		lv_image_set_src(img_done, &success);
 
 		/* 主文字：中「支付完成」/ 英「Payment Done」（STR_PAY_DONE） */
 		g_lbl_pay_done = lv_label_create(center);
@@ -13945,9 +13943,8 @@ static void build_selfcheck(void)
 	lv_obj_set_flex_align(center, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 	lv_obj_remove_flag(center, LV_OBJ_FLAG_CLICKABLE);
 
-	LV_IMAGE_DECLARE(end);
 	lv_obj_t * img_done = lv_image_create(center);
-	lv_image_set_src(img_done, &end);
+	lv_image_set_src(img_done, &success);
 
 	g_selfcheck_lbl_done_title = lv_label_create(center);
 	lv_obj_set_width(g_selfcheck_lbl_done_title, LV_SIZE_CONTENT);
