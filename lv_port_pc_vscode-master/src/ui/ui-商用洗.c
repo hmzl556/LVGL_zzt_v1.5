@@ -1445,51 +1445,51 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_ALARM_SOFTENER_LOW] = "检测到柔顺剂不足，请及时添加",
         [STR_ALARM_DETERGENT_LOW] = "检测到洗涤剂不足，请及时添加",
         [STR_ALARM_E1_TITLE]  = "门锁异常",
-        [STR_ALARM_E1_LINE1]  = "请检查门是否关好，关紧门锁",
-        [STR_ALARM_E1_LINE2]  = "或检查门锁与主控板连线是否松动",
+        [STR_ALARM_E1_LINE1]  = "请检查洗衣机门是否关紧",
+        [STR_ALARM_E1_LINE2]  = "",
         [STR_ALARM_E2_TITLE]  = "排水异常",
-        [STR_ALARM_E2_LINE1]  = "检查排水泵是否正常工作",
-        [STR_ALARM_E2_LINE2]  = "清洗并拉直排水软管，清洁排水管",
+        [STR_ALARM_E2_LINE1]  = "请检查排水泵是否正常工作，清洗并拉直排水管",
+        [STR_ALARM_E2_LINE2]  = "",
         [STR_ALARM_E3_TITLE]  = "进水异常",
-        [STR_ALARM_E3_LINE1]  = "检查水龙头，完全打开水龙头，将进水管摆正",
-        [STR_ALARM_E3_LINE2]  = "检查进水管过滤网，检查进水管是否打开",
+        [STR_ALARM_E3_LINE1]  = "请检查进水管是否打开，完全打开水龙头",
+        [STR_ALARM_E3_LINE2]  = "",
         [STR_ALARM_E4_TITLE]  = "警戒水位",
-        [STR_ALARM_E4_LINE1]  = "关闭进水阀，排水泵开始排水",
-        [STR_ALARM_E4_LINE2]  = "10s 后程序继续运行",
+        [STR_ALARM_E4_LINE1]  = "关闭进水阀排水泵开始排水，10s后继续运行",
+        [STR_ALARM_E4_LINE2]  = "",
         [STR_ALARM_E5_TITLE]  = "电机异常",
-        [STR_ALARM_E5_LINE1]  = "请检查电机与主控板连线是否正常",
+        [STR_ALARM_E5_LINE1]  = "",
         [STR_ALARM_E5_LINE2]  = "",
         [STR_ALARM_E6_TITLE]  = "显示屏通讯故障",
-        [STR_ALARM_E6_LINE1]  = "请检查主控板与显示屏的连线",
+        [STR_ALARM_E6_LINE1]  = "",
         [STR_ALARM_E6_LINE2]  = "",
         [STR_ALARM_E7_TITLE]  = "加热器异常",
-        [STR_ALARM_E7_LINE1]  = "请检查加热器是否已坏",
-        [STR_ALARM_E7_LINE2]  = "或与主控板接线是否连接正常",
+        [STR_ALARM_E7_LINE1]  = "",
+        [STR_ALARM_E7_LINE2]  = "",
         [STR_ALARM_E8_TITLE]  = "水温传感器异常",
-        [STR_ALARM_E8_LINE1]  = "请关机，检查水温传感器是否已坏",
-        [STR_ALARM_E8_LINE2]  = "或与主控板接线是否连接正常",
+        [STR_ALARM_E8_LINE1]  = "",
+        [STR_ALARM_E8_LINE2]  = "",
         [STR_ALARM_E9_TITLE]  = "水位传感器异常",
-        [STR_ALARM_E9_LINE1]  = "请关机，检查水位传感器是否已坏",
-        [STR_ALARM_E9_LINE2]  = "或与主控板接线是否连接正常",
+        [STR_ALARM_E9_LINE1]  = "",
+        [STR_ALARM_E9_LINE2]  = "",
         [STR_ALARM_E10_TITLE] = "电机通讯故障",
-        [STR_ALARM_E10_LINE1] = "请重新运行机器",
-        [STR_ALARM_E10_LINE2] = "并检查电机驱动器与主控板的通讯连线是否正常",
+        [STR_ALARM_E10_LINE1] = "",
+        [STR_ALARM_E10_LINE2] = "",
         [STR_ALARM_E11_TITLE] = "驱动板通讯异常",
-        [STR_ALARM_E11_LINE1] = "请重新运行机器并检查驱动板的连线",
+        [STR_ALARM_E11_LINE1] = "",
         [STR_ALARM_E11_LINE2] = "",
         [STR_ALARM_E12_TITLE] = "电脑主控板通讯异常",
-        [STR_ALARM_E12_LINE1] = "请重新运行机器并检查电源板的连线",
+        [STR_ALARM_E12_LINE1] = "请重新运行机器",
         [STR_ALARM_E12_LINE2] = "",
         [STR_ALARM_E13_TITLE] = "物联网模块配置异常",
         [STR_ALARM_E13_LINE1] = "请断电并重新进行网络配置",
         [STR_ALARM_E13_LINE2] = "",
         [STR_ALARM_E14_TITLE] = "支付通讯异常",
-        [STR_ALARM_E14_LINE1] = "请检查网络，并重试支付",
+        [STR_ALARM_E14_LINE1] = "请检查网络，重试支付",
         [STR_ALARM_E14_LINE2] = "",
         [STR_ALARM_E15_TITLE] = "支付超时",
-        [STR_ALARM_E15_LINE1] = "请重新选程序并支付",
+        [STR_ALARM_E15_LINE1] = "请重新选择程序发起支付",
         [STR_ALARM_E15_LINE2] = "",
-        [STR_ALARM_FAULT_CALL]    = "如果仍未解决请拨打:",
+[STR_ALARM_FAULT_CALL]    = "如果仍未解决请拨打:",
         [STR_ALARM_FAULT_SERVICE] = "售后工程师为您提供专业服务。",
         [STR_ALARM_FAULT_PHONE]   = "400-999-999",
         [STR_ADMIN_MENU_TITLE]       = "管理员设置",
@@ -1673,40 +1673,40 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_ALARM_SOFTENER_LOW] = "Low softener detected, Please refill promptly.",
         [STR_ALARM_DETERGENT_LOW] = "Low detergent detected, Please refill promptly.",
         [STR_ALARM_E1_TITLE]  = "Door Lock Fault",
-        [STR_ALARM_E1_LINE1]  = "Please check that the door is closed and locked tightly",
-        [STR_ALARM_E1_LINE2]  = "Or check whether the door lock wiring to the main board is loose",
+        [STR_ALARM_E1_LINE1]  = "Please check that the washer door is closed tightly",
+        [STR_ALARM_E1_LINE2]  = "",
         [STR_ALARM_E2_TITLE]  = "Drainage Fault",
-        [STR_ALARM_E2_LINE1]  = "Check whether the drain pump works properly",
-        [STR_ALARM_E2_LINE2]  = "Clean and straighten the drain hose and drain pipe",
+        [STR_ALARM_E2_LINE1]  = "Please check the drain pump and clean and straighten the drain hose",
+        [STR_ALARM_E2_LINE2]  = "",
         [STR_ALARM_E3_TITLE]  = "Water Inlet Fault",
-        [STR_ALARM_E3_LINE1]  = "Check the faucet, open it fully, and straighten the inlet hose",
-        [STR_ALARM_E3_LINE2]  = "Check the inlet filter and whether the inlet valve is open",
+        [STR_ALARM_E3_LINE1]  = "Please check that the inlet hose is open and fully open the faucet",
+        [STR_ALARM_E3_LINE2]  = "",
         [STR_ALARM_E4_TITLE]  = "Warning Water Level",
-        [STR_ALARM_E4_LINE1]  = "Close the inlet valve, the drain pump will start draining",
-        [STR_ALARM_E4_LINE2]  = "The program will continue after 10 seconds",
+        [STR_ALARM_E4_LINE1]  = "Close the inlet valve; the drain pump starts draining, then continue after 10s",
+        [STR_ALARM_E4_LINE2]  = "",
         [STR_ALARM_E5_TITLE]  = "Motor Fault",
-        [STR_ALARM_E5_LINE1]  = "Please check whether the motor wiring to the main board is normal",
+        [STR_ALARM_E5_LINE1]  = "",
         [STR_ALARM_E5_LINE2]  = "",
         [STR_ALARM_E6_TITLE]  = "Display Communication Fault",
-        [STR_ALARM_E6_LINE1]  = "Please check the wiring between the main board and the display",
+        [STR_ALARM_E6_LINE1]  = "",
         [STR_ALARM_E6_LINE2]  = "",
         [STR_ALARM_E7_TITLE]  = "Heater Fault",
-        [STR_ALARM_E7_LINE1]  = "Please check whether the heater is damaged",
-        [STR_ALARM_E7_LINE2]  = "Or check whether the heater wiring to the main board is connected properly",
+        [STR_ALARM_E7_LINE1]  = "",
+        [STR_ALARM_E7_LINE2]  = "",
         [STR_ALARM_E8_TITLE]  = "Water Temperature Sensor Fault",
-        [STR_ALARM_E8_LINE1]  = "Please power off and check whether the water temperature sensor is damaged",
-        [STR_ALARM_E8_LINE2]  = "Or check whether the sensor wiring to the main board is connected properly",
+        [STR_ALARM_E8_LINE1]  = "",
+        [STR_ALARM_E8_LINE2]  = "",
         [STR_ALARM_E9_TITLE]  = "Water Level Sensor Fault",
-        [STR_ALARM_E9_LINE1]  = "Please power off and check whether the water level sensor is damaged",
-        [STR_ALARM_E9_LINE2]  = "Or check whether the sensor wiring to the main board is connected properly",
+        [STR_ALARM_E9_LINE1]  = "",
+        [STR_ALARM_E9_LINE2]  = "",
         [STR_ALARM_E10_TITLE] = "Motor Communication Fault",
-        [STR_ALARM_E10_LINE1] = "Please restart the machine",
-        [STR_ALARM_E10_LINE2] = "And check the communication wiring between the motor driver and the main board",
+        [STR_ALARM_E10_LINE1] = "",
+        [STR_ALARM_E10_LINE2] = "",
         [STR_ALARM_E11_TITLE] = "Driver Board Communication Fault",
-        [STR_ALARM_E11_LINE1] = "Please restart the machine and check the driver board wiring",
+        [STR_ALARM_E11_LINE1] = "",
         [STR_ALARM_E11_LINE2] = "",
         [STR_ALARM_E12_TITLE] = "Main Board Communication Fault",
-        [STR_ALARM_E12_LINE1] = "Please restart the machine and check the power board wiring",
+        [STR_ALARM_E12_LINE1] = "Please restart the machine",
         [STR_ALARM_E12_LINE2] = "",
         [STR_ALARM_E13_TITLE] = "IoT Module Configuration Fault",
         [STR_ALARM_E13_LINE1] = "Please power off and reconfigure the network",
@@ -1715,9 +1715,9 @@ static const char * const g_ui_strings[2][STR_COUNT] = {
         [STR_ALARM_E14_LINE1] = "Please check the network and retry payment",
         [STR_ALARM_E14_LINE2] = "",
         [STR_ALARM_E15_TITLE] = "Payment Timeout",
-        [STR_ALARM_E15_LINE1] = "Please select a program again and pay",
+        [STR_ALARM_E15_LINE1] = "Please select a program again to start payment",
         [STR_ALARM_E15_LINE2] = "",
-        [STR_ALARM_FAULT_CALL]    = "If the issue persists, please call:",
+[STR_ALARM_FAULT_CALL]    = "If the issue persists, please call:",
         [STR_ALARM_FAULT_SERVICE] = "After-sales engineers provide professional service.",
         [STR_ALARM_FAULT_PHONE]   = "400-999-999",
         [STR_ADMIN_MENU_TITLE]       = "Admin Settings",
@@ -2828,6 +2828,7 @@ LV_IMAGE_DECLARE(QR_WeChat_05_kuaixi);
 LV_IMAGE_DECLARE(QR_code_xiaoya);
 
 LV_IMAGE_DECLARE(bar_01);
+LV_IMAGE_DECLARE(fault_logo);
 LV_IMAGE_DECLARE(lack_of_softener);
 LV_IMAGE_DECLARE(lack_of_detergent);
 LV_IMAGE_DECLARE(wifi_logo);
@@ -3022,7 +3023,7 @@ static void build_running(void);  //构建运行页：背景、顶部栏、程�
 static void build_end(void);  //构建洗涤结束页：返回、图标与提示文字
 static void build_admin(void);  //构建管理员页：密码/设置网格/机器ID子面板
 static void build_alarm_overlay(void);  //构建 lv_layer_top 报警弹层：E1–E15 + 缺液
-static void alarm_fault_panel_relayout_content(uint8_t fault_idx);  //说明2 显隐 + 页脚电话/售后重排
+static void alarm_fault_panel_relayout_content(uint8_t fault_idx);  //说明显隐 + 页脚重排
 static void alarm_fault_panels_relayout_content(void);  //全部故障子页重排内容
 static void ui_alarm_poll(void);  //每帧检测报警并控制弹层显隐与轮播
 static void ui_encoder_group_restore_for_active_screen(void);  //按当前 screen 恢复编码器组
@@ -5287,11 +5288,11 @@ static uint8_t g_fluid_detergent_pct = 50u; //洗涤剂液位百分比
 //PC仿真缺液/故障，实机需根据情况删掉或改为读寄存器
 #define UI_FLUID_LEVEL_LOW_THRESHOLD  20u   //液位低于此阈值视为缺液（0=空 100=满）
 #define UI_ALARM_FAULT_COUNT          15u   //故障码 E1..E15
-#define UI_ALARM_FAULT_STRIDE         3u    //每种故障占 3 个 STR id：TITLE/LINE1/LINE2
+#define UI_ALARM_FAULT_STRIDE         3u    //每种故障占 3 个 STR id：TITLE/LINE1/LINE2(保留空)
 #define UI_ALARM_ROTATE_PERIOD_MS     3000u //轮播间隔 3 秒
 #define UI_ALARM_ROTATE_MAX           17u   //最多 15 故障 + 2 缺液
-#define UI_ALARM_FAULT_CODE_BLINK_MS  500u  //故障码 Ex 亮/灭各 0.5s
-#define UI_ALARM_FAULT_CONTENT_X_SHIFT 200  //仅故障码子页内部元素右移（缺液页不用）
+#define UI_ALARM_FAULT_LOGO_BLINK_MS  500u  //fault_logo 亮/灭各 0.5s
+#define UI_ALARM_FAULT_LOGO_BLINK_TOGGLES 4u //闪烁两次=4 次亮灭切换后常亮
 #define COL_ALARM_PHONE               0x3399FFu //故障页电话高亮色
 
 typedef enum {
@@ -5310,10 +5311,14 @@ typedef struct {
 
 typedef struct {
 	lv_obj_t * panel;       //故障子面板根，默认隐藏
-	lv_obj_t * lbl_code;    //故障码 E1..E14
-	lv_obj_t * lbl_title;   //标题
-	lv_obj_t * lbl_line1;   //说明1（故障说明首行；Y 固定）
-	lv_obj_t * lbl_line2;   //说明2（故障说明次行；单行故障时隐藏）
+	lv_obj_t * logo_slot;   //固定尺寸占位，闪烁时仍占位以免文字上移
+	lv_obj_t * img_logo;    //fault_logo 警示图标（在 slot 内显隐）
+	lv_obj_t * title_row;   //(Ex) + 故障名 同行容器
+	lv_obj_t * lbl_code;    //故障码 (E1)..(E15)，不闪烁
+	lv_obj_t * lbl_title;   //故障名称
+	lv_obj_t * text_block;  //说明+页脚：整体居中、内部左对齐
+	lv_obj_t * lbl_line1;   //说明（可空）
+	lv_obj_t * call_row;    //拨打引导 + 电话
 	lv_obj_t * lbl_line3;   //拨打引导（共享页脚）
 	lv_obj_t * lbl_phone;   //电话（蓝色，共享页脚）
 	lv_obj_t * lbl_line4;   //售后句（共享页脚）
@@ -5328,8 +5333,9 @@ static alarm_panel_t g_alarm_rotate_list[UI_ALARM_ROTATE_MAX]; //按出现顺序
 static uint8_t g_alarm_rotate_count;              //轮播队列长度
 static uint8_t g_alarm_rotate_idx;              //当前轮播下标
 static lv_timer_t * g_alarm_rotate_timer;         //3 秒轮播定时器
-static lv_timer_t * g_alarm_fault_code_blink_timer; //故障码 Ex 0.5s 闪烁定时器
-static uint8_t g_alarm_fault_code_blink_idx = 0xFFu;  //当前闪烁的故障索引；0xFF=无
+static lv_timer_t * g_alarm_fault_logo_blink_timer; //fault_logo 0.5s 闪烁定时器
+static uint8_t g_alarm_fault_logo_blink_idx = 0xFFu;  //当前闪烁的故障索引；0xFF=无
+static uint8_t g_alarm_fault_logo_blink_remain;       //剩余亮灭切换次数
 static alarm_panel_t g_alarm_rotate_cur_panel;    //当前显示的 panel
 static bool g_alarm_user_dismissed;               //用户手动返回后暂不再自动弹出
 static bool g_alarm_overlay_open;               //弹层是否处于显示状态（含 encoder 切换）
@@ -5515,51 +5521,63 @@ static void alarm_panel_hide_all(void)
 	}
 }
 
-//停止故障码 Ex 闪烁，并恢复全部故障码 label 为可见
-static void alarm_fault_code_blink_stop(void)
+//停止 fault_logo 闪烁，并恢复全部 logo 为可见（常亮）；占位槽始终保留
+static void alarm_fault_logo_blink_stop(void)
 {
-	if(g_alarm_fault_code_blink_timer != NULL) {                           //暂停闪烁定时器
-		lv_timer_pause(g_alarm_fault_code_blink_timer);
+	if(g_alarm_fault_logo_blink_timer != NULL) {
+		lv_timer_pause(g_alarm_fault_logo_blink_timer);
 	}
-	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {                    //恢复所有 Ex 可见
-		if(g_alarm_fault_ui[i].lbl_code != NULL) {
-			lv_obj_remove_flag(g_alarm_fault_ui[i].lbl_code, LV_OBJ_FLAG_HIDDEN);
+	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {
+		if(g_alarm_fault_ui[i].img_logo != NULL) {
+			lv_obj_remove_flag(g_alarm_fault_ui[i].img_logo, LV_OBJ_FLAG_HIDDEN);
 		}
 	}
-	g_alarm_fault_code_blink_idx = 0xFFu;                                //无闪烁目标
+	g_alarm_fault_logo_blink_idx = 0xFFu;
+	g_alarm_fault_logo_blink_remain = 0u;
 }
 
-//故障码 Ex 亮灭切换（500ms 一次）
-static void alarm_fault_code_blink_cb(lv_timer_t * t)
+/* 只隐藏/显示 slot 内的图；logo_slot 固定尺寸仍参与 flex，下方文字不跳 */
+static void alarm_fault_logo_blink_cb(lv_timer_t * t)
 {
-	(void)t;                                                               //未使用
-	if(g_alarm_fault_code_blink_idx >= UI_ALARM_FAULT_COUNT) return;       //无有效索引
-	lv_obj_t * code = g_alarm_fault_ui[g_alarm_fault_code_blink_idx].lbl_code;
-	if(code == NULL) return;
-	if(lv_obj_has_flag(code, LV_OBJ_FLAG_HIDDEN)) {                        //当前灭 → 亮
-		lv_obj_remove_flag(code, LV_OBJ_FLAG_HIDDEN);
-	}
-	else {                                                                 //当前亮 → 灭
-		lv_obj_add_flag(code, LV_OBJ_FLAG_HIDDEN);
-	}
-}
-
-//进入故障子页：故障码 Ex 以 0.5s 亮、0.5s 灭闪烁
-static void alarm_fault_code_blink_start(uint8_t fault_idx)
-{
-	if(fault_idx >= UI_ALARM_FAULT_COUNT) return;                          //越界保护
-	alarm_fault_code_blink_stop();                                         //先停旧闪烁并恢复 Ex 可见
-	g_alarm_fault_code_blink_idx = fault_idx;                              //记录当前 Ex
-	if(g_alarm_fault_ui[fault_idx].lbl_code != NULL) {                     //初始为亮
-		lv_obj_remove_flag(g_alarm_fault_ui[fault_idx].lbl_code, LV_OBJ_FLAG_HIDDEN);
-	}
-	if(g_alarm_fault_code_blink_timer == NULL) {                           //首次创建 500ms 定时器
-		g_alarm_fault_code_blink_timer = lv_timer_create(
-			alarm_fault_code_blink_cb, UI_ALARM_FAULT_CODE_BLINK_MS, NULL);
+	(void)t;
+	if(g_alarm_fault_logo_blink_idx >= UI_ALARM_FAULT_COUNT) return;
+	lv_obj_t * logo = g_alarm_fault_ui[g_alarm_fault_logo_blink_idx].img_logo;
+	if(logo == NULL) return;
+	if(lv_obj_has_flag(logo, LV_OBJ_FLAG_HIDDEN)) {
+		lv_obj_remove_flag(logo, LV_OBJ_FLAG_HIDDEN);
 	}
 	else {
-		lv_timer_reset(g_alarm_fault_code_blink_timer);                    //重置相位
-		lv_timer_resume(g_alarm_fault_code_blink_timer);                   //继续闪烁
+		lv_obj_add_flag(logo, LV_OBJ_FLAG_HIDDEN);
+	}
+	if(g_alarm_fault_logo_blink_remain > 0u) {
+		g_alarm_fault_logo_blink_remain--;
+	}
+	if(g_alarm_fault_logo_blink_remain == 0u) {
+		lv_obj_remove_flag(logo, LV_OBJ_FLAG_HIDDEN); /* 结束后常亮 */
+		if(g_alarm_fault_logo_blink_timer != NULL) {
+			lv_timer_pause(g_alarm_fault_logo_blink_timer);
+		}
+		g_alarm_fault_logo_blink_idx = 0xFFu;
+	}
+}
+
+//进入故障子页：fault_logo 亮 0.5s / 灭 0.5s 闪烁两次，随后常亮；(Ex) 不闪烁
+static void alarm_fault_logo_blink_start(uint8_t fault_idx)
+{
+	if(fault_idx >= UI_ALARM_FAULT_COUNT) return;
+	alarm_fault_logo_blink_stop();
+	g_alarm_fault_logo_blink_idx = fault_idx;
+	g_alarm_fault_logo_blink_remain = UI_ALARM_FAULT_LOGO_BLINK_TOGGLES;
+	if(g_alarm_fault_ui[fault_idx].img_logo != NULL) {
+		lv_obj_remove_flag(g_alarm_fault_ui[fault_idx].img_logo, LV_OBJ_FLAG_HIDDEN);
+	}
+	if(g_alarm_fault_logo_blink_timer == NULL) {
+		g_alarm_fault_logo_blink_timer = lv_timer_create(
+			alarm_fault_logo_blink_cb, UI_ALARM_FAULT_LOGO_BLINK_MS, NULL);
+	}
+	else {
+		lv_timer_reset(g_alarm_fault_logo_blink_timer);
+		lv_timer_resume(g_alarm_fault_logo_blink_timer);
 	}
 }
 
@@ -5574,17 +5592,17 @@ static void alarm_panel_show(alarm_panel_t panel)
 		if(g_alarm_fault_ui[idx].panel != NULL) {
 			lv_obj_remove_flag(g_alarm_fault_ui[idx].panel, LV_OBJ_FLAG_HIDDEN); //显示目标
 		}
-		alarm_fault_code_blink_start(idx);                                 //Ex 0.5s 闪烁
-		alarm_fault_panel_relayout_content(idx);                           //单行/双行说明 + 页脚重排
+		alarm_fault_logo_blink_start(idx);                                 //fault_logo 闪烁两次
+		alarm_fault_panel_relayout_content(idx);                           //空说明时隐藏说明行
 	}
 	else if(panel == ALARM_PANEL_FLUID_SOFTENER || panel == ALARM_PANEL_FLUID_DETERGENT) {
-		alarm_fault_code_blink_stop();                                     //缺液页不闪 Ex
+		alarm_fault_logo_blink_stop();                                     //缺液页不闪 logo
 		if(g_alarm_panel_fluid != NULL) {
 			lv_obj_remove_flag(g_alarm_panel_fluid, LV_OBJ_FLAG_HIDDEN); //显示缺液 panel
 		}
 	}
 	else {
-		alarm_fault_code_blink_stop();                                     //其它情况停止闪烁
+		alarm_fault_logo_blink_stop();                                     //其它情况停止 logo 闪烁
 	}
 	alarm_content_update();                                                //刷新缺液图/文案
 }
@@ -5665,7 +5683,7 @@ static void alarm_overlay_hide(void)
 	if(g_alarm_overlay == NULL) return;                                    //未构建
 	lv_obj_add_flag(g_alarm_overlay, LV_OBJ_FLAG_HIDDEN);                  //隐藏弹层
 	alarm_rotate_timer_stop();                                             //停止轮播
-	alarm_fault_code_blink_stop();                                         //停止 Ex 闪烁
+	alarm_fault_logo_blink_stop();                                         //停止 logo 闪烁
 	g_alarm_overlay_open = false;                                            //标记关闭
 	ui_encoder_group_restore_for_active_screen();                          //恢复焦点组
 	if(g_idle_timer != NULL && !ui_idle_screen_keeps_awake(lv_screen_active())) {
@@ -5746,121 +5764,130 @@ static void ui_alarm_poll(void)
 	}
 }
 
-//构建单个故障码子面板（E1..E14 共用布局）
+//构建单个故障码子面板（E1..E15：logo + (Ex)标题居中；说明与页脚左对齐块）
 static void build_alarm_fault_panel(lv_obj_t * root, uint8_t fault_idx)
 {
-	ui_alarm_fault_ui_t * ui = &g_alarm_fault_ui[fault_idx];               //取 UI 槽位
-	const lv_coord_t body_y = (lv_coord_t)(UI_FIXED_H * 10 / 100);         //与管理员子页对齐
+	ui_alarm_fault_ui_t * ui = &g_alarm_fault_ui[fault_idx];
+	const lv_coord_t body_y = (lv_coord_t)(UI_FIXED_H * 15 / 100);
+	char code_buf[16];
 
-	ui->panel = lv_obj_create(root);                                       //子面板根
-	lv_obj_set_size(ui->panel, 1600, 400);                                 //1600×400 区域保持居中
-	lv_obj_align(ui->panel, LV_ALIGN_TOP_MID, 0, body_y);                  //panel 不整体平移
-	lv_obj_set_style_bg_opa(ui->panel, LV_OPA_TRANSP, LV_PART_MAIN);       //透明底
-	lv_obj_set_style_border_width(ui->panel, 0, LV_PART_MAIN);             //无边框
-	lv_obj_set_style_pad_all(ui->panel, 0, LV_PART_MAIN);                  //无内边距
-	lv_obj_set_style_layout(ui->panel, LV_LAYOUT_NONE, LV_PART_MAIN);      //绝对布局
-	lv_obj_add_flag(ui->panel, LV_OBJ_FLAG_HIDDEN);                        //默认隐藏
+	ui->panel = lv_obj_create(root);
+	lv_obj_set_size(ui->panel, LV_PCT(100), (lv_coord_t)UI_FIXED_H - 200);
+	lv_obj_align(ui->panel, LV_ALIGN_TOP_MID, 0, body_y);
+	lv_obj_set_style_bg_opa(ui->panel, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(ui->panel, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(ui->panel, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_row(ui->panel, 28, LV_PART_MAIN);
+	lv_obj_set_flex_flow(ui->panel, LV_FLEX_FLOW_COLUMN);
+	lv_obj_set_flex_align(ui->panel, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+	lv_obj_add_flag(ui->panel, LV_OBJ_FLAG_HIDDEN);
 
-	ui->lbl_code = lv_label_create(ui->panel);                             //故障码
-	lv_label_set_text(ui->lbl_code, g_alarm_fault_codes[fault_idx]);         //E1..E14
+	/* 固定占位槽：闪烁时只隐藏内部图，槽尺寸不变，下方文字位置不动 */
+	ui->logo_slot = lv_obj_create(ui->panel);
+	lv_obj_set_size(ui->logo_slot, (lv_coord_t)fault_logo.header.w, (lv_coord_t)fault_logo.header.h);
+	lv_obj_set_style_bg_opa(ui->logo_slot, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(ui->logo_slot, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(ui->logo_slot, 0, LV_PART_MAIN);
+	lv_obj_set_style_layout(ui->logo_slot, LV_LAYOUT_NONE, LV_PART_MAIN);
+	lv_obj_remove_flag(ui->logo_slot, LV_OBJ_FLAG_SCROLLABLE);
+
+	ui->img_logo = lv_image_create(ui->logo_slot);
+	lv_image_set_src(ui->img_logo, &fault_logo);
+	lv_obj_center(ui->img_logo);
+
+	ui->title_row = lv_obj_create(ui->panel);
+	lv_obj_set_size(ui->title_row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+	lv_obj_set_style_bg_opa(ui->title_row, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(ui->title_row, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(ui->title_row, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_column(ui->title_row, 12, LV_PART_MAIN);
+	lv_obj_set_flex_flow(ui->title_row, LV_FLEX_FLOW_ROW);
+	lv_obj_set_flex_align(ui->title_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+	ui->lbl_code = lv_label_create(ui->title_row);
+	snprintf(code_buf, sizeof(code_buf), "(%s)", g_alarm_fault_codes[fault_idx]);
+	lv_label_set_text(ui->lbl_code, code_buf);
 	lv_obj_set_style_text_color(ui->lbl_code, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-	ui_set_obj_font(ui->lbl_code, s_font_sc_50);                           //大字码
-	lv_obj_set_pos(ui->lbl_code, 120 + UI_ALARM_FAULT_CONTENT_X_SHIFT, 100); //仅故障页内部右移
+	ui_set_obj_font(ui->lbl_code, s_font_sc_30);
 
-	ui->lbl_title = lv_label_create(ui->panel);                            //标题
-	ui_lang_bind_label(ui->lbl_title, alarm_fault_str_id(fault_idx, 0));   //STR_TITLE
+	ui->lbl_title = lv_label_create(ui->title_row);
+	ui_lang_bind_label(ui->lbl_title, alarm_fault_str_id(fault_idx, 0));
 	lv_obj_set_style_text_color(ui->lbl_title, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 	ui_set_obj_font(ui->lbl_title, s_font_sc_30);
-	lv_obj_align_to(ui->lbl_title, ui->lbl_code, LV_ALIGN_OUT_RIGHT_MID, 60, 0); //与 E1 同一水平线（垂直居中）
 
-	ui->lbl_line1 = lv_label_create(ui->panel);                            //说明1
+	/* 说明+页脚：块整体居中，内部左对齐 */
+	ui->text_block = lv_obj_create(ui->panel);
+	lv_obj_set_size(ui->text_block, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+	lv_obj_set_style_bg_opa(ui->text_block, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(ui->text_block, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(ui->text_block, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_row(ui->text_block, 12, LV_PART_MAIN);
+	lv_obj_set_flex_flow(ui->text_block, LV_FLEX_FLOW_COLUMN);
+	lv_obj_set_flex_align(ui->text_block, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+	ui->lbl_line1 = lv_label_create(ui->text_block);
 	ui_lang_bind_label(ui->lbl_line1, alarm_fault_str_id(fault_idx, 1));
 	lv_obj_set_style_text_color(ui->lbl_line1, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_set_style_text_align(ui->lbl_line1, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
 	ui_set_obj_font(ui->lbl_line1, s_font_sc_30);
-	lv_obj_align_to(ui->lbl_line1, ui->lbl_title, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 60); //Y 固定，不随单行/双行变化
 
-	ui->lbl_line2 = lv_label_create(ui->panel);                            //说明2（单行故障时隐藏）
-	ui_lang_bind_label(ui->lbl_line2, alarm_fault_str_id(fault_idx, 2));
-	lv_obj_set_style_text_color(ui->lbl_line2, lv_color_hex(COL_TEXT), LV_PART_MAIN);
-	ui_set_obj_font(ui->lbl_line2, s_font_sc_30);
+	ui->call_row = lv_obj_create(ui->text_block);
+	lv_obj_set_size(ui->call_row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+	lv_obj_set_style_bg_opa(ui->call_row, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_border_width(ui->call_row, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_all(ui->call_row, 0, LV_PART_MAIN);
+	lv_obj_set_style_pad_column(ui->call_row, 0, LV_PART_MAIN);
+	lv_obj_set_flex_flow(ui->call_row, LV_FLEX_FLOW_ROW);
+	lv_obj_set_flex_align(ui->call_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-	ui->lbl_line3 = lv_label_create(ui->panel);                            //拨打引导
+	ui->lbl_line3 = lv_label_create(ui->call_row);
 	ui_lang_bind_label(ui->lbl_line3, STR_ALARM_FAULT_CALL);
 	lv_obj_set_style_text_color(ui->lbl_line3, lv_color_hex(COL_TEXT), LV_PART_MAIN);
 	ui_set_obj_font(ui->lbl_line3, s_font_sc_30);
 
-	ui->lbl_phone = lv_label_create(ui->panel);                            //电话
+	ui->lbl_phone = lv_label_create(ui->call_row);
 	ui_lang_bind_label(ui->lbl_phone, STR_ALARM_FAULT_PHONE);
 	lv_obj_set_style_text_color(ui->lbl_phone, lv_color_hex(COL_ALARM_PHONE), LV_PART_MAIN);
 	ui_set_obj_font(ui->lbl_phone, s_font_sc_30);
 
-	ui->lbl_line4 = lv_label_create(ui->panel);                            //售后句
+	ui->lbl_line4 = lv_label_create(ui->text_block);
 	ui_lang_bind_label(ui->lbl_line4, STR_ALARM_FAULT_SERVICE);
 	lv_obj_set_style_text_color(ui->lbl_line4, lv_color_hex(COL_TEXT), LV_PART_MAIN);
+	lv_obj_set_style_text_align(ui->lbl_line4, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
 	ui_set_obj_font(ui->lbl_line4, s_font_sc_30);
 
-	alarm_fault_panel_relayout_content(fault_idx);                           //按文案排说明2 与页脚
+	alarm_fault_panel_relayout_content(fault_idx);
 }
 
-//故障说明2 是否为空（单行故障）
-static bool alarm_fault_line2_empty(uint8_t fault_idx)
+//故障说明是否为空
+static bool alarm_fault_line1_empty(uint8_t fault_idx)
 {
-	const char * text = ui_translation(alarm_fault_str_id(fault_idx, 2));  //取当前语言 LINE2
-	if(text == NULL || text[0] == '\0') return true;                       //空串
-	for(const char * p = text; *p != '\0'; p++) {                          //跳过空白
+	const char * text = ui_translation(alarm_fault_str_id(fault_idx, 1));
+	if(text == NULL || text[0] == '\0') return true;
+	for(const char * p = text; *p != '\0'; p++) {
 		if(*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') return false;
 	}
 	return true;
 }
 
-//说明2 显隐 + 页脚电话/售后重排（说明1 Y 不在此函数中改动）
+//说明显隐（页脚由 flex 自动跟排；空说明时说明行隐藏）
 static void alarm_fault_panel_relayout_content(uint8_t fault_idx)
 {
-	ui_alarm_fault_ui_t * ui = &g_alarm_fault_ui[fault_idx];               //取 UI 槽位
-	if(ui->panel == NULL || ui->lbl_line1 == NULL || ui->lbl_line2 == NULL ||
-	   ui->lbl_line3 == NULL || ui->lbl_phone == NULL || ui->lbl_line4 == NULL) {
-		return;
-	}
+	ui_alarm_fault_ui_t * ui = &g_alarm_fault_ui[fault_idx];
+	if(ui->panel == NULL || ui->lbl_line1 == NULL) return;
 
-	lv_obj_t * call_anchor;                                                //拨打句锚点（line1 或 line2）
-	const lv_coord_t row_gap = 12;                                         //说明行间距
-	const lv_coord_t call_gap = 8;                                         //拨打句与电话换行间距
-
-	if(alarm_fault_line2_empty(fault_idx)) {                               //单行故障
-		lv_obj_add_flag(ui->lbl_line2, LV_OBJ_FLAG_HIDDEN);                //隐藏说明2
-		call_anchor = ui->lbl_line1;                                       //页脚接说明1
+	if(alarm_fault_line1_empty(fault_idx)) {
+		lv_obj_add_flag(ui->lbl_line1, LV_OBJ_FLAG_HIDDEN);
 	}
 	else {
-		lv_obj_remove_flag(ui->lbl_line2, LV_OBJ_FLAG_HIDDEN);             //显示说明2
-		lv_obj_align_to(ui->lbl_line2, ui->lbl_line1, LV_ALIGN_OUT_BOTTOM_LEFT, 0, row_gap);
-		call_anchor = ui->lbl_line2;                                       //页脚接说明2
-	}
-
-	lv_obj_align_to(ui->lbl_line3, call_anchor, LV_ALIGN_OUT_BOTTOM_LEFT, 0, row_gap); //拨打引导
-
-	lv_obj_update_layout(ui->panel);                                       //刷新尺寸后再量宽
-	lv_coord_t panel_w = lv_obj_get_width(ui->panel);                      //panel 宽度
-	lv_coord_t call_x = lv_obj_get_x(ui->lbl_line3);                       //拨打句起点 X
-	lv_coord_t call_w = lv_obj_get_width(ui->lbl_line3);                   //拨打句文本宽
-	lv_coord_t phone_w = lv_obj_get_width(ui->lbl_phone);                  //电话文本宽
-	const lv_coord_t gap = 8;                                              //同行间距
-	const lv_coord_t margin = 16;                                          //右侧留白
-	lv_coord_t avail = panel_w - call_x - margin;                          //拨打句以右可用宽
-
-	if(call_w + gap + phone_w <= avail) {                                  //一行放得下：电话紧跟拨打句
-		lv_obj_align_to(ui->lbl_phone, ui->lbl_line3, LV_ALIGN_OUT_RIGHT_MID, gap, 0);
-		lv_obj_align_to(ui->lbl_line4, ui->lbl_line3, LV_ALIGN_OUT_BOTTOM_LEFT, 0, row_gap);
-	}
-	else {                                                                 //英文等较长：电话单独一行
-		lv_obj_align_to(ui->lbl_phone, ui->lbl_line3, LV_ALIGN_OUT_BOTTOM_LEFT, 0, call_gap);
-		lv_obj_align_to(ui->lbl_line4, ui->lbl_phone, LV_ALIGN_OUT_BOTTOM_LEFT, 0, row_gap);
+		lv_obj_remove_flag(ui->lbl_line1, LV_OBJ_FLAG_HIDDEN);
 	}
 }
 
 //语言切换后，全部故障子页重新排内容
 static void alarm_fault_panels_relayout_content(void)
 {
-	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {                    //E1..E14
+	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {
 		alarm_fault_panel_relayout_content(i);
 	}
 }
@@ -5901,11 +5928,11 @@ static void build_alarm_overlay(void)
 	g_alarm_btn_power = add_top_text_btn(top, "电源", 180);    //电源
 	lv_obj_add_event_cb(g_alarm_btn_power, cb_alarm_power, LV_EVENT_CLICKED, NULL);
 
-	g_alarm_img_bar = lv_image_create(g_alarm_overlay);                      //底栏 bar_01
+	g_alarm_img_bar = lv_image_create(g_alarm_overlay);              //底栏 bar_01
 	lv_image_set_src(g_alarm_img_bar, &bar_01);
-	lv_obj_align(g_alarm_img_bar, LV_ALIGN_BOTTOM_MID, 0, -80);
+	lv_obj_align(g_alarm_img_bar, LV_ALIGN_BOTTOM_MID, 0, -60);
 
-	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {                     //E1..E14 子面板
+	for(uint8_t i = 0; i < UI_ALARM_FAULT_COUNT; i++) {                     //E1..E15 子面板
 		build_alarm_fault_panel(g_alarm_overlay, i);
 	}
 
