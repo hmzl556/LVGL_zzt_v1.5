@@ -83,13 +83,14 @@ endif()
 
 # Add the UI library (USE_UI_HW=ON: hardware FSM UI + PC stubs)
 option(USE_UI_HW "Build hardware FSM UI for PC simulator" ON)
-# ---------- 产品 UI 开关：0=商用洗  1=烘干硬件（改完需重新 cmake 配置）----------
-set(USE_UI_DRYER 1)
+# ---------- 产品 UI 开关：0=商用洗  1=商用烘（改完需重新 cmake 配置）----------
+set(USE_UI_DRYER 0)
 # -----------------------------------------------------------------------------
 if(USE_UI_HW)
     if(USE_UI_DRYER)
-        set(UI_HW_SRC "${PROJECT_SOURCE_DIR}/src/ui/ui-烘干硬件.c")
-        set(UI_HW_NAME "ui-烘干硬件.c")
+        # 临时：仿真用「副本」；改完设计后再改回 ui-商用烘.c
+        set(UI_HW_SRC "${PROJECT_SOURCE_DIR}/src/ui/ui-商用烘 - 副本.c")
+        set(UI_HW_NAME "ui-商用烘 - 副本.c")
     else()
         set(UI_HW_SRC "${PROJECT_SOURCE_DIR}/src/ui/ui-商用洗.c")
         set(UI_HW_NAME "ui-商用洗.c")
